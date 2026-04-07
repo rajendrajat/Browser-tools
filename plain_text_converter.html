@@ -1,0 +1,145 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .wrap { padding: 1.25rem 0; }
+  h2 { font-size: 18px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+  .sub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 1.25rem; }
+  .cols { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
+  .pane label { font-size: 12px; color: var(--color-text-secondary); display: block; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+  textarea { width: 100%; height: 260px; resize: vertical; font-size: 14px; line-height: 1.6; padding: 10px 12px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); }
+  textarea:focus { outline: none; border-color: var(--color-border-secondary); }
+  textarea[readonly] { background: var(--color-background-secondary); cursor: text; }
+  .bar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  button { font-size: 13px; padding: 6px 14px; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); background: transparent; color: var(--color-text-primary); cursor: pointer; font-family: var(--font-sans); }
+  button:hover { background: var(--color-background-secondary); }
+  button:active { transform: scale(0.98); }
+  .btn-primary { background: var(--color-background-info); color: var(--color-text-info); border-color: transparent; }
+  .btn-primary:hover { opacity: 0.88; background: var(--color-background-info); }
+  .notice { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; height: 16px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .opts label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; }
+  .opts input[type=checkbox] { cursor: pointer; }
+  @media(max-width: 560px) { .cols { grid-template-columns: 1fr; } }
+</style>
+<div class="wrap">
+  <h2>Plain Text Converter</h2>
+  <p class="sub">Paste any formatted content — emails, docs, markdown — and get clean plain lines.</p>
+
+  <div class="opts">
+    <label><input type="checkbox" id="chk-bullets" checked> Remove bullets & list markers</label>
+    <label><input type="checkbox" id="chk-blank" checked> Remove blank lines</label>
+    <label><input type="checkbox" id="chk-trim" checked> Trim leading/trailing spaces</label>
+    <label><input type="checkbox" id="chk-headers" checked> Strip markdown headers (#)</label>
+    <label><input type="checkbox" id="chk-bold" checked> Strip bold/italic (*_)</label>
+    <label><input type="checkbox" id="chk-links" checked> Strip markdown links</label>
+    <label><input type="checkbox" id="chk-nbsp" checked> Replace &amp;nbsp; / special spaces</label>
+  </div>
+
+  <div class="cols">
+    <div class="pane">
+      <label>Input — paste here</label>
+      <textarea id="inp" placeholder="Paste your formatted email, markdown, or document content here..."></textarea>
+      <div class="bar">
+        <button onclick="convert()" class="btn-primary">Convert →</button>
+        <button onclick="clearAll()">Clear</button>
+        <button onclick="pasteClip()">Paste from clipboard</button>
+      </div>
+    </div>
+    <div class="pane">
+      <label>Output — plain text</label>
+      <textarea id="out" readonly placeholder="Plain text will appear here..."></textarea>
+      <div class="bar">
+        <button onclick="copyOut()">Copy output</button>
+        <button onclick="downloadOut()">Download .txt</button>
+      </div>
+      <div class="notice" id="notice"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getOpt(id) { return document.getElementById(id).checked; }
+
+function convert() {
+  let text = document.getElementById('inp').value;
+  if (!text.trim()) return;
+
+  if (getOpt('chk-bold')) {
+    text = text.replace(/\*\*(.+?)\*\*/g, '$1');
+    text = text.replace(/\*(.+?)\*/g, '$1');
+    text = text.replace(/__(.+?)__/g, '$1');
+    text = text.replace(/_(.+?)_/g, '$1');
+  }
+  if (getOpt('chk-headers')) {
+    text = text.replace(/^#{1,6}\s+/gm, '');
+  }
+  if (getOpt('chk-links')) {
+    text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  }
+  if (getOpt('chk-nbsp')) {
+    text = text.replace(/&nbsp;/gi, ' ');
+    text = text.replace(/\u00a0/g, ' ');
+    text = text.replace(/\u200b/g, '');
+    text = text.replace(/\u2022/g, '');
+    text = text.replace(/[\u2018\u2019]/g, "'");
+    text = text.replace(/[\u201c\u201d]/g, '"');
+  }
+  if (getOpt('chk-bullets')) {
+    text = text.replace(/^[ \t]*[-*•·‣⁃◦▪▸►>]+[ \t]+/gm, '');
+    text = text.replace(/^[ \t]*\d+[.)]\s+/gm, '');
+    text = text.replace(/^[ \t]*[a-zA-Z][.)]\s+/gm, '');
+  }
+  if (getOpt('chk-trim')) {
+    text = text.split('\n').map(l => l.trim()).join('\n');
+  }
+  if (getOpt('chk-blank')) {
+    text = text.replace(/\n{2,}/g, '\n');
+    text = text.split('\n').filter(l => l.trim() !== '').join('\n');
+  }
+
+  text = text.trim();
+  document.getElementById('out').value = text;
+  showNotice('Done — ' + text.split('\n').length + ' lines');
+}
+
+function copyOut() {
+  const out = document.getElementById('out');
+  if (!out.value) return showNotice('Nothing to copy');
+  navigator.clipboard.writeText(out.value).then(() => showNotice('Copied!'));
+}
+
+function downloadOut() {
+  const text = document.getElementById('out').value;
+  if (!text) return showNotice('Nothing to download');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: 'text/plain'}));
+  a.download = 'plain-text.txt';
+  a.click();
+  showNotice('Downloaded!');
+}
+
+function clearAll() {
+  document.getElementById('inp').value = '';
+  document.getElementById('out').value = '';
+  document.getElementById('notice').textContent = '';
+}
+
+async function pasteClip() {
+  try {
+    const t = await navigator.clipboard.readText();
+    document.getElementById('inp').value = t;
+    showNotice('Pasted from clipboard');
+  } catch(e) { showNotice('Allow clipboard permission to use this'); }
+}
+
+function showNotice(msg) {
+  const n = document.getElementById('notice');
+  n.textContent = msg;
+  setTimeout(() => { n.textContent = ''; }, 3000);
+}
+
+document.getElementById('inp').addEventListener('input', () => {
+  if (document.getElementById('inp').value) convert();
+});
+</script>
