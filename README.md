@@ -1,199 +1,84 @@
-# Plain Text Converter
+# browser-tools
 
-A lightweight, browser-based tool that strips all formatting from emails, markdown documents, and rich text — giving you clean, plain lines with no bullets, headers, or symbols.
+A growing collection of lightweight, browser-based utility tools for IT support, diagnostics, and text processing.
 
-No installation required. No data leaves your browser. Works entirely offline once loaded.
-
----
-
-## What It Does
-
-Paste any formatted content into the left panel and get clean plain text on the right — instantly, as you type.
-
-It removes:
-
-- Bullet points and list markers (`-`, `*`, `•`, `·`, `►`, `▪`, etc.)
-- Numbered and lettered lists (`1.`, `2)`, `a.`, `b)`)
-- Markdown bold and italic (`**text**`, `*text*`, `__text__`, `_text_`)
-- Markdown headings (`#`, `##`, `###`, etc.)
-- Markdown hyperlinks (`[label](url)` → keeps the label text)
-- HTML entities and special Unicode (`&nbsp;`, non-breaking spaces, zero-width spaces)
-- Smart quotes and curly apostrophes (converted to straight)
-- Extra blank lines and leading/trailing whitespace per line
+No installation. No backend. No data leaves your browser. Every tool is a single HTML file — download and open, or host on any static server.
 
 ---
 
-## How to Use
+## Tools
 
-1. Open the tool in any modern browser
-2. Paste your formatted content into the **Input** box on the left
-3. The **Output** box on the right updates live as you type
-4. Use the checkboxes at the top to toggle which formatting elements get stripped
-5. Click **Copy output** to copy the result to your clipboard
-6. Click **Download .txt** to save the result as a plain text file
-
-### Buttons
-
-| Button | Action |
-|---|---|
-| Convert | Manually trigger conversion |
-| Clear | Empty both input and output boxes |
-| Paste from clipboard | Pull content directly from your clipboard (requires browser permission) |
-| Copy output | Copy the cleaned text to your clipboard |
-| Download .txt | Save the output as `plain-text.txt` |
+| Tool | Description | File |
+|---|---|---|
+| Endpoint Reachability Checker | Test if service/API endpoints are reachable from your network without opening them in the address bar | `Endpoint_Reachability_Checker.html` |
+| Plain Text Converter | Strip bullets, markdown, and formatting from emails and documents to get clean plain text | `plain_text_converter.html` |
 
 ---
 
-## Options (Checkboxes)
+## Endpoint Reachability Checker
 
-Each option can be toggled independently:
+### Why this exists
 
-| Option | What it removes |
-|---|---|
-| Remove bullets & list markers | `-`, `*`, `•`, numbered lists, lettered lists |
-| Remove blank lines | Collapses all empty lines |
-| Trim leading/trailing spaces | Strips whitespace from the start and end of each line |
-| Strip markdown headers | Lines starting with `#`, `##`, `###`, etc. |
-| Strip bold/italic | `**bold**`, `*italic*`, `__bold__`, `_italic_` |
-| Strip markdown links | `[text](url)` → keeps `text` only |
-| Replace &nbsp; / special spaces | Converts non-breaking spaces, zero-width characters, and smart quotes |
+Many services — Microsoft Edge Sync, Azure RMS, enterprise SSO — rely on backend API endpoints that aren't websites. They don't render anything in a browser tab, but if they're blocked by a corporate firewall or proxy, the dependent service silently fails.
 
----
+When customers say *"we've already allowed those URLs"*, this tool lets you verify from their actual machine and network — not from a server-side ping that bypasses their proxy entirely.
 
-## Use Cases
+### Features
 
-- Cleaning up forwarded emails before pasting into a report or ticket
-- Stripping markdown from AI-generated content for use in plain editors
-- Preparing text for SMS, WhatsApp, or systems that do not support rich text
-- Removing formatting from copied web content or documentation
-- Sanitising content before importing into databases or CRMs
-
----
-
-## Technical Details
-
-- Built with plain HTML, CSS, and vanilla JavaScript — no frameworks or dependencies
-- Runs entirely in the browser; no data is sent to any server
-- All processing happens client-side using regular expressions
-- Compatible with Chrome, Firefox, Edge, and Safari (any modern browser)
-- Clipboard access uses the `navigator.clipboard` API (requires HTTPS or localhost)
-
----
-
-## Limitations
-
-- Does not parse or strip HTML tags (e.g. `<b>`, `<ul>`, `<li>`) — paste plain or markdown text, not raw HTML source
-- Smart quote conversion is one-directional (curly → straight)
-- The "Paste from clipboard" button requires the browser to grant clipboard read permission
-
----
-
-## License
-
-This tool is free to use, modify, and distribute for personal or commercial purposes.
-
-
-===========================================================================================================================
-
-
-
-# Endpoint Reachability Checker
-
-A lightweight, single-file browser tool to test whether service endpoints (APIs, Microsoft/Azure URLs, etc.) are reachable from your current network — **without opening them in the browser address bar**.
-
----
-
-## Why this exists
-
-Many services like Microsoft Edge Sync, Azure RMS, or enterprise SSO rely on backend API endpoints that are not websites — they don't render anything if you visit them in a browser tab. However, if these endpoints are blocked by a corporate firewall or proxy, the dependent service will silently fail.
-
-When customers report issues (e.g. Edge profile sync not working, RMS decryption failing), they often say *"we've already allowed those URLs"* — but it's hard to verify without a tool that tests from their actual network environment.
-
-This tool runs `fetch()` calls directly from the user's browser, so the test happens **from their machine, through their proxy/firewall** — giving an accurate picture of what's actually reachable.
-
----
-
-## Features
-
-- Add endpoints one at a time or paste a bulk list
-- Optional label for each endpoint
+- Add endpoints one at a time or paste a bulk list (one URL per line)
+- Optional label for each entry
 - Runs all checks in parallel
-- Shows: **Reachable**, **Blocked**, **Redirected**, latency in ms
-- Blocked summary printed after the run (can be shared with network teams)
-- No dependencies, no backend, no build step
-- Works offline (single HTML file)
+- Shows **Reachable**, **Blocked**, **Redirected**, and latency in ms
+- Prints a blocked-URL summary after the run — ready to share with network teams
+- No dependencies, no build step, works offline
 - Respects dark mode
 
----
+### How to use
 
-## How to use
+**Option 1 — Local file**
+Download `Endpoint_Reachability_Checker.html` and open it in any modern browser. No server needed.
 
-### Option 1 — Open directly in a browser
+**Option 2 — GitHub Pages (recommended for sharing with customers)**
+1. Fork this repo and enable Pages under **Settings → Pages → main branch**
+2. Send the customer the GitHub Pages URL
+3. They open it on the affected machine, run checks, and screenshot the results
 
-Download `Endpoint_Reachability_Checker.html` and open it in any modern browser (Chrome, Edge, Firefox).
+**Option 3 — Any static host**
+Drop the HTML file on any web server or CDN. No server-side logic required.
 
-No server needed. Just double-click the file.
-
-### Option 2 — GitHub Pages
-
-1. Fork this repo
-2. Go to **Settings → Pages**
-3. Set source to `main` branch, root `/`
-4. Access at `https://<your-username>.github.io/<repo-name>/endpoint-checker.html`
-
-This is the recommended way to share the tool with customers — send them the GitHub Pages link and ask them to open it on the affected machine.
-
-### Option 3 — Host on any static file server
-
-Drop `Endpoint_Reachability_Checker.html` on any web server or CDN. No server-side logic required.
-
----
-
-## Understanding the results
+### Understanding the results
 
 | Status | Meaning |
 |---|---|
-| **Reachable** | The network path is open. The `fetch()` completed successfully (including opaque `no-cors` responses, which are normal for non-CORS APIs). |
-| **Blocked** | Connection failed at the network level — firewall, proxy, or DNS is dropping or rejecting the request. This is the actionable result to share with network teams. |
-| **Redirected** | Server responded with a 3xx redirect or a CORS intercept. Usually means the network path is open but authentication or routing needs attention. |
+| **Reachable** | Network path is open. `fetch()` completed (opaque `no-cors` responses with status 0 are also counted as reachable — normal for non-CORS APIs). |
+| **Blocked** | Connection failed at the network level — firewall, proxy, or DNS dropped the request. This is the result to escalate to the network team. |
+| **Redirected** | Server responded with a 3xx or a CORS intercept. Network path is likely open; authentication or routing may need attention. |
 | **Not tested** | Check hasn't been run yet. |
 
----
-
-## How it works technically
-
-The tool uses the browser's `fetch()` API with:
+### How it works technically
 
 ```javascript
 fetch(url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
 ```
 
-- `mode: 'no-cors'` — allows cross-origin requests without requiring the server to send CORS headers. This is intentional: most API/service endpoints don't serve CORS headers because they're not meant to be called from browser pages. The response will be "opaque" (status 0, no body), but the fact that a response was received at all confirms the network path is open.
-- `method: 'HEAD'` — avoids downloading response bodies; we only care about connectivity.
-- 8-second timeout — requests that don't complete within 8 seconds are treated as blocked.
+- `mode: 'no-cors'` — allows cross-origin requests without requiring CORS headers from the server. Most API/service endpoints don't serve CORS headers because they're not designed to be called from browser pages. The response will be opaque (status 0, no body), but receiving any response confirms the network path is open.
+- `method: 'HEAD'` — avoids downloading response bodies; only connectivity is tested.
+- 8-second timeout — requests that don't complete within 8 seconds are marked as blocked.
 
-### What a network-level block looks like
+> **Note:** Tests run through the same network path the browser uses — including system proxies. This is intentional for enterprise network diagnostics.
 
-When a firewall or proxy rejects a request, the browser throws a `TypeError: Failed to fetch` (or similar). This is caught and reported as **Blocked**. A DNS failure produces the same result.
-
-> **Note:** This tool tests from the browser's network context. If the browser itself uses a system proxy, tests will go through that proxy — which is usually the desired behaviour for enterprise network diagnostics.
-
----
-
-## Limitations
+### Limitations
 
 | Limitation | Details |
 |---|---|
-| Browser sandbox | Tests run from the browser, so they are subject to the same network path the browser uses. They cannot simulate a different application's network path. |
-| No raw TCP/UDP | Only HTTP/HTTPS endpoints can be tested. The tool cannot test non-HTTP ports. |
-| Opaque responses | Due to `no-cors`, you cannot inspect response headers or status codes for cross-origin requests. Reachability is inferred from whether a response was received at all. |
-| HTTPS only | Mixed-content restrictions in modern browsers prevent fetching plain `http://` URLs from an `https://` page. Use the local file version for testing plain HTTP endpoints. |
+| Browser sandbox | Cannot simulate a different application's network path — only the browser's. |
+| No raw TCP/UDP | Only HTTP/HTTPS endpoints can be tested. |
+| Opaque responses | Response headers and status codes are not inspectable for cross-origin requests. |
+| HTTPS only | Mixed-content restrictions prevent fetching `http://` URLs from an `https://` page. Use the local file version for plain HTTP endpoints. |
 
----
+### Common Microsoft / Edge endpoints to test
 
-## Common Microsoft / Edge endpoints to test
-
-These are examples — paste them into the bulk input field.
+Paste these into the bulk input field:
 
 ```
 https://edge.microsoft.com/
@@ -211,9 +96,61 @@ https://api.onedrive.com/
 
 ---
 
+## Plain Text Converter
+
+### What it does
+
+Paste any formatted content — forwarded emails, markdown documents, AI-generated text, copied web content — into the left panel and get clean, plain lines on the right. No bullets, no headers, no symbols. Updates live as you type.
+
+### Features
+
+- Strips bullet points and list markers (`-`, `*`, `•`, `►`, `▪`, numbered lists, lettered lists)
+- Removes markdown bold, italic, headings, and hyperlinks (keeps the link label text)
+- Converts HTML entities and special Unicode (`&nbsp;`, non-breaking spaces, zero-width spaces)
+- Normalises smart quotes and curly apostrophes to straight
+- Toggleable options — choose exactly what gets stripped
+- Copy to clipboard or download as `.txt`
+- Works offline, no data sent anywhere
+
+### How to use
+
+1. Open `plain_text_converter.html` in any modern browser
+2. Paste formatted content into the **Input** box on the left
+3. The **Output** box updates live
+4. Toggle checkboxes to control which elements are stripped
+5. Click **Copy output** or **Download .txt**
+
+### Options
+
+| Option | What it removes |
+|---|---|
+| Remove bullets & list markers | `-`, `*`, `•`, numbered and lettered lists |
+| Remove blank lines | Collapses all empty lines |
+| Trim leading/trailing spaces | Strips whitespace from start and end of each line |
+| Strip markdown headers | Lines starting with `#`, `##`, `###`, etc. |
+| Strip bold/italic | `**bold**`, `*italic*`, `__bold__`, `_italic_` |
+| Strip markdown links | `[text](url)` → keeps `text` only |
+| Replace &nbsp; / special spaces | Non-breaking spaces, zero-width characters, smart quotes |
+
+### Use cases
+
+- Cleaning up forwarded emails before pasting into a ticket or report
+- Stripping markdown from AI-generated content for use in plain editors
+- Preparing text for SMS, WhatsApp, or systems that don't support rich text
+- Sanitising content before importing into a database or CRM
+
+### Limitations
+
+- Does not strip HTML tags (`<b>`, `<ul>`, `<li>`) — paste plain or markdown text, not raw HTML source
+- Clipboard paste button requires browser permission (works on HTTPS or localhost)
+
+---
+
 ## Contributing
 
-PRs welcome. The entire tool is a single HTML file with no build process — edit `endpoint-checker.html` directly.
+PRs welcome. Every tool is a single self-contained HTML file with no build process — edit directly and submit.
+
+If you have a tool idea that fits the same philosophy (single file, no backend, runs in the browser), feel free to open an issue.
 
 ---
 
