@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetLog Analyzer — Edge Profile Sync Debugger</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --bg4: #30363d;
+    --border: #30363d;
+    --border2: #484f58;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --red: #ff7b72;
+    --red-bg: #3d1a1a;
+    --red-border: #8b1a1a;
+    --orange: #ffa657;
+    --orange-bg: #3d2800;
+    --orange-border: #8b5a00;
+    --yellow: #e3b341;
+    --yellow-bg: #2d2200;
+    --green: #3fb950;
+    --green-bg: #1a3d1a;
+    --green-border: #2d6a2d;
+    --blue: #58a6ff;
+    --blue-bg: #1a2d3d;
+    --purple: #a371f7;
+    --purple-bg: #2d1a3d;
+    --mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; min-height: 100vh; }
+
+  /* TOP BAR */
+  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+  .topbar h1 span { color: var(--blue); }
+  .badge-version { background: var(--bg4); color: var(--text2); font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  /* DROP ZONE */
+  #dropzone {
+    margin: 40px auto;
+    max-width: 560px;
+    border: 2px dashed var(--border2);
+    border-radius: 12px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--bg2);
+  }
+  #dropzone.drag-over { border-color: var(--blue); background: var(--blue-bg); }
+  #dropzone .drop-icon { font-size: 42px; margin-bottom: 16px; opacity: 0.7; }
+  #dropzone h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  #dropzone p { color: var(--text2); font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+  #dropzone .btn-upload { background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 10px 24px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  #dropzone .btn-upload:hover { opacity: 0.85; }
+  #file-input { display: none; }
+  .tip-list { text-align: left; background: var(--bg3); border-radius: 8px; padding: 14px 16px; margin-top: 20px; }
+  .tip-list li { color: var(--text2); font-size: 12px; margin-bottom: 6px; padding-left: 8px; list-style: none; }
+  .tip-list li::before { content: '→ '; color: var(--blue); }
+
+  /* MAIN LAYOUT */
+  #app { display: none; flex-direction: column; height: calc(100vh - 53px); }
+
+  /* SUMMARY BAR */
+  .summary-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .summary-stat { display: flex; align-items: center; gap: 8px; }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stat-label { color: var(--text2); font-size: 12px; }
+  .stat-val { font-weight: 700; font-size: 14px; }
+  .stat-val.red { color: var(--red); }
+  .stat-val.orange { color: var(--orange); }
+  .stat-val.green { color: var(--green); }
+  .stat-val.blue { color: var(--blue); }
+  .stat-val.yellow { color: var(--yellow); }
+  .divider-v { width: 1px; height: 20px; background: var(--border); }
+
+  /* FILTER BAR */
+  .filter-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { border-color: var(--border2); color: var(--text); }
+  .filter-btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+  .filter-btn.active.red { background: var(--red-bg); border-color: var(--red-border); color: var(--red); }
+  .filter-btn.active.orange { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange); }
+  .filter-btn.active.green { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+  .search-box { margin-left: auto; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; padding: 5px 12px; width: 220px; outline: none; }
+  .search-box:focus { border-color: var(--blue); }
+  .search-box::placeholder { color: var(--text3); }
+
+  /* TABLE */
+  .table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead th { background: var(--bg2); color: var(--text2); font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; text-align: left; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  tbody tr:hover { background: var(--bg2); }
+  tbody tr.expanded { background: var(--bg2); }
+  td { padding: 7px 12px; vertical-align: top; }
+  .col-sev { width: 90px; }
+  .col-type { width: 110px; }
+  .col-url { max-width: 380px; }
+  .col-error { width: 200px; }
+  .col-time { width: 100px; }
+
+  /* SEVERITY BADGES */
+  .sev { display: inline-flex; align-items: center; gap: 5px; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .sev-blocked { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .sev-failed  { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .sev-warn    { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #5a4400; }
+  .sev-info    { background: var(--blue-bg); color: var(--blue); border: 1px solid #1a3a5c; }
+  .sev-ok      { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+
+  /* TYPE CHIPS */
+  .type-chip { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 11px; font-family: var(--mono); background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+
+  /* URL */
+  .url-cell { font-family: var(--mono); font-size: 11px; color: var(--text); word-break: break-all; line-height: 1.5; }
+  .url-cell .host { color: var(--blue); }
+  .url-cell .path { color: var(--text2); }
+
+  /* ERROR CODE */
+  .error-code { font-family: var(--mono); font-size: 11px; color: var(--red); }
+  .error-warn { color: var(--orange); }
+
+  /* EXPANDED ROW */
+  .detail-row td { padding: 0; }
+  .detail-panel { background: var(--bg3); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 20px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+  .detail-section h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
+  .detail-kv { display: flex; gap: 10px; margin-bottom: 5px; align-items: flex-start; }
+  .detail-k { color: var(--text3); font-size: 11px; min-width: 120px; flex-shrink: 0; font-family: var(--mono); }
+  .detail-v { color: var(--text); font-size: 11px; font-family: var(--mono); word-break: break-all; }
+  .detail-v.red { color: var(--red); }
+  .detail-v.blue { color: var(--blue); }
+  .detail-events { margin-top: 12px; }
+  .detail-events h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
+  .event-line { font-family: var(--mono); font-size: 11px; padding: 3px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
+  .event-time { color: var(--text3); min-width: 90px; }
+  .event-type { color: var(--blue); min-width: 260px; }
+  .event-phase { color: var(--text3); min-width: 60px; }
+  .event-params { color: var(--text2); word-break: break-all; }
+
+  /* EMPTY STATE */
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text2); }
+  .empty-state p { font-size: 14px; }
+
+  /* INSIGHT PANEL */
+  .insight-bar { background: var(--red-bg); border-bottom: 1px solid var(--red-border); padding: 10px 20px; display: none; }
+  .insight-bar.show { display: block; }
+  .insight-bar h3 { color: var(--red); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .insight-list { display: flex; gap: 10px; flex-wrap: wrap; }
+  .insight-chip { background: var(--bg2); border: 1px solid var(--red-border); border-radius: 20px; padding: 3px 12px; font-size: 11px; color: var(--red); cursor: pointer; }
+  .insight-chip:hover { background: var(--red-bg); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+  /* LOADING */
+  #loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,0.85); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+  #loading.show { display: flex; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .new-file-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+  .new-file-btn:hover { border-color: var(--border2); color: var(--text); }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p style="color:var(--text2);font-size:13px;">Parsing NetLog…</p>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>NetLog <span>Analyzer</span></h1>
+  <span class="badge-version">Edge / Chromium net-export</span>
+  <div class="topbar-right">
+    <button class="new-file-btn" id="btn-new-file" style="display:none;">↑ Load New File</button>
+  </div>
+</div>
+
+<!-- DROP ZONE -->
+<div id="dropzone-wrap">
+  <div id="dropzone">
+    <div class="drop-icon">📁</div>
+    <h2>Drop your net-export.json here</h2>
+    <p>Captured from <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:12px;">edge://net-export/</code> or <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:12px;">chrome://net-export/</code></p>
+    <button class="btn-upload" onclick="document.getElementById('file-input').click()">Choose File</button>
+    <input type="file" id="file-input" accept=".json">
+    <ul class="tip-list">
+      <li>Reproduces Edge profile sync failures → captures blocked endpoints</li>
+      <li>Detects ERR_BLOCKED_BY_ADMINISTRATOR, CERT errors, DNS failures</li>
+      <li>Highlights Microsoft identity &amp; sync endpoints specifically</li>
+      <li>All analysis runs locally — no data leaves your browser</li>
+    </ul>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <!-- INSIGHT BAR -->
+  <div class="insight-bar" id="insight-bar">
+    <h3>⚠ Suspected root causes</h3>
+    <div class="insight-list" id="insight-list"></div>
+  </div>
+  <!-- SUMMARY -->
+  <div class="summary-bar" id="summary-bar"></div>
+  <!-- FILTERS -->
+  <div class="filter-bar">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn red"    data-filter="blocked" onclick="setFilter('blocked',this)">🔴 Blocked</button>
+    <button class="filter-btn"        data-filter="failed"  onclick="setFilter('failed',this)">🟠 Failed</button>
+    <button class="filter-btn"        data-filter="warn"    onclick="setFilter('warn',this)">🟡 Warnings</button>
+    <button class="filter-btn"        data-filter="sync"    onclick="setFilter('sync',this)">🔵 Sync Endpoints</button>
+    <button class="filter-btn"        data-filter="ok"      onclick="setFilter('ok',this)">🟢 OK</button>
+    <input class="search-box" id="search-box" placeholder="Search URL or error…" oninput="renderTable()">
+  </div>
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table id="main-table">
+      <thead>
+        <tr>
+          <th class="col-sev">Severity</th>
+          <th class="col-type">Type</th>
+          <th class="col-url">URL / Host</th>
+          <th class="col-error">Error / Status</th>
+          <th class="col-time">Time (ms)</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="empty-state" id="empty-state" style="display:none;"><p>No entries match the current filter.</p></div>
+  </div>
+</div>
+
+<script>
+const SYNC_PATTERNS = [
+  'login.microsoftonline.com','login.live.com','account.live.com',
+  'graph.microsoft.com','edge.microsoft.com','config.edge.skype.com',
+  'settings.data.microsoft.com','substrate.office.com',
+  'aadcdn.msftauth.net','login.windows.net','sts.windows.net',
+  'management.azure.com','api.office.com','syncengine.teams.microsoft.com',
+  'browser.events.data.microsoft.com','fp.msedge.net',
+  'ocsp.digicert.com','crl.microsoft.com','pki.goog'
+];
+
+const BLOCK_ERRORS = [
+  'ERR_BLOCKED_BY_ADMINISTRATOR','ERR_BLOCKED_BY_CLIENT',
+  'ERR_BLOCKED_BY_CSP','ERR_BLOCKED_BY_ORG_POLICY',
+  'ERR_ACCESS_DENIED','ERR_NETWORK_ACCESS_DENIED',
+  'ERR_SSL_PROTOCOL_ERROR','ERR_CERT_AUTHORITY_INVALID',
+  'ERR_CERT_COMMON_NAME_INVALID','ERR_CERT_DATE_INVALID',
+  'ERR_CERT_REVOKED','ERR_CERT_WEAK_SIGNATURE_ALGORITHM',
+  'ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN','ERR_INSECURE_RESPONSE',
+  'ERR_TUNNEL_CONNECTION_FAILED','ERR_PROXY_CONNECTION_FAILED',
+  'ERR_SOCKS_CONNECTION_FAILED','ERR_PROXY_AUTH_REQUESTED',
+  'ERR_NO_SUPPORTED_PROXIES'
+];
+
+const FAIL_ERRORS = [
+  'ERR_CONNECTION_REFUSED','ERR_CONNECTION_TIMED_OUT',
+  'ERR_CONNECTION_RESET','ERR_NAME_NOT_RESOLVED',
+  'ERR_DNS_TIMED_OUT','ERR_INTERNET_DISCONNECTED',
+  'ERR_NETWORK_CHANGED','ERR_TIMED_OUT','ERR_FAILED',
+  'ERR_ABORTED','ERR_EMPTY_RESPONSE','ERR_CONTENT_DECODING_FAILED',
+  'ERR_INVALID_RESPONSE','ERR_HTTP_RESPONSE_CODE_FAILURE',
+  'ERR_TOO_MANY_REDIRECTS','ERR_UNSAFE_REDIRECT'
+];
+
+const NET_ERR_MAP = {
+  '-1':'ERR_IO_PENDING','-2':'ERR_FAILED','-3':'ERR_ABORTED',
+  '-4':'ERR_INVALID_ARGUMENT','-7':'ERR_TIMED_OUT',
+  '-10':'ERR_ACCESS_DENIED','-20':'ERR_NOT_IMPLEMENTED',
+  '-100':'ERR_CONNECTION_CLOSED','-101':'ERR_CONNECTION_RESET',
+  '-102':'ERR_CONNECTION_REFUSED','-103':'ERR_CONNECTION_ABORTED',
+  '-104':'ERR_CONNECTION_FAILED','-105':'ERR_NAME_NOT_RESOLVED',
+  '-106':'ERR_INTERNET_DISCONNECTED','-109':'ERR_ADDRESS_UNREACHABLE',
+  '-110':'ERR_SSL_PROTOCOL_ERROR','-112':'ERR_NO_SSL_VERSIONS_ENABLED',
+  '-113':'ERR_SSL_VERSION_OR_CIPHER_MISMATCH',
+  '-137':'ERR_NAME_RESOLUTION_FAILED',
+  '-138':'ERR_NETWORK_ACCESS_DENIED',
+  '-145':'ERR_DNS_TIMED_OUT',
+  '-147':'ERR_BLOCKED_BY_ADMINISTRATOR',
+  '-160':'ERR_NETWORK_CHANGED',
+  '-200':'ERR_CERT_COMMON_NAME_INVALID',
+  '-201':'ERR_CERT_DATE_INVALID',
+  '-202':'ERR_CERT_AUTHORITY_INVALID',
+  '-203':'ERR_CERT_CONTAINS_ERRORS',
+  '-204':'ERR_CERT_NO_REVOCATION_MECHANISM',
+  '-205':'ERR_CERT_UNABLE_TO_CHECK_REVOCATION',
+  '-206':'ERR_CERT_REVOKED',
+  '-207':'ERR_CERT_INVALID',
+  '-212':'ERR_SSL_WEAK_SERVER_EPHEMERAL_DH_KEY',
+  '-213':'ERR_PROXY_CERTIFICATE_INVALID',
+  '-300':'ERR_TOO_MANY_REDIRECTS',
+  '-310':'ERR_UNSAFE_REDIRECT',
+  '-400':'ERR_TUNNEL_CONNECTION_FAILED',
+  '-407':'ERR_PROXY_CONNECTION_FAILED',
+  '-408':'ERR_MANDATORY_PROXY_CONFIGURATION_FAILED',
+  '-500':'ERR_SOCKS_CONNECTION_FAILED',
+  '-501':'ERR_SOCKS_CONNECTION_HOST_UNREACHABLE',
+  '-503':'ERR_NO_SUPPORTED_PROXIES',
+  '-504':'ERR_PROXY_AUTH_REQUESTED',
+  '-600':'ERR_BLOCKED_BY_CLIENT',
+  '-601':'ERR_BLOCKED_BY_CSP',
+  '-700':'ERR_EMPTY_RESPONSE',
+  '-900':'ERR_BLOCKED_BY_ORG_POLICY'
+};
+
+let allRows = [];
+let currentFilter = 'all';
+let expandedIdx = null;
+
+function errorName(code) {
+  if (!code && code !== 0) return '';
+  const c = String(code);
+  return NET_ERR_MAP[c] || (code < 0 ? `NET_ERROR(${code})` : '');
+}
+
+function isSyncUrl(url) {
+  if (!url) return false;
+  return SYNC_PATTERNS.some(p => url.includes(p));
+}
+
+function classifyError(errStr) {
+  if (!errStr) return null;
+  const e = errStr.toUpperCase();
+  if (BLOCK_ERRORS.some(b => e.includes(b))) return 'blocked';
+  if (FAIL_ERRORS.some(f => e.includes(f))) return 'failed';
+  return 'warn';
+}
+
+function formatUrl(url) {
+  if (!url) return '<span style="color:var(--text3)">—</span>';
+  try {
+    const u = new URL(url);
+    return `<span class="url-cell"><span class="host">${u.protocol}//${u.host}</span><span class="path">${u.pathname}${u.search.length > 60 ? u.search.slice(0,60)+'…' : u.search}</span></span>`;
+  } catch {
+    return `<span class="url-cell">${url.slice(0,90)}</span>`;
+  }
+}
+
+function parseNetLog(data) {
+  const rows = [];
+  const constants = data.constants || {};
+  const eventTypes = constants.logEventTypes || {};
+  const sourceTypes = constants.logSourceType || {};
+  const netErrors = constants.netError || {};
+
+  // Build reverse maps
+  const typeById = {};
+  for (const [k,v] of Object.entries(eventTypes)) typeById[v] = k;
+  const sourceById = {};
+  for (const [k,v] of Object.entries(sourceTypes)) sourceById[v] = k;
+  const errById = {};
+  for (const [k,v] of Object.entries(netErrors)) errById[v] = k;
+
+  const events = data.events || [];
+
+  // Group by source id
+  const sources = {};
+  for (const ev of events) {
+    const sid = ev.source?.id;
+    if (sid === undefined) continue;
+    if (!sources[sid]) sources[sid] = { id: sid, type: sourceById[ev.source.type] || ev.source.type, events: [] };
+    sources[sid].events.push(ev);
+  }
+
+  for (const src of Object.values(sources)) {
+    const evs = src.events;
+    let url = null;
+    let httpStatus = null;
+    let errorCode = null;
+    let errorStr = null;
+    let startTime = null;
+    let endTime = null;
+    let requestMethod = null;
+    let responseHeaders = [];
+
+    for (const ev of evs) {
+      const typeName = typeById[ev.type] || String(ev.type);
+      const p = ev.params || {};
+
+      if (!startTime && ev.time) startTime = parseInt(ev.time);
+      if (ev.time) endTime = parseInt(ev.time);
+
+      if (!url && p.url) url = p.url;
+      if (!url && p.request_url) url = p.request_url;
+
+      if (p.method) requestMethod = p.method;
+
+      if (p.headers && Array.isArray(p.headers)) {
+        const statusLine = p.headers.find(h => h.startsWith('HTTP/'));
+        if (statusLine) {
+          const m = statusLine.match(/HTTP\/[\d.]+ (\d+)/);
+          if (m) httpStatus = parseInt(m[1]);
+          responseHeaders = p.headers;
+        }
+      }
+
+      if (p.net_error !== undefined && p.net_error !== 0) {
+        errorCode = p.net_error;
+        errorStr = errById[errorCode] || errorName(errorCode) || `NET_ERROR(${errorCode})`;
+      }
+      if (p.error_code !== undefined && p.error_code !== 0 && !errorCode) {
+        errorCode = p.error_code;
+        errorStr = errById[errorCode] || errorName(errorCode) || `NET_ERROR(${errorCode})`;
+      }
+      if (p.net_error_details) {
+        errorStr = (errorStr ? errorStr + ' | ' : '') + p.net_error_details;
+      }
+    }
+
+    if (!url) continue;
+
+    const duration = (startTime && endTime) ? (endTime - startTime) : null;
+
+    let severity = 'ok';
+    let displayError = errorStr || (httpStatus && httpStatus >= 400 ? `HTTP ${httpStatus}` : null);
+
+    if (errorStr) {
+      const cls = classifyError(errorStr);
+      if (cls) severity = cls;
+    } else if (httpStatus) {
+      if (httpStatus >= 500) severity = 'failed';
+      else if (httpStatus >= 400) severity = 'warn';
+    }
+
+    const syncRelated = isSyncUrl(url);
+
+    rows.push({
+      id: src.id,
+      sourceType: src.type,
+      url,
+      httpStatus,
+      errorCode,
+      errorStr,
+      displayError,
+      severity,
+      syncRelated,
+      duration,
+      requestMethod,
+      responseHeaders,
+      events: evs.map(ev => ({
+        time: ev.time,
+        type: typeById[ev.type] || ev.type,
+        phase: ev.phase,
+        params: ev.params
+      }))
+    });
+  }
+
+  rows.sort((a,b) => {
+    const order = {blocked:0, failed:1, warn:2, info:3, ok:4};
+    return (order[a.severity]||3) - (order[b.severity]||3);
+  });
+
+  return rows;
+}
+
+function buildSummary(rows) {
+  const counts = {blocked:0, failed:0, warn:0, ok:0, sync:0, total:rows.length};
+  for (const r of rows) {
+    if (r.severity === 'blocked') counts.blocked++;
+    else if (r.severity === 'failed') counts.failed++;
+    else if (r.severity === 'warn') counts.warn++;
+    else counts.ok++;
+    if (r.syncRelated) counts.sync++;
+  }
+  const bar = document.getElementById('summary-bar');
+  bar.innerHTML = `
+    <div class="summary-stat"><span class="stat-dot" style="background:#888"></span><span class="stat-label">Total requests</span><span class="stat-val">${counts.total}</span></div>
+    <div class="divider-v"></div>
+    <div class="summary-stat"><span class="stat-dot" style="background:var(--red)"></span><span class="stat-label">Blocked</span><span class="stat-val red">${counts.blocked}</span></div>
+    <div class="summary-stat"><span class="stat-dot" style="background:var(--orange)"></span><span class="stat-label">Failed</span><span class="stat-val orange">${counts.failed}</span></div>
+    <div class="summary-stat"><span class="stat-dot" style="background:var(--yellow)"></span><span class="stat-label">Warnings</span><span class="stat-val yellow">${counts.warn}</span></div>
+    <div class="summary-stat"><span class="stat-dot" style="background:var(--green)"></span><span class="stat-label">OK</span><span class="stat-val green">${counts.ok}</span></div>
+    <div class="divider-v"></div>
+    <div class="summary-stat"><span class="stat-dot" style="background:var(--blue)"></span><span class="stat-label">Sync endpoints</span><span class="stat-val blue">${counts.sync}</span></div>
+  `;
+}
+
+function buildInsights(rows) {
+  const blocked = rows.filter(r => r.severity === 'blocked' && r.syncRelated);
+  const bar = document.getElementById('insight-bar');
+  const list = document.getElementById('insight-list');
+  if (blocked.length === 0) { bar.classList.remove('show'); return; }
+
+  bar.classList.add('show');
+  const urlSet = new Set(blocked.map(r => { try { return new URL(r.url).host; } catch { return r.url; } }));
+  list.innerHTML = [...urlSet].map(h =>
+    `<span class="insight-chip" onclick="searchFor('${h}')">${h}</span>`
+  ).join('');
+}
+
+function searchFor(q) {
+  document.getElementById('search-box').value = q;
+  renderTable();
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('active');
+    if (b.dataset.filter === f) b.classList.add('active');
+  });
+  renderTable();
+}
+
+function sevBadge(sev) {
+  const map = {
+    blocked: '<span class="sev sev-blocked">● Blocked</span>',
+    failed:  '<span class="sev sev-failed">● Failed</span>',
+    warn:    '<span class="sev sev-warn">◐ Warning</span>',
+    ok:      '<span class="sev sev-ok">● OK</span>',
+  };
+  return map[sev] || sev;
+}
+
+function renderTable() {
+  const q = (document.getElementById('search-box').value || '').toLowerCase();
+  const filtered = allRows.filter(r => {
+    if (currentFilter === 'blocked' && r.severity !== 'blocked') return false;
+    if (currentFilter === 'failed' && r.severity !== 'failed') return false;
+    if (currentFilter === 'warn' && r.severity !== 'warn') return false;
+    if (currentFilter === 'ok' && r.severity !== 'ok') return false;
+    if (currentFilter === 'sync' && !r.syncRelated) return false;
+    if (q && !(
+      (r.url||'').toLowerCase().includes(q) ||
+      (r.displayError||'').toLowerCase().includes(q) ||
+      (r.sourceType||'').toLowerCase().includes(q)
+    )) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filtered.map((r, i) => {
+    const dur = r.duration !== null ? `${r.duration}ms` : '—';
+    const errClass = r.severity === 'blocked' ? 'error-code' : r.severity === 'failed' ? 'error-code error-warn' : 'error-code' ;
+    const syncMark = r.syncRelated ? ' <span style="color:var(--blue);font-size:10px;">SYNC</span>' : '';
+    return `
+    <tr onclick="toggleExpand(${i}, this)" data-idx="${i}">
+      <td class="col-sev">${sevBadge(r.severity)}</td>
+      <td class="col-type"><span class="type-chip">${r.sourceType||'URL_REQUEST'}</span></td>
+      <td class="col-url">${formatUrl(r.url)}${syncMark}</td>
+      <td class="col-error"><span class="${errClass}">${r.displayError ? escHtml(r.displayError) : (r.httpStatus ? `HTTP ${r.httpStatus}` : '<span style="color:var(--text3)">—</span>')}</span></td>
+      <td class="col-time" style="color:var(--text2)">${dur}</td>
+    </tr>
+    <tr class="detail-row" id="detail-${i}" style="display:none;"><td colspan="5"></td></tr>
+    `;
+  }).join('');
+
+  // store filtered ref for expand
+  tbody._filtered = filtered;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleExpand(idx, row) {
+  const detailRow = document.getElementById(`detail-${idx}`);
+  if (!detailRow) return;
+  const isOpen = detailRow.style.display !== 'none';
+  // Close all
+  document.querySelectorAll('.detail-row').forEach(r => r.style.display = 'none');
+  if (isOpen) return;
+
+  const tbody = document.getElementById('table-body');
+  const r = tbody._filtered[idx];
+  if (!r) return;
+
+  detailRow.style.display = '';
+  const td = detailRow.querySelector('td');
+
+  const evRows = (r.events || []).slice(0, 50).map(ev => {
+    const params = ev.params ? Object.entries(ev.params).map(([k,v]) =>
+      `<span style="color:var(--text3)">${k}=</span><span style="color:var(--text2)">${typeof v === 'object' ? JSON.stringify(v).slice(0,120) : escHtml(String(v))}</span>`
+    ).join(' ') : '';
+    return `<div class="event-line">
+      <span class="event-time">${ev.time || ''}</span>
+      <span class="event-type">${ev.type || ''}</span>
+      <span class="event-phase">${['NONE','BEGIN','END'][ev.phase]||ev.phase||''}</span>
+      <span class="event-params">${params}</span>
+    </div>`;
+  }).join('');
+
+  const rhRows = (r.responseHeaders||[]).slice(0,20).map(h => `<div class="event-line"><span style="font-family:var(--mono);font-size:11px;color:var(--text2)">${escHtml(h)}</span></div>`).join('');
+
+  td.innerHTML = `<div class="detail-panel">
+    <div class="detail-grid">
+      <div class="detail-section">
+        <h4>Request</h4>
+        <div class="detail-kv"><span class="detail-k">URL</span><span class="detail-v blue">${escHtml(r.url)}</span></div>
+        <div class="detail-kv"><span class="detail-k">Method</span><span class="detail-v">${r.requestMethod||'—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Source type</span><span class="detail-v">${r.sourceType||'—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Source ID</span><span class="detail-v">${r.id}</span></div>
+        <div class="detail-kv"><span class="detail-k">Duration</span><span class="detail-v">${r.duration !== null ? r.duration+'ms' : '—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Sync endpoint</span><span class="detail-v">${r.syncRelated ? '<span style="color:var(--blue)">Yes</span>' : 'No'}</span></div>
+      </div>
+      <div class="detail-section">
+        <h4>Error / Response</h4>
+        <div class="detail-kv"><span class="detail-k">HTTP status</span><span class="detail-v ${r.httpStatus>=400?'red':''}">${r.httpStatus||'—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Net error code</span><span class="detail-v red">${r.errorCode !== null && r.errorCode !== undefined ? r.errorCode : '—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Error string</span><span class="detail-v red">${r.errorStr ? escHtml(r.errorStr) : '—'}</span></div>
+        <div class="detail-kv"><span class="detail-k">Severity</span><span class="detail-v">${r.severity}</span></div>
+      </div>
+    </div>
+    ${rhRows ? `<div class="detail-events"><h4>Response headers</h4>${rhRows}</div>` : ''}
+    <div class="detail-events">
+      <h4>Event trace (${Math.min(r.events.length,50)} of ${r.events.length})</h4>
+      ${evRows || '<div style="color:var(--text3);font-size:12px;padding:8px 0">No events recorded</div>'}
+    </div>
+  </div>`;
+}
+
+function loadFile(file) {
+  document.getElementById('loading').classList.add('show');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      allRows = parseNetLog(data);
+      document.getElementById('loading').classList.remove('show');
+      document.getElementById('dropzone-wrap').style.display = 'none';
+      document.getElementById('btn-new-file').style.display = 'inline-block';
+      document.getElementById('app').style.display = 'flex';
+      buildSummary(allRows);
+      buildInsights(allRows);
+      renderTable();
+    } catch(err) {
+      document.getElementById('loading').classList.remove('show');
+      alert('Failed to parse net-export.json: ' + err.message + '\n\nMake sure you are loading a file from edge://net-export/ or chrome://net-export/');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Drop zone events
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+document.getElementById('btn-new-file').addEventListener('click', () => {
+  allRows = [];
+  expandedIdx = null;
+  currentFilter = 'all';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('dropzone-wrap').style.display = 'block';
+  document.getElementById('btn-new-file').style.display = 'none';
+  document.getElementById('search-box').value = '';
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('active');
+    if (b.dataset.filter === 'all') b.classList.add('active');
+  });
+  document.getElementById('file-input').value = '';
+});
+</script>
+</body>
+</html>
