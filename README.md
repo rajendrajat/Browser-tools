@@ -12,6 +12,7 @@ No installation. No backend. No data leaves your browser. Every tool is a single
 |---|---|---|
 | Endpoint Reachability Checker | Test if service/API endpoints are reachable from your network without opening them in the address bar | `Endpoint_Reachability_Checker.html` |
 | Plain Text Converter | Strip bullets, markdown, and formatting from emails and documents to get clean plain text | `plain_text_converter.html` |
+| NetLog Analyzer | Parse and triage Edge/Chrome `net-export.json` logs — surfaces blocked endpoints, proxy issues, cert errors, DNS failures, and HTTP/2/QUIC session details without manual event-by-event inspection | `netlog-analyzer.html` |
 
 ---
 
@@ -143,6 +144,82 @@ Paste any formatted content — forwarded emails, markdown documents, AI-generat
 
 - Does not strip HTML tags (`<b>`, `<ul>`, `<li>`) — paste plain or markdown text, not raw HTML source
 - Clipboard paste button requires browser permission (works on HTTPS or localhost)
+
+---
+
+## NetLog Analyzer
+
+### Why this exists
+
+When diagnosing Edge profile sync failures, Microsoft 365 sign-in issues, or enterprise network connectivity problems, support engineers collect `net-export.json` logs from `edge://net-export/` and review them manually in the [NetLog Viewer](https://netlog-viewer.appspot.com/). That viewer surfaces raw events one by one — useful but slow when all you need to know is *what failed and why*.
+
+This tool parses the same log format and immediately surfaces what matters: blocked endpoints, proxy errors, cert failures, DNS issues, and whether Microsoft identity/sync endpoints were affected.
+
+### Features
+
+- **Events tab** — all URL requests grouped by source ID, sorted by severity (Blocked → Failed → Warning → OK), with inline tags for SYNC, PROXY, CERT, DNS
+- **Proxy tab** — detects whether a proxy is in use or direct, lists proxy servers seen, surfaces all proxy-specific errors, and includes a reference table of common proxy error codes with causes and fixes
+- **DNS tab** — lists unresolved hosts, DNS failure count, raw DNS event failures, and DNS config snapshot
+- **Sockets tab** — all TCP/SSL socket connections with host, remote IP, proxy presence, SSL protocol, bytes transferred, and socket-level errors
+- **HTTP/2 tab** — session list with host, negotiated protocol, stream count, and errors
+- **QUIC tab** — detects QUIC usage or its absence (with a note if UDP 443 may be blocked), packet stats, per-session errors
+- **Cache tab** — hit/miss counts and cache errors
+- **Meta tab** — build version, OS, capture mode, command line, total event count
+- **Insight bar** — auto-surfaces suspected root causes (blocked sync hosts, proxy error count, cert error count, DNS failure count) as clickable chips that filter the table instantly
+- **Copy features** — copy a structured snippet for any single request, or copy a full error summary of all blocked/failed entries for pasting into a ticket
+- All analysis runs locally — no data leaves the browser
+
+### How to use
+
+1. Reproduce the issue in Edge while a capture is running at `edge://net-export/`
+2. Stop the capture and save the `net-export.json`
+3. Open `netlog-analyzer.html` in any browser
+4. Drop the JSON file onto the page or use **Choose File**
+5. Review the **Insight bar** at the top for suspected root causes
+6. Use the tab bar to drill into Proxy, DNS, Sockets, or other areas
+7. Use **Copy All Errors** or the per-row **Copy** button to extract snippets for tickets
+
+### Understanding severity levels
+
+| Severity | Colour | Meaning |
+|---|---|---|
+| **Blocked** | Red | Request was actively denied — `ERR_BLOCKED_BY_ADMINISTRATOR`, cert errors, proxy auth failures, CSP blocks, org policy |
+| **Failed** | Orange | Connection could not be established — refused, timed out, DNS failure, proxy unreachable |
+| **Warning** | Yellow | Request completed but returned HTTP 4xx/5xx |
+| **OK** | Green | Request completed successfully |
+
+### Row-level tags
+
+| Tag | Colour | Meaning |
+|---|---|---|
+| `SYNC` | Blue | URL matches a Microsoft identity or Edge sync endpoint |
+| `PROXY` | Purple | A proxy server was observed on this request |
+| `CERT` | Yellow | Error is certificate or TLS related |
+| `DNS` | Teal | Error is a DNS resolution failure |
+
+### Filters available
+
+`All` · `Blocked` · `Failed` · `Warnings` · `Sync / Auth` · `Proxy Errors` · `Cert Issues` · `DNS Issues` · `OK` · free-text search across URL and error string
+
+### Common errors detected
+
+| Error | Category | Typical cause |
+|---|---|---|
+| `ERR_BLOCKED_BY_ADMINISTRATOR` | Blocked | Firewall or Intune policy blocking the endpoint |
+| `ERR_PROXY_AUTH_REQUESTED` | Proxy | Proxy requires credentials not configured in Edge |
+| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy | Proxy blocking HTTPS CONNECT tunnels |
+| `ERR_CERT_AUTHORITY_INVALID` | Cert | SSL inspection proxy with untrusted CA |
+| `ERR_NAME_NOT_RESOLVED` | DNS | Host not resolvable — split DNS, DNS filtering, or no internet |
+| `ERR_CONNECTION_REFUSED` | Failed | Service or port unreachable at the network layer |
+
+### Limitations
+
+| Limitation | Details |
+|---|---|
+| Local file security | Chromium restricts some APIs when opening HTML files via `file://`. If the tool misbehaves, serve it over localhost or a static host. |
+| Large logs | Very large captures (100 MB+) may be slow to parse; the tool processes everything in-memory in the browser tab. |
+| Capture mode | Some event types (cache, sockets) are only present if the log was captured in **All events** mode, not the default mode. |
+| No timeline view | Raw event timing is visible in the expanded row detail, but there is no graphical timeline chart. |
 
 ---
 
