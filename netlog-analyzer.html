@@ -3,688 +3,856 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NetLog Analyzer — Edge Profile Sync Debugger</title>
+<title>NetLog Analyzer v2</title>
 <style>
-  :root {
-    --bg: #0d1117;
-    --bg2: #161b22;
-    --bg3: #21262d;
-    --bg4: #30363d;
-    --border: #30363d;
-    --border2: #484f58;
-    --text: #e6edf3;
-    --text2: #8b949e;
-    --text3: #6e7681;
-    --red: #ff7b72;
-    --red-bg: #3d1a1a;
-    --red-border: #8b1a1a;
-    --orange: #ffa657;
-    --orange-bg: #3d2800;
-    --orange-border: #8b5a00;
-    --yellow: #e3b341;
-    --yellow-bg: #2d2200;
-    --green: #3fb950;
-    --green-bg: #1a3d1a;
-    --green-border: #2d6a2d;
-    --blue: #58a6ff;
-    --blue-bg: #1a2d3d;
-    --purple: #a371f7;
-    --purple-bg: #2d1a3d;
-    --mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
-    --sans: 'Segoe UI', system-ui, sans-serif;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; min-height: 100vh; }
-
-  /* TOP BAR */
-  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
-  .topbar h1 { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
-  .topbar h1 span { color: var(--blue); }
-  .badge-version { background: var(--bg4); color: var(--text2); font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); }
-  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-
-  /* DROP ZONE */
-  #dropzone {
-    margin: 40px auto;
-    max-width: 560px;
-    border: 2px dashed var(--border2);
-    border-radius: 12px;
-    padding: 60px 40px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    background: var(--bg2);
-  }
-  #dropzone.drag-over { border-color: var(--blue); background: var(--blue-bg); }
-  #dropzone .drop-icon { font-size: 42px; margin-bottom: 16px; opacity: 0.7; }
-  #dropzone h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-  #dropzone p { color: var(--text2); font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
-  #dropzone .btn-upload { background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 10px 24px; font-size: 13px; font-weight: 600; cursor: pointer; }
-  #dropzone .btn-upload:hover { opacity: 0.85; }
-  #file-input { display: none; }
-  .tip-list { text-align: left; background: var(--bg3); border-radius: 8px; padding: 14px 16px; margin-top: 20px; }
-  .tip-list li { color: var(--text2); font-size: 12px; margin-bottom: 6px; padding-left: 8px; list-style: none; }
-  .tip-list li::before { content: '→ '; color: var(--blue); }
-
-  /* MAIN LAYOUT */
-  #app { display: none; flex-direction: column; height: calc(100vh - 53px); }
-
-  /* SUMMARY BAR */
-  .summary-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .summary-stat { display: flex; align-items: center; gap: 8px; }
-  .stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .stat-label { color: var(--text2); font-size: 12px; }
-  .stat-val { font-weight: 700; font-size: 14px; }
-  .stat-val.red { color: var(--red); }
-  .stat-val.orange { color: var(--orange); }
-  .stat-val.green { color: var(--green); }
-  .stat-val.blue { color: var(--blue); }
-  .stat-val.yellow { color: var(--yellow); }
-  .divider-v { width: 1px; height: 20px; background: var(--border); }
-
-  /* FILTER BAR */
-  .filter-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .filter-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
-  .filter-btn:hover { border-color: var(--border2); color: var(--text); }
-  .filter-btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
-  .filter-btn.active.red { background: var(--red-bg); border-color: var(--red-border); color: var(--red); }
-  .filter-btn.active.orange { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange); }
-  .filter-btn.active.green { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
-  .search-box { margin-left: auto; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; padding: 5px 12px; width: 220px; outline: none; }
-  .search-box:focus { border-color: var(--blue); }
-  .search-box::placeholder { color: var(--text3); }
-
-  /* TABLE */
-  .table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 900px; }
-  thead th { background: var(--bg2); color: var(--text2); font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; text-align: left; white-space: nowrap; }
-  tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
-  tbody tr:hover { background: var(--bg2); }
-  tbody tr.expanded { background: var(--bg2); }
-  td { padding: 7px 12px; vertical-align: top; }
-  .col-sev { width: 90px; }
-  .col-type { width: 110px; }
-  .col-url { max-width: 380px; }
-  .col-error { width: 200px; }
-  .col-time { width: 100px; }
-
-  /* SEVERITY BADGES */
-  .sev { display: inline-flex; align-items: center; gap: 5px; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
-  .sev-blocked { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
-  .sev-failed  { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
-  .sev-warn    { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #5a4400; }
-  .sev-info    { background: var(--blue-bg); color: var(--blue); border: 1px solid #1a3a5c; }
-  .sev-ok      { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
-
-  /* TYPE CHIPS */
-  .type-chip { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 11px; font-family: var(--mono); background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
-
-  /* URL */
-  .url-cell { font-family: var(--mono); font-size: 11px; color: var(--text); word-break: break-all; line-height: 1.5; }
-  .url-cell .host { color: var(--blue); }
-  .url-cell .path { color: var(--text2); }
-
-  /* ERROR CODE */
-  .error-code { font-family: var(--mono); font-size: 11px; color: var(--red); }
-  .error-warn { color: var(--orange); }
-
-  /* EXPANDED ROW */
-  .detail-row td { padding: 0; }
-  .detail-panel { background: var(--bg3); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 20px; }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
-  .detail-section h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
-  .detail-kv { display: flex; gap: 10px; margin-bottom: 5px; align-items: flex-start; }
-  .detail-k { color: var(--text3); font-size: 11px; min-width: 120px; flex-shrink: 0; font-family: var(--mono); }
-  .detail-v { color: var(--text); font-size: 11px; font-family: var(--mono); word-break: break-all; }
-  .detail-v.red { color: var(--red); }
-  .detail-v.blue { color: var(--blue); }
-  .detail-events { margin-top: 12px; }
-  .detail-events h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); margin-bottom: 8px; }
-  .event-line { font-family: var(--mono); font-size: 11px; padding: 3px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
-  .event-time { color: var(--text3); min-width: 90px; }
-  .event-type { color: var(--blue); min-width: 260px; }
-  .event-phase { color: var(--text3); min-width: 60px; }
-  .event-params { color: var(--text2); word-break: break-all; }
-
-  /* EMPTY STATE */
-  .empty-state { padding: 60px 20px; text-align: center; color: var(--text2); }
-  .empty-state p { font-size: 14px; }
-
-  /* INSIGHT PANEL */
-  .insight-bar { background: var(--red-bg); border-bottom: 1px solid var(--red-border); padding: 10px 20px; display: none; }
-  .insight-bar.show { display: block; }
-  .insight-bar h3 { color: var(--red); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .insight-list { display: flex; gap: 10px; flex-wrap: wrap; }
-  .insight-chip { background: var(--bg2); border: 1px solid var(--red-border); border-radius: 20px; padding: 3px 12px; font-size: 11px; color: var(--red); cursor: pointer; }
-  .insight-chip:hover { background: var(--red-bg); }
-
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
-
-  /* LOADING */
-  #loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,0.85); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
-  #loading.show { display: flex; }
-  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .new-file-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
-  .new-file-btn:hover { border-color: var(--border2); color: var(--text); }
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
+  --border:#30363d;--border2:#484f58;
+  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;
+  --red:#ff7b72;--red-bg:#3d1a1a;--red-bd:#8b1a1a;
+  --orange:#ffa657;--orange-bg:#3d2800;--orange-bd:#8b5a00;
+  --yellow:#e3b341;--yellow-bg:#2d2200;
+  --green:#3fb950;--green-bg:#1a3d1a;--green-bd:#2d6a2d;
+  --blue:#58a6ff;--blue-bg:#1a2d3d;--blue-bd:#1a4a7a;
+  --purple:#a371f7;--teal:#39d353;
+  --mono:'Cascadia Code','Fira Code','JetBrains Mono',monospace;
+  --sans:'Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:200}
+.topbar h1{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.topbar h1 span{color:var(--blue)}
+.badge{background:var(--bg4);color:var(--text2);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--border)}
+.topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn-sm{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer}
+.btn-sm:hover{border-color:var(--border2);color:var(--text)}
+#dropzone-wrap{padding:40px 20px}
+#dropzone{margin:0 auto;max-width:540px;border:2px dashed var(--border2);border-radius:12px;padding:52px 36px;text-align:center;cursor:pointer;background:var(--bg2);transition:border-color .2s,background .2s}
+#dropzone.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+#dropzone .dicon{font-size:40px;margin-bottom:14px;opacity:.7}
+#dropzone h2{font-size:17px;font-weight:600;margin-bottom:6px}
+#dropzone p{color:var(--text2);font-size:12px;line-height:1.6;margin-bottom:16px}
+.btn-upload{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-upload:hover{opacity:.85}
+#file-input{display:none}
+.tip-list{text-align:left;background:var(--bg3);border-radius:8px;padding:12px 14px;margin-top:16px}
+.tip-list li{color:var(--text2);font-size:11px;margin-bottom:5px;list-style:none;padding-left:6px}
+.tip-list li::before{content:'-> ';color:var(--blue)}
+#loading{display:none;position:fixed;inset:0;background:rgba(13,17,23,.88);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#loading.show{display:flex}
+.spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app{display:none;flex-direction:column;height:calc(100vh - 45px)}
+.insight-bar{background:var(--red-bg);border-bottom:1px solid var(--red-bd);padding:9px 18px;display:none}
+.insight-bar.show{display:block}
+.insight-bar h3{color:var(--red);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.insight-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ichip{background:var(--bg2);border:1px solid var(--red-bd);border-radius:20px;padding:3px 11px;font-size:11px;color:var(--red);cursor:pointer}
+.ichip:hover{background:var(--red-bg)}
+.summary-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sstat{display:flex;align-items:center;gap:7px}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.slabel{color:var(--text2);font-size:11px}
+.sval{font-weight:700;font-size:13px}
+.sval.r{color:var(--red)}.sval.o{color:var(--orange)}.sval.g{color:var(--green)}.sval.b{color:var(--blue)}.sval.y{color:var(--yellow)}
+.sdiv{width:1px;height:18px;background:var(--border)}
+.nav-tabs{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 18px;gap:2px;overflow-x:auto;flex-shrink:0}
+.tab-btn{background:none;border:none;color:var(--text2);font-size:12px;font-weight:500;padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tbadge{border-radius:10px;padding:1px 6px;font-size:10px;margin-left:5px;border:1px solid}
+.tbadge.err{background:var(--red-bg);color:var(--red);border-color:var(--red-bd)}
+.tbadge.warn{background:var(--orange-bg);color:var(--orange);border-color:var(--orange-bd)}
+.panel{flex:1;overflow:hidden;display:none;flex-direction:column;min-height:0}
+.panel.active{display:flex}
+.filter-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:7px 18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.fbtn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.fbtn:hover{border-color:var(--border2);color:var(--text)}
+.fbtn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.fbtn.active.r{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+.fbtn.active.g{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+.search-box{margin-left:auto;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;padding:4px 11px;width:210px;outline:none}
+.search-box:focus{border-color:var(--blue)}
+.search-box::placeholder{color:var(--text3)}
+.table-wrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:820px}
+thead th{background:var(--bg2);color:var(--text2);font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:7px 11px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;text-align:left;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+tbody tr:hover{background:var(--bg2)}
+td{padding:6px 11px;vertical-align:top}
+.empty-state{padding:50px;text-align:center;color:var(--text2)}
+.sev{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700}
+.sev-blocked{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.sev-failed{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd)}
+.sev-warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid #5a4400}
+.sev-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.chip{display:inline-block;border-radius:4px;padding:1px 6px;font-size:10px;font-family:var(--mono);background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.url-cell{font-family:var(--mono);font-size:11px;word-break:break-all;line-height:1.5}
+.url-host{color:var(--blue)}
+.url-path{color:var(--text2)}
+.err-text{font-family:var(--mono);font-size:11px;color:var(--red)}
+.mark{font-size:10px;margin-left:3px;font-weight:700}
+.mark-sync{color:var(--blue)}.mark-proxy{color:var(--purple)}.mark-cert{color:var(--yellow)}.mark-dns{color:var(--teal)}
+/* DETAIL EXPAND */
+.detail-row td{padding:0}
+.dp{background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px 18px}
+.dp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.dp-header h4{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.copy-btn{background:var(--bg4);border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:3px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.copy-btn:hover{border-color:var(--blue);color:var(--blue)}
+.copy-btn.copied{border-color:var(--green);color:var(--green)}
+.dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px}
+.dp-sec h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:7px}
+.kv{display:flex;gap:8px;margin-bottom:4px;align-items:flex-start}
+.kk{color:var(--text3);font-size:11px;min-width:130px;flex-shrink:0;font-family:var(--mono)}
+.vv{color:var(--text);font-size:11px;font-family:var(--mono);word-break:break-all}
+.vv.r{color:var(--red)}.vv.b{color:var(--blue)}.vv.g{color:var(--green)}.vv.o{color:var(--orange)}
+.ev-trace{margin-top:10px}
+.ev-trace-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ev-trace-header h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
+.evl{font-family:var(--mono);font-size:11px;padding:3px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap}
+.et{color:var(--text3);min-width:85px;flex-shrink:0}
+.etype{color:var(--blue);min-width:240px;flex-shrink:0}
+.eph{color:var(--text3);min-width:50px;flex-shrink:0}
+.epar{color:var(--text2);word-break:break-all}
+/* INFO PANELS */
+.info-panel{flex:1;overflow:auto;padding:18px}
+.info-section{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;overflow:hidden}
+.info-section-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.info-section-head h3{font-size:13px;font-weight:600}
+.info-section-body{padding:12px 16px}
+.info-kv{display:flex;gap:10px;margin-bottom:6px;align-items:flex-start}
+.info-k{color:var(--text2);font-size:12px;min-width:190px;flex-shrink:0}
+.info-v{color:var(--text);font-size:12px;font-family:var(--mono);word-break:break-all}
+.info-v.r{color:var(--red)}.info-v.g{color:var(--green)}.info-v.b{color:var(--blue)}.info-v.o{color:var(--orange)}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600}
+.pill-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.pill-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.pill-orange{background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd)}
+.pill-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)}
+.pill-gray{background:var(--bg4);color:var(--text2);border:1px solid var(--border2)}
+.info-table{width:100%;border-collapse:collapse;font-size:12px}
+.info-table th{text-align:left;color:var(--text2);font-size:10px;font-weight:600;padding:6px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px}
+.info-table td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;font-family:var(--mono);font-size:11px}
+.info-table tr:last-child td{border-bottom:none}
+.no-data{color:var(--text3);font-size:12px;padding:8px 0;font-style:italic}
+.box-warn{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:6px;padding:10px 14px;margin-bottom:12px}
+.box-warn p{color:var(--red);font-size:12px;line-height:1.6}
+.box-info{background:var(--orange-bg);border:1px solid var(--orange-bd);border-radius:6px;padding:10px 14px;margin-bottom:12px}
+.box-info p{color:var(--orange);font-size:12px;line-height:1.6}
+.box-ok{background:var(--green-bg);border:1px solid var(--green-bd);border-radius:6px;padding:10px 14px;margin-bottom:12px}
+.box-ok p{color:var(--green);font-size:12px;line-height:1.6}
+/* COPY TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);border-radius:6px;padding:8px 16px;font-size:12px;z-index:9999;display:none;pointer-events:none}
+#toast.show{display:block;animation:fadeout 2s forwards}
+@keyframes fadeout{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
 </style>
 </head>
 <body>
-
-<div id="loading">
-  <div class="spinner"></div>
-  <p style="color:var(--text2);font-size:13px;">Parsing NetLog…</p>
-</div>
-
-<!-- TOP BAR -->
+<div id="toast">Copied to clipboard!</div>
+<div id="loading"><div class="spinner"></div><p style="color:var(--text2);font-size:13px">Parsing NetLog...</p></div>
 <div class="topbar">
-  <h1>NetLog <span>Analyzer</span></h1>
-  <span class="badge-version">Edge / Chromium net-export</span>
+  <h1>NetLog <span>Analyzer</span> <span style="color:var(--text3);font-weight:400;font-size:12px">v2</span></h1>
+  <span class="badge">Edge / Chromium net-export</span>
   <div class="topbar-right">
-    <button class="new-file-btn" id="btn-new-file" style="display:none;">↑ Load New File</button>
+    <span id="file-label" style="color:var(--text3);font-size:11px"></span>
+    <button class="btn-sm" id="btn-copy-all" style="display:none" onclick="copyAllErrors()">Copy All Errors</button>
+    <button class="btn-sm" id="btn-new" style="display:none" onclick="resetApp()">Load New File</button>
   </div>
 </div>
-
-<!-- DROP ZONE -->
 <div id="dropzone-wrap">
   <div id="dropzone">
-    <div class="drop-icon">📁</div>
+    <div class="dicon">&#128193;</div>
     <h2>Drop your net-export.json here</h2>
-    <p>Captured from <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:12px;">edge://net-export/</code> or <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:12px;">chrome://net-export/</code></p>
+    <p>From <code style="background:var(--bg3);padding:2px 5px;border-radius:4px;font-size:11px">edge://net-export/</code> or <code style="background:var(--bg3);padding:2px 5px;border-radius:4px;font-size:11px">chrome://net-export/</code></p>
     <button class="btn-upload" onclick="document.getElementById('file-input').click()">Choose File</button>
     <input type="file" id="file-input" accept=".json">
     <ul class="tip-list">
-      <li>Reproduces Edge profile sync failures → captures blocked endpoints</li>
-      <li>Detects ERR_BLOCKED_BY_ADMINISTRATOR, CERT errors, DNS failures</li>
-      <li>Highlights Microsoft identity &amp; sync endpoints specifically</li>
-      <li>All analysis runs locally — no data leaves your browser</li>
+      <li>Detects blocked/failed endpoints, proxy issues, DNS failures, cert errors</li>
+      <li>Dedicated panels: Proxy - DNS - Sockets - HTTP/2 - QUIC - Cache - Meta</li>
+      <li>Auto-highlights Microsoft identity and Edge sync endpoints</li>
+      <li>Copy error snippets to clipboard for ticket/bug reports</li>
     </ul>
   </div>
 </div>
-
-<!-- MAIN APP -->
 <div id="app">
-  <!-- INSIGHT BAR -->
   <div class="insight-bar" id="insight-bar">
-    <h3>⚠ Suspected root causes</h3>
-    <div class="insight-list" id="insight-list"></div>
+    <h3>Suspected root causes</h3>
+    <div class="insight-chips" id="insight-chips"></div>
   </div>
-  <!-- SUMMARY -->
   <div class="summary-bar" id="summary-bar"></div>
-  <!-- FILTERS -->
-  <div class="filter-bar">
-    <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">All</button>
-    <button class="filter-btn red"    data-filter="blocked" onclick="setFilter('blocked',this)">🔴 Blocked</button>
-    <button class="filter-btn"        data-filter="failed"  onclick="setFilter('failed',this)">🟠 Failed</button>
-    <button class="filter-btn"        data-filter="warn"    onclick="setFilter('warn',this)">🟡 Warnings</button>
-    <button class="filter-btn"        data-filter="sync"    onclick="setFilter('sync',this)">🔵 Sync Endpoints</button>
-    <button class="filter-btn"        data-filter="ok"      onclick="setFilter('ok',this)">🟢 OK</button>
-    <input class="search-box" id="search-box" placeholder="Search URL or error…" oninput="renderTable()">
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('events',this)">Events</button>
+    <button class="tab-btn" id="tab-proxy" onclick="showTab('proxy',this)">Proxy</button>
+    <button class="tab-btn" id="tab-dns" onclick="showTab('dns',this)">DNS</button>
+    <button class="tab-btn" id="tab-sockets" onclick="showTab('sockets',this)">Sockets</button>
+    <button class="tab-btn" id="tab-http2" onclick="showTab('http2',this)">HTTP/2</button>
+    <button class="tab-btn" onclick="showTab('quic',this)">QUIC</button>
+    <button class="tab-btn" onclick="showTab('cache',this)">Cache</button>
+    <button class="tab-btn" onclick="showTab('meta',this)">Meta</button>
   </div>
-  <!-- TABLE -->
-  <div class="table-wrap">
-    <table id="main-table">
-      <thead>
-        <tr>
-          <th class="col-sev">Severity</th>
-          <th class="col-type">Type</th>
-          <th class="col-url">URL / Host</th>
-          <th class="col-error">Error / Status</th>
-          <th class="col-time">Time (ms)</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
-    <div class="empty-state" id="empty-state" style="display:none;"><p>No entries match the current filter.</p></div>
+  <div class="panel active" id="panel-events">
+    <div class="filter-bar">
+      <button class="fbtn active" data-f="all" onclick="setF('all',this)">All</button>
+      <button class="fbtn r" data-f="blocked" onclick="setF('blocked',this)">Blocked</button>
+      <button class="fbtn" data-f="failed" onclick="setF('failed',this)">Failed</button>
+      <button class="fbtn" data-f="warn" onclick="setF('warn',this)">Warnings</button>
+      <button class="fbtn" data-f="sync" onclick="setF('sync',this)">Sync / Auth</button>
+      <button class="fbtn" data-f="proxy_err" onclick="setF('proxy_err',this)">Proxy Errors</button>
+      <button class="fbtn" data-f="cert" onclick="setF('cert',this)">Cert Issues</button>
+      <button class="fbtn" data-f="dns" onclick="setF('dns',this)">DNS Issues</button>
+      <button class="fbtn g" data-f="ok" onclick="setF('ok',this)">OK</button>
+      <input class="search-box" id="search-box" placeholder="Search URL, error, host..." oninput="renderEvents()">
+    </div>
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead><tr>
+          <th style="width:90px">Severity</th>
+          <th style="width:110px">Type</th>
+          <th>URL / Host</th>
+          <th style="width:195px">Error / Status</th>
+          <th style="width:55px">ms</th>
+          <th style="width:50px"></th>
+        </tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state" style="display:none"><p>No entries match.</p></div>
+    </div>
   </div>
+  <div class="panel" id="panel-proxy"><div class="info-panel" id="proxy-content"></div></div>
+  <div class="panel" id="panel-dns"><div class="info-panel" id="dns-content"></div></div>
+  <div class="panel" id="panel-sockets">
+    <div class="filter-bar">
+      <button class="fbtn active" data-sf="all" onclick="setSF('all',this)">All</button>
+      <button class="fbtn r" data-sf="error" onclick="setSF('error',this)">Errors Only</button>
+      <input class="search-box" id="sock-search" placeholder="Search host, addr..." oninput="renderSockets()">
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Status</th><th>Host</th><th>Remote Addr</th><th>Proxy</th><th>SSL</th><th>Bytes In</th><th>Bytes Out</th><th>Error</th>
+      </tr></thead><tbody id="sock-body"></tbody></table>
+      <div class="empty-state" id="sock-empty" style="display:none"><p>No sockets found.</p></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-http2"><div class="info-panel" id="http2-content"></div></div>
+  <div class="panel" id="panel-quic"><div class="info-panel" id="quic-content"></div></div>
+  <div class="panel" id="panel-cache"><div class="info-panel" id="cache-content"></div></div>
+  <div class="panel" id="panel-meta"><div class="info-panel" id="meta-content"></div></div>
 </div>
-
 <script>
-const SYNC_PATTERNS = [
-  'login.microsoftonline.com','login.live.com','account.live.com',
-  'graph.microsoft.com','edge.microsoft.com','config.edge.skype.com',
-  'settings.data.microsoft.com','substrate.office.com',
-  'aadcdn.msftauth.net','login.windows.net','sts.windows.net',
-  'management.azure.com','api.office.com','syncengine.teams.microsoft.com',
-  'browser.events.data.microsoft.com','fp.msedge.net',
-  'ocsp.digicert.com','crl.microsoft.com','pki.goog'
-];
+var SYNC_PATTERNS=['login.microsoftonline.com','login.live.com','account.live.com','graph.microsoft.com','edge.microsoft.com','config.edge.skype.com','settings.data.microsoft.com','substrate.office.com','aadcdn.msftauth.net','login.windows.net','sts.windows.net','management.azure.com','api.office.com','browser.events.data.microsoft.com','fp.msedge.net','ocsp.digicert.com','crl.microsoft.com','pki.goog','signup.live.com','profile.live.com'];
+var PROXY_ERRORS=['ERR_PROXY_CONNECTION_FAILED','ERR_PROXY_AUTH_REQUESTED','ERR_TUNNEL_CONNECTION_FAILED','ERR_MANDATORY_PROXY_CONFIGURATION_FAILED','ERR_NO_SUPPORTED_PROXIES','ERR_SOCKS_CONNECTION_FAILED','ERR_SOCKS_CONNECTION_HOST_UNREACHABLE','ERR_PROXY_CERTIFICATE_INVALID'];
+var CERT_ERRORS=['ERR_CERT_AUTHORITY_INVALID','ERR_CERT_COMMON_NAME_INVALID','ERR_CERT_DATE_INVALID','ERR_CERT_REVOKED','ERR_CERT_INVALID','ERR_CERT_CONTAINS_ERRORS','ERR_SSL_PROTOCOL_ERROR','ERR_SSL_VERSION_OR_CIPHER_MISMATCH','ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN','ERR_INSECURE_RESPONSE'];
+var DNS_ERRORS=['ERR_NAME_NOT_RESOLVED','ERR_DNS_TIMED_OUT','ERR_NAME_RESOLUTION_FAILED','ERR_DNS_SERVER_FAILED'];
+var BLOCK_ERRORS=['ERR_BLOCKED_BY_ADMINISTRATOR','ERR_BLOCKED_BY_CLIENT','ERR_BLOCKED_BY_CSP','ERR_BLOCKED_BY_ORG_POLICY','ERR_ACCESS_DENIED','ERR_NETWORK_ACCESS_DENIED','ERR_BLOCKED_BY_RESPONSE'].concat(CERT_ERRORS);
+var FAIL_ERRORS=['ERR_CONNECTION_REFUSED','ERR_CONNECTION_TIMED_OUT','ERR_CONNECTION_RESET','ERR_INTERNET_DISCONNECTED','ERR_NETWORK_CHANGED','ERR_TIMED_OUT','ERR_FAILED','ERR_ABORTED','ERR_EMPTY_RESPONSE','ERR_CONNECTION_ABORTED','ERR_ADDRESS_UNREACHABLE'].concat(PROXY_ERRORS).concat(DNS_ERRORS);
+var NET_ERR={'-1':'ERR_IO_PENDING','-2':'ERR_FAILED','-3':'ERR_ABORTED','-4':'ERR_INVALID_ARGUMENT','-7':'ERR_TIMED_OUT','-10':'ERR_ACCESS_DENIED','-100':'ERR_CONNECTION_CLOSED','-101':'ERR_CONNECTION_RESET','-102':'ERR_CONNECTION_REFUSED','-103':'ERR_CONNECTION_ABORTED','-104':'ERR_CONNECTION_FAILED','-105':'ERR_NAME_NOT_RESOLVED','-106':'ERR_INTERNET_DISCONNECTED','-109':'ERR_ADDRESS_UNREACHABLE','-110':'ERR_SSL_PROTOCOL_ERROR','-113':'ERR_SSL_VERSION_OR_CIPHER_MISMATCH','-137':'ERR_NAME_RESOLUTION_FAILED','-138':'ERR_NETWORK_ACCESS_DENIED','-145':'ERR_DNS_TIMED_OUT','-147':'ERR_BLOCKED_BY_ADMINISTRATOR','-160':'ERR_NETWORK_CHANGED','-200':'ERR_CERT_COMMON_NAME_INVALID','-201':'ERR_CERT_DATE_INVALID','-202':'ERR_CERT_AUTHORITY_INVALID','-203':'ERR_CERT_CONTAINS_ERRORS','-206':'ERR_CERT_REVOKED','-207':'ERR_CERT_INVALID','-213':'ERR_PROXY_CERTIFICATE_INVALID','-300':'ERR_TOO_MANY_REDIRECTS','-310':'ERR_UNSAFE_REDIRECT','-400':'ERR_TUNNEL_CONNECTION_FAILED','-407':'ERR_PROXY_CONNECTION_FAILED','-408':'ERR_MANDATORY_PROXY_CONFIGURATION_FAILED','-500':'ERR_SOCKS_CONNECTION_FAILED','-501':'ERR_SOCKS_CONNECTION_HOST_UNREACHABLE','-503':'ERR_NO_SUPPORTED_PROXIES','-504':'ERR_PROXY_AUTH_REQUESTED','-600':'ERR_BLOCKED_BY_CLIENT','-601':'ERR_BLOCKED_BY_CSP','-700':'ERR_EMPTY_RESPONSE','-900':'ERR_BLOCKED_BY_ORG_POLICY'};
 
-const BLOCK_ERRORS = [
-  'ERR_BLOCKED_BY_ADMINISTRATOR','ERR_BLOCKED_BY_CLIENT',
-  'ERR_BLOCKED_BY_CSP','ERR_BLOCKED_BY_ORG_POLICY',
-  'ERR_ACCESS_DENIED','ERR_NETWORK_ACCESS_DENIED',
-  'ERR_SSL_PROTOCOL_ERROR','ERR_CERT_AUTHORITY_INVALID',
-  'ERR_CERT_COMMON_NAME_INVALID','ERR_CERT_DATE_INVALID',
-  'ERR_CERT_REVOKED','ERR_CERT_WEAK_SIGNATURE_ALGORITHM',
-  'ERR_SSL_PINNED_KEY_NOT_IN_CERT_CHAIN','ERR_INSECURE_RESPONSE',
-  'ERR_TUNNEL_CONNECTION_FAILED','ERR_PROXY_CONNECTION_FAILED',
-  'ERR_SOCKS_CONNECTION_FAILED','ERR_PROXY_AUTH_REQUESTED',
-  'ERR_NO_SUPPORTED_PROXIES'
-];
+var allRows=[], sockRows=[], curFilter='all', curSF='all';
 
-const FAIL_ERRORS = [
-  'ERR_CONNECTION_REFUSED','ERR_CONNECTION_TIMED_OUT',
-  'ERR_CONNECTION_RESET','ERR_NAME_NOT_RESOLVED',
-  'ERR_DNS_TIMED_OUT','ERR_INTERNET_DISCONNECTED',
-  'ERR_NETWORK_CHANGED','ERR_TIMED_OUT','ERR_FAILED',
-  'ERR_ABORTED','ERR_EMPTY_RESPONSE','ERR_CONTENT_DECODING_FAILED',
-  'ERR_INVALID_RESPONSE','ERR_HTTP_RESPONSE_CODE_FAILURE',
-  'ERR_TOO_MANY_REDIRECTS','ERR_UNSAFE_REDIRECT'
-];
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-const NET_ERR_MAP = {
-  '-1':'ERR_IO_PENDING','-2':'ERR_FAILED','-3':'ERR_ABORTED',
-  '-4':'ERR_INVALID_ARGUMENT','-7':'ERR_TIMED_OUT',
-  '-10':'ERR_ACCESS_DENIED','-20':'ERR_NOT_IMPLEMENTED',
-  '-100':'ERR_CONNECTION_CLOSED','-101':'ERR_CONNECTION_RESET',
-  '-102':'ERR_CONNECTION_REFUSED','-103':'ERR_CONNECTION_ABORTED',
-  '-104':'ERR_CONNECTION_FAILED','-105':'ERR_NAME_NOT_RESOLVED',
-  '-106':'ERR_INTERNET_DISCONNECTED','-109':'ERR_ADDRESS_UNREACHABLE',
-  '-110':'ERR_SSL_PROTOCOL_ERROR','-112':'ERR_NO_SSL_VERSIONS_ENABLED',
-  '-113':'ERR_SSL_VERSION_OR_CIPHER_MISMATCH',
-  '-137':'ERR_NAME_RESOLUTION_FAILED',
-  '-138':'ERR_NETWORK_ACCESS_DENIED',
-  '-145':'ERR_DNS_TIMED_OUT',
-  '-147':'ERR_BLOCKED_BY_ADMINISTRATOR',
-  '-160':'ERR_NETWORK_CHANGED',
-  '-200':'ERR_CERT_COMMON_NAME_INVALID',
-  '-201':'ERR_CERT_DATE_INVALID',
-  '-202':'ERR_CERT_AUTHORITY_INVALID',
-  '-203':'ERR_CERT_CONTAINS_ERRORS',
-  '-204':'ERR_CERT_NO_REVOCATION_MECHANISM',
-  '-205':'ERR_CERT_UNABLE_TO_CHECK_REVOCATION',
-  '-206':'ERR_CERT_REVOKED',
-  '-207':'ERR_CERT_INVALID',
-  '-212':'ERR_SSL_WEAK_SERVER_EPHEMERAL_DH_KEY',
-  '-213':'ERR_PROXY_CERTIFICATE_INVALID',
-  '-300':'ERR_TOO_MANY_REDIRECTS',
-  '-310':'ERR_UNSAFE_REDIRECT',
-  '-400':'ERR_TUNNEL_CONNECTION_FAILED',
-  '-407':'ERR_PROXY_CONNECTION_FAILED',
-  '-408':'ERR_MANDATORY_PROXY_CONFIGURATION_FAILED',
-  '-500':'ERR_SOCKS_CONNECTION_FAILED',
-  '-501':'ERR_SOCKS_CONNECTION_HOST_UNREACHABLE',
-  '-503':'ERR_NO_SUPPORTED_PROXIES',
-  '-504':'ERR_PROXY_AUTH_REQUESTED',
-  '-600':'ERR_BLOCKED_BY_CLIENT',
-  '-601':'ERR_BLOCKED_BY_CSP',
-  '-700':'ERR_EMPTY_RESPONSE',
-  '-900':'ERR_BLOCKED_BY_ORG_POLICY'
-};
-
-let allRows = [];
-let currentFilter = 'all';
-let expandedIdx = null;
-
-function errorName(code) {
-  if (!code && code !== 0) return '';
-  const c = String(code);
-  return NET_ERR_MAP[c] || (code < 0 ? `NET_ERROR(${code})` : '');
+function errName(c){
+  var k=String(c);
+  if(NET_ERR[k]) return NET_ERR[k];
+  if(c<0) return 'NET_ERROR('+c+')';
+  return '';
 }
 
-function isSyncUrl(url) {
-  if (!url) return false;
-  return SYNC_PATTERNS.some(p => url.includes(p));
+function isSyncUrl(u){ if(!u) return false; return SYNC_PATTERNS.some(function(p){ return u.indexOf(p)>=0; }); }
+function hasAny(s,list){ if(!s) return false; var u=s.toUpperCase(); return list.some(function(e){ return u.indexOf(e)>=0; }); }
+function classifyErr(s){ if(!s) return null; if(hasAny(s,BLOCK_ERRORS)) return 'blocked'; if(hasAny(s,FAIL_ERRORS)) return 'failed'; return 'warn'; }
+
+function fmtUrl(url){
+  if(!url) return '<span style="color:var(--text3)">-</span>';
+  try{
+    var u=new URL(url);
+    var p=u.pathname+(u.search.length>55?u.search.slice(0,55)+'...':u.search);
+    return '<span class="url-cell"><span class="url-host">'+esc(u.protocol+'//'+u.host)+'</span><span class="url-path">'+esc(p)+'</span></span>';
+  }catch(e){ return '<span class="url-cell">'+esc(url.slice(0,100))+'</span>'; }
 }
 
-function classifyError(errStr) {
-  if (!errStr) return null;
-  const e = errStr.toUpperCase();
-  if (BLOCK_ERRORS.some(b => e.includes(b))) return 'blocked';
-  if (FAIL_ERRORS.some(f => e.includes(f))) return 'failed';
-  return 'warn';
+function sevBadge(sev){
+  var m={blocked:'<span class="sev sev-blocked">BLOCKED</span>',failed:'<span class="sev sev-failed">FAILED</span>',warn:'<span class="sev sev-warn">WARNING</span>',ok:'<span class="sev sev-ok">OK</span>'};
+  return m[sev]||sev;
 }
 
-function formatUrl(url) {
-  if (!url) return '<span style="color:var(--text3)">—</span>';
-  try {
-    const u = new URL(url);
-    return `<span class="url-cell"><span class="host">${u.protocol}//${u.host}</span><span class="path">${u.pathname}${u.search.length > 60 ? u.search.slice(0,60)+'…' : u.search}</span></span>`;
-  } catch {
-    return `<span class="url-cell">${url.slice(0,90)}</span>`;
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg||'Copied!';
+  t.className='show';
+  setTimeout(function(){ t.className=''; },2200);
+}
+
+function copyText(txt, btn){
+  try{
+    navigator.clipboard.writeText(txt).then(function(){
+      showToast('Copied to clipboard!');
+      if(btn){ btn.textContent='Copied!'; btn.classList.add('copied'); setTimeout(function(){ btn.textContent='Copy'; btn.classList.remove('copied'); },1500); }
+    });
+  }catch(e){
+    var ta=document.createElement('textarea');
+    ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); showToast('Copied!'); }catch(e2){}
+    document.body.removeChild(ta);
   }
 }
 
-function parseNetLog(data) {
-  const rows = [];
-  const constants = data.constants || {};
-  const eventTypes = constants.logEventTypes || {};
-  const sourceTypes = constants.logSourceType || {};
-  const netErrors = constants.netError || {};
+function copyAllErrors(){
+  var errRows=allRows.filter(function(r){ return r.severity==='blocked'||r.severity==='failed'||r.severity==='warn'; });
+  if(!errRows.length){ showToast('No errors to copy'); return; }
+  var lines=['=== NetLog Error Summary ===','Generated: '+new Date().toISOString(),'Total errors: '+errRows.length,''];
+  errRows.forEach(function(r){
+    lines.push('['+(r.severity||'').toUpperCase()+'] '+r.url);
+    if(r.displayError) lines.push('  Error: '+r.displayError);
+    if(r.httpStatus) lines.push('  HTTP Status: '+r.httpStatus);
+    if(r.proxyUsed) lines.push('  Proxy: '+r.proxyUsed);
+    if(r.duration!==null) lines.push('  Duration: '+r.duration+'ms');
+    lines.push('');
+  });
+  copyText(lines.join('\n'));
+}
 
-  // Build reverse maps
-  const typeById = {};
-  for (const [k,v] of Object.entries(eventTypes)) typeById[v] = k;
-  const sourceById = {};
-  for (const [k,v] of Object.entries(sourceTypes)) sourceById[v] = k;
-  const errById = {};
-  for (const [k,v] of Object.entries(netErrors)) errById[v] = k;
+function buildRowSnippet(r){
+  var lines=['=== NetLog Entry #'+r.id+' ==='];
+  lines.push('Severity  : '+(r.severity||'').toUpperCase());
+  lines.push('URL       : '+(r.url||'—'));
+  lines.push('Method    : '+(r.method||'—'));
+  lines.push('Error     : '+(r.displayError||'—'));
+  lines.push('HTTP      : '+(r.httpStatus||'—'));
+  lines.push('Net ErrCode: '+(r.errorCode!==null&&r.errorCode!==undefined?r.errorCode:'—'));
+  lines.push('Duration  : '+(r.duration!==null?r.duration+'ms':'—'));
+  lines.push('RemoteAddr: '+(r.remoteAddr||'—'));
+  lines.push('Proxy     : '+(r.proxyUsed||'None'));
+  lines.push('SSL/Proto : '+(r.sslInfo||'—'));
+  lines.push('SyncEndpt : '+(r.syncRelated?'Yes':'No'));
+  lines.push('ProxyErr  : '+(r.isProxyErr?'Yes':'No'));
+  lines.push('CertErr   : '+(r.isCertErr?'Yes':'No'));
+  lines.push('DNSErr    : '+(r.isDnsErr?'Yes':'No'));
+  if(r.respHeaders&&r.respHeaders.length){ lines.push('--- Response Headers ---'); r.respHeaders.slice(0,15).forEach(function(h){ lines.push('  '+h); }); }
+  if(r.events&&r.events.length){
+    lines.push('--- Event Trace ('+Math.min(r.events.length,30)+' of '+r.events.length+') ---');
+    r.events.slice(0,30).forEach(function(ev){
+      var params=ev.params?JSON.stringify(ev.params).slice(0,200):'';
+      lines.push('  ['+(['NONE','BEGIN','END'][ev.phase]||ev.phase||'')+'] '+ev.type+(params?' | '+params:''));
+    });
+  }
+  return lines.join('\n');
+}
 
-  const events = data.events || [];
+function parseNetLog(data){
+  var C=data.constants||{}, typeById={}, sourceById={}, errById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  Object.keys(C.logSourceType||{}).forEach(function(k){ sourceById[C.logSourceType[k]]=k; });
+  Object.keys(C.netError||{}).forEach(function(k){ errById[C.netError[k]]=k; });
 
-  // Group by source id
-  const sources = {};
-  for (const ev of events) {
-    const sid = ev.source?.id;
-    if (sid === undefined) continue;
-    if (!sources[sid]) sources[sid] = { id: sid, type: sourceById[ev.source.type] || ev.source.type, events: [] };
+  var sources={};
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var ev=events[i];
+    var sid=ev.source&&ev.source.id;
+    if(sid===undefined||sid===null) continue;
+    if(!sources[sid]) sources[sid]={id:sid,type:sourceById[ev.source&&ev.source.type]||String(ev.source&&ev.source.type),events:[]};
     sources[sid].events.push(ev);
   }
 
-  for (const src of Object.values(sources)) {
-    const evs = src.events;
-    let url = null;
-    let httpStatus = null;
-    let errorCode = null;
-    let errorStr = null;
-    let startTime = null;
-    let endTime = null;
-    let requestMethod = null;
-    let responseHeaders = [];
+  var rows=[];
+  var sids=Object.keys(sources);
+  for(var si=0;si<sids.length;si++){
+    var src=sources[sids[si]];
+    var evs=src.events;
+    var url=null,httpStatus=null,errorCode=null,errorStr=null;
+    var startTime=null,endTime=null,method=null,respHeaders=[];
+    var proxyUsed=null,remoteAddr=null,sslInfo=null;
 
-    for (const ev of evs) {
-      const typeName = typeById[ev.type] || String(ev.type);
-      const p = ev.params || {};
-
-      if (!startTime && ev.time) startTime = parseInt(ev.time);
-      if (ev.time) endTime = parseInt(ev.time);
-
-      if (!url && p.url) url = p.url;
-      if (!url && p.request_url) url = p.request_url;
-
-      if (p.method) requestMethod = p.method;
-
-      if (p.headers && Array.isArray(p.headers)) {
-        const statusLine = p.headers.find(h => h.startsWith('HTTP/'));
-        if (statusLine) {
-          const m = statusLine.match(/HTTP\/[\d.]+ (\d+)/);
-          if (m) httpStatus = parseInt(m[1]);
-          responseHeaders = p.headers;
-        }
+    for(var ei=0;ei<evs.length;ei++){
+      var e=evs[ei];
+      var tn=typeById[e.type]||String(e.type);
+      var p=e.params||{};
+      if(!startTime&&e.time) startTime=parseInt(e.time);
+      if(e.time) endTime=parseInt(e.time);
+      if(!url&&p.url) url=p.url;
+      if(!url&&p.request_url) url=p.request_url;
+      if(p.method) method=p.method;
+      if(p.proxy_server||p.proxy_chain) proxyUsed=p.proxy_server||p.proxy_chain;
+      if(p.remote_address) remoteAddr=p.remote_address;
+      if(p.ssl_version||p.negotiated_protocol) sslInfo=p.ssl_version||p.negotiated_protocol;
+      if(p.headers&&Array.isArray(p.headers)){
+        var sl=null;
+        for(var hi=0;hi<p.headers.length;hi++){ if(p.headers[hi].indexOf('HTTP/')==0){ sl=p.headers[hi]; break; } }
+        if(sl){ var m=sl.match(/HTTP\/[\d.]+ (\d+)/); if(m) httpStatus=parseInt(m[1]); respHeaders=p.headers; }
       }
-
-      if (p.net_error !== undefined && p.net_error !== 0) {
-        errorCode = p.net_error;
-        errorStr = errById[errorCode] || errorName(errorCode) || `NET_ERROR(${errorCode})`;
+      if(p.net_error!==undefined&&p.net_error!==0&&p.net_error!==null){
+        errorCode=p.net_error;
+        errorStr=errById[errorCode]||errName(errorCode)||('NET_ERROR('+errorCode+')');
       }
-      if (p.error_code !== undefined && p.error_code !== 0 && !errorCode) {
-        errorCode = p.error_code;
-        errorStr = errById[errorCode] || errorName(errorCode) || `NET_ERROR(${errorCode})`;
-      }
-      if (p.net_error_details) {
-        errorStr = (errorStr ? errorStr + ' | ' : '') + p.net_error_details;
+      if(p.error_code!==undefined&&p.error_code!==0&&p.error_code!==null&&!errorCode){
+        errorCode=p.error_code;
+        errorStr=errById[errorCode]||errName(errorCode)||('NET_ERROR('+errorCode+')');
       }
     }
-
-    if (!url) continue;
-
-    const duration = (startTime && endTime) ? (endTime - startTime) : null;
-
-    let severity = 'ok';
-    let displayError = errorStr || (httpStatus && httpStatus >= 400 ? `HTTP ${httpStatus}` : null);
-
-    if (errorStr) {
-      const cls = classifyError(errorStr);
-      if (cls) severity = cls;
-    } else if (httpStatus) {
-      if (httpStatus >= 500) severity = 'failed';
-      else if (httpStatus >= 400) severity = 'warn';
-    }
-
-    const syncRelated = isSyncUrl(url);
-
-    rows.push({
-      id: src.id,
-      sourceType: src.type,
-      url,
-      httpStatus,
-      errorCode,
-      errorStr,
-      displayError,
-      severity,
-      syncRelated,
-      duration,
-      requestMethod,
-      responseHeaders,
-      events: evs.map(ev => ({
-        time: ev.time,
-        type: typeById[ev.type] || ev.type,
-        phase: ev.phase,
-        params: ev.params
-      }))
-    });
+    if(!url) continue;
+    var dur=(startTime&&endTime)?(endTime-startTime):null;
+    var sev='ok';
+    var dispErr=errorStr||(httpStatus&&httpStatus>=400?'HTTP '+httpStatus:null);
+    if(errorStr){ var cls=classifyErr(errorStr); if(cls) sev=cls; }
+    else if(httpStatus){ if(httpStatus>=500) sev='failed'; else if(httpStatus>=400) sev='warn'; }
+    rows.push({id:src.id,sourceType:src.type,url:url,httpStatus:httpStatus,errorCode:errorCode,errorStr:errorStr,displayError:dispErr,severity:sev,syncRelated:isSyncUrl(url),isProxyErr:hasAny(errorStr,PROXY_ERRORS),isCertErr:hasAny(errorStr,CERT_ERRORS),isDnsErr:hasAny(errorStr,DNS_ERRORS),duration:dur,method:method,respHeaders:respHeaders,proxyUsed:proxyUsed,remoteAddr:remoteAddr,sslInfo:sslInfo,events:evs.map(function(ev){ return {time:ev.time,type:typeById[ev.type]||ev.type,phase:ev.phase,params:ev.params}; })});
   }
-
-  rows.sort((a,b) => {
-    const order = {blocked:0, failed:1, warn:2, info:3, ok:4};
-    return (order[a.severity]||3) - (order[b.severity]||3);
-  });
-
+  rows.sort(function(a,b){ var o={blocked:0,failed:1,warn:2,info:3,ok:4}; return(o[a.severity]||3)-(o[b.severity]||3); });
   return rows;
 }
 
-function buildSummary(rows) {
-  const counts = {blocked:0, failed:0, warn:0, ok:0, sync:0, total:rows.length};
-  for (const r of rows) {
-    if (r.severity === 'blocked') counts.blocked++;
-    else if (r.severity === 'failed') counts.failed++;
-    else if (r.severity === 'warn') counts.warn++;
-    else counts.ok++;
-    if (r.syncRelated) counts.sync++;
+function buildSockRows(data){
+  var C=data.constants||{}, typeById={}, sourceById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  Object.keys(C.logSourceType||{}).forEach(function(k){ sourceById[C.logSourceType[k]]=k; });
+  var sources={};
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var ev=events[i];
+    var tn=typeById[ev.type]||'';
+    var stype=sourceById[ev.source&&ev.source.type]||'';
+    var sid=ev.source&&ev.source.id;
+    if(sid===undefined||sid===null) continue;
+    if(tn.indexOf('SOCKET')<0&&stype.indexOf('SOCKET')<0&&tn.indexOf('TCP_CONNECT')<0&&tn.indexOf('SSL_CONNECT')<0) continue;
+    if(!sources[sid]) sources[sid]={id:sid,type:stype,events:[]};
+    sources[sid].events.push({type:tn,params:ev.params||{},time:ev.time,phase:ev.phase});
   }
-  const bar = document.getElementById('summary-bar');
-  bar.innerHTML = `
-    <div class="summary-stat"><span class="stat-dot" style="background:#888"></span><span class="stat-label">Total requests</span><span class="stat-val">${counts.total}</span></div>
-    <div class="divider-v"></div>
-    <div class="summary-stat"><span class="stat-dot" style="background:var(--red)"></span><span class="stat-label">Blocked</span><span class="stat-val red">${counts.blocked}</span></div>
-    <div class="summary-stat"><span class="stat-dot" style="background:var(--orange)"></span><span class="stat-label">Failed</span><span class="stat-val orange">${counts.failed}</span></div>
-    <div class="summary-stat"><span class="stat-dot" style="background:var(--yellow)"></span><span class="stat-label">Warnings</span><span class="stat-val yellow">${counts.warn}</span></div>
-    <div class="summary-stat"><span class="stat-dot" style="background:var(--green)"></span><span class="stat-label">OK</span><span class="stat-val green">${counts.ok}</span></div>
-    <div class="divider-v"></div>
-    <div class="summary-stat"><span class="stat-dot" style="background:var(--blue)"></span><span class="stat-label">Sync endpoints</span><span class="stat-val blue">${counts.sync}</span></div>
-  `;
+  var rows=[];
+  var sids=Object.keys(sources);
+  for(var si=0;si<sids.length;si++){
+    var src=sources[sids[si]];
+    var host=null,remote=null,proxy=null,ssl=null,bIn=null,bOut=null,err=null;
+    for(var ei=0;ei<src.events.length;ei++){
+      var p=src.events[ei].params;
+      if(p.host_and_port||p.host) host=p.host_and_port||p.host;
+      if(p.remote_address) remote=p.remote_address;
+      if(p.proxy_server) proxy=p.proxy_server;
+      if(p.ssl_version||p.negotiated_protocol) ssl=p.ssl_version||p.negotiated_protocol;
+      if(p.bytes_received!=null) bIn=(bIn||0)+p.bytes_received;
+      if(p.bytes_sent!=null) bOut=(bOut||0)+p.bytes_sent;
+      if(p.net_error!=null&&p.net_error!==0) err=NET_ERR[String(p.net_error)]||('NET_ERROR('+p.net_error+')');
+    }
+    rows.push({id:src.id,type:src.type,host:host,remote:remote,proxy:proxy,ssl:ssl,bIn:bIn,bOut:bOut,err:err,severity:err?(classifyErr(err)||'failed'):'ok'});
+  }
+  return rows;
 }
 
-function buildInsights(rows) {
-  const blocked = rows.filter(r => r.severity === 'blocked' && r.syncRelated);
-  const bar = document.getElementById('insight-bar');
-  const list = document.getElementById('insight-list');
-  if (blocked.length === 0) { bar.classList.remove('show'); return; }
+function buildSummary(rows){
+  var bl=0,fa=0,wa=0,ok=0,sy=0;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];
+    if(r.severity==='blocked') bl++;
+    else if(r.severity==='failed') fa++;
+    else if(r.severity==='warn') wa++;
+    else ok++;
+    if(r.syncRelated) sy++;
+  }
+  document.getElementById('summary-bar').innerHTML='<div class="sstat"><span class="sdot" style="background:#888"></span><span class="slabel">Total</span><span class="sval">'+rows.length+'</span></div><div class="sdiv"></div><div class="sstat"><span class="sdot" style="background:var(--red)"></span><span class="slabel">Blocked</span><span class="sval r">'+bl+'</span></div><div class="sstat"><span class="sdot" style="background:var(--orange)"></span><span class="slabel">Failed</span><span class="sval o">'+fa+'</span></div><div class="sstat"><span class="sdot" style="background:var(--yellow)"></span><span class="slabel">Warnings</span><span class="sval y">'+wa+'</span></div><div class="sstat"><span class="sdot" style="background:var(--green)"></span><span class="slabel">OK</span><span class="sval g">'+ok+'</span></div><div class="sdiv"></div><div class="sstat"><span class="sdot" style="background:var(--blue)"></span><span class="slabel">Sync/Auth</span><span class="sval b">'+sy+'</span></div>';
+}
 
+function buildInsights(rows){
+  var bar=document.getElementById('insight-bar'), chips=document.getElementById('insight-chips'), issues=[];
+  var bl=[];
+  for(var i=0;i<rows.length;i++){ if(rows[i].severity==='blocked'&&rows[i].syncRelated) bl.push(rows[i]); }
+  if(bl.length){
+    var seen={};
+    for(var i=0;i<bl.length;i++){ var h=''; try{ h=new URL(bl[i].url).host; }catch(e){ h=bl[i].url; } if(!seen[h]){ seen[h]=1; issues.push({label:'Blocked: '+h,cb:"searchFor('"+h+"')"}); } }
+  }
+  var pe=0,ce=0,de=0;
+  for(var i=0;i<rows.length;i++){ if(rows[i].isProxyErr) pe++; if(rows[i].isCertErr) ce++; if(rows[i].isDnsErr) de++; }
+  if(pe>0) issues.push({label:'Proxy errors ('+pe+')',cb:"setF('proxy_err',null)"});
+  if(ce>0) issues.push({label:'Cert errors ('+ce+')',cb:"setF('cert',null)"});
+  if(de>0) issues.push({label:'DNS failures ('+de+')',cb:"setF('dns',null)"});
+  if(!issues.length){ bar.classList.remove('show'); return; }
   bar.classList.add('show');
-  const urlSet = new Set(blocked.map(r => { try { return new URL(r.url).host; } catch { return r.url; } }));
-  list.innerHTML = [...urlSet].map(h =>
-    `<span class="insight-chip" onclick="searchFor('${h}')">${h}</span>`
-  ).join('');
+  var html='';
+  for(var i=0;i<issues.length;i++) html+='<span class="ichip" onclick="'+issues[i].cb+'">'+esc(issues[i].label)+'</span>';
+  chips.innerHTML=html;
 }
 
-function searchFor(q) {
-  document.getElementById('search-box').value = q;
-  renderTable();
+function updateTabBadges(rows){
+  var pe=0,de=0;
+  for(var i=0;i<rows.length;i++){ if(rows[i].isProxyErr) pe++; if(rows[i].isDnsErr) de++; }
+  var se=0; for(var i=0;i<sockRows.length;i++){ if(sockRows[i].severity!=='ok') se++; }
+  if(pe>0) document.getElementById('tab-proxy').innerHTML='Proxy <span class="tbadge err">'+pe+'</span>';
+  if(de>0) document.getElementById('tab-dns').innerHTML='DNS <span class="tbadge err">'+de+'</span>';
+  if(se>0) document.getElementById('tab-sockets').innerHTML='Sockets <span class="tbadge warn">'+se+'</span>';
 }
 
-function setFilter(f, btn) {
-  currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.remove('active');
-    if (b.dataset.filter === f) b.classList.add('active');
-  });
-  renderTable();
-}
-
-function sevBadge(sev) {
-  const map = {
-    blocked: '<span class="sev sev-blocked">● Blocked</span>',
-    failed:  '<span class="sev sev-failed">● Failed</span>',
-    warn:    '<span class="sev sev-warn">◐ Warning</span>',
-    ok:      '<span class="sev sev-ok">● OK</span>',
-  };
-  return map[sev] || sev;
-}
-
-function renderTable() {
-  const q = (document.getElementById('search-box').value || '').toLowerCase();
-  const filtered = allRows.filter(r => {
-    if (currentFilter === 'blocked' && r.severity !== 'blocked') return false;
-    if (currentFilter === 'failed' && r.severity !== 'failed') return false;
-    if (currentFilter === 'warn' && r.severity !== 'warn') return false;
-    if (currentFilter === 'ok' && r.severity !== 'ok') return false;
-    if (currentFilter === 'sync' && !r.syncRelated) return false;
-    if (q && !(
-      (r.url||'').toLowerCase().includes(q) ||
-      (r.displayError||'').toLowerCase().includes(q) ||
-      (r.sourceType||'').toLowerCase().includes(q)
-    )) return false;
-    return true;
-  });
-
-  const tbody = document.getElementById('table-body');
-  const empty = document.getElementById('empty-state');
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
+function buildProxyPanel(data,rows){
+  var C=data.constants||{}, typeById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  var pacEvt=null, proxyConfig=null;
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var tn=typeById[events[i].type]||'', p=events[i].params||{};
+    if(tn.indexOf('PAC_FILE')>=0||tn.indexOf('PROXY_SCRIPT')>=0) pacEvt=p;
+    if(tn.indexOf('PROXY_CONFIG')>=0) proxyConfig=p;
   }
-  empty.style.display = 'none';
-
-  tbody.innerHTML = filtered.map((r, i) => {
-    const dur = r.duration !== null ? `${r.duration}ms` : '—';
-    const errClass = r.severity === 'blocked' ? 'error-code' : r.severity === 'failed' ? 'error-code error-warn' : 'error-code' ;
-    const syncMark = r.syncRelated ? ' <span style="color:var(--blue);font-size:10px;">SYNC</span>' : '';
-    return `
-    <tr onclick="toggleExpand(${i}, this)" data-idx="${i}">
-      <td class="col-sev">${sevBadge(r.severity)}</td>
-      <td class="col-type"><span class="type-chip">${r.sourceType||'URL_REQUEST'}</span></td>
-      <td class="col-url">${formatUrl(r.url)}${syncMark}</td>
-      <td class="col-error"><span class="${errClass}">${r.displayError ? escHtml(r.displayError) : (r.httpStatus ? `HTTP ${r.httpStatus}` : '<span style="color:var(--text3)">—</span>')}</span></td>
-      <td class="col-time" style="color:var(--text2)">${dur}</td>
-    </tr>
-    <tr class="detail-row" id="detail-${i}" style="display:none;"><td colspan="5"></td></tr>
-    `;
-  }).join('');
-
-  // store filtered ref for expand
-  tbody._filtered = filtered;
+  var peRows=[],pUsedRows=[];
+  for(var i=0;i<rows.length;i++){ if(rows[i].isProxyErr) peRows.push(rows[i]); if(rows[i].proxyUsed) pUsedRows.push(rows[i]); }
+  var proxyHostsSeen={};
+  for(var i=0;i<pUsedRows.length;i++) proxyHostsSeen[pUsedRows[i].proxyUsed]=1;
+  var proxyHosts=Object.keys(proxyHostsSeen);
+  var isUsed=proxyHosts.length>0;
+  var html='<div class="info-section"><div class="info-section-head"><h3>Proxy Status</h3>'+(isUsed?'<span class="pill pill-orange">Proxy Detected</span>':'<span class="pill pill-green">Direct Connection</span>')+'</div><div class="info-section-body">';
+  if(isUsed) html+='<div class="box-warn"><p>A proxy is in use. This is a common cause of Edge profile sync failures. The proxy may be blocking Microsoft auth/sync endpoints, requiring authentication, or performing SSL inspection with an untrusted CA.</p></div>';
+  else html+='<div class="box-ok"><p>No proxy detected — requests go directly to the internet. Sync failures here are more likely caused by firewall rules, certificate issues, or DNS problems.</p></div>';
+  html+='<div class="info-kv"><span class="info-k">Proxy in use</span><span class="info-v '+(isUsed?'o':'g')+'">'+(isUsed?'Yes':'No')+'</span></div>';
+  if(proxyHosts.length) html+='<div class="info-kv"><span class="info-k">Proxy servers</span><span class="info-v">'+proxyHosts.map(function(h){ return '<code style="background:var(--bg3);padding:1px 5px;border-radius:3px">'+esc(h)+'</code>'; }).join(', ')+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Requests via proxy</span><span class="info-v">'+pUsedRows.length+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Proxy errors</span><span class="info-v '+(peRows.length>0?'r':'g')+'">'+peRows.length+'</span></div>';
+  if(pacEvt) html+='<div class="info-kv"><span class="info-k">PAC/proxy script event</span><span class="info-v b">'+esc(JSON.stringify(pacEvt).slice(0,240))+'</span></div>';
+  if(proxyConfig) html+='<div class="info-kv"><span class="info-k">Proxy config event</span><span class="info-v">'+esc(JSON.stringify(proxyConfig).slice(0,240))+'</span></div>';
+  html+='</div></div>';
+  if(peRows.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>Proxy Errors</h3><span class="pill pill-red">'+peRows.length+' errors</span></div><div class="info-section-body"><table class="info-table"><thead><tr><th>URL</th><th>Error</th><th>Proxy</th></tr></thead><tbody>';
+    for(var i=0;i<Math.min(peRows.length,50);i++){ var r=peRows[i]; html+='<tr><td style="max-width:280px;word-break:break-all;color:var(--blue)">'+esc(r.url)+'</td><td style="color:var(--red)">'+esc(r.displayError||'')+'</td><td>'+esc(r.proxyUsed||'—')+'</td></tr>'; }
+    html+='</tbody></table></div></div>';
+  }
+  html+='<div class="info-section"><div class="info-section-head"><h3>Proxy Error Reference — Edge Sync</h3></div><div class="info-section-body"><table class="info-table"><thead><tr><th>Error</th><th>Likely Cause</th><th>Fix</th></tr></thead><tbody><tr><td>ERR_PROXY_AUTH_REQUESTED</td><td>Proxy needs credentials; Edge not configured</td><td>Set proxy auth via Intune / GPO; add bypass for Microsoft endpoints</td></tr><tr><td>ERR_PROXY_CONNECTION_FAILED</td><td>Proxy host unreachable</td><td>Verify proxy address/port; test connectivity to proxy</td></tr><tr><td>ERR_TUNNEL_CONNECTION_FAILED</td><td>Proxy blocks HTTPS CONNECT tunnels</td><td>Allow CONNECT to Microsoft endpoints; review SSL inspection config</td></tr><tr><td>ERR_NO_SUPPORTED_PROXIES</td><td>All proxies failed; bad PAC script</td><td>Validate PAC syntax; check WPAD DNS</td></tr><tr><td>ERR_CERT_AUTHORITY_INVALID (proxy)</td><td>SSL inspection — proxy CA not trusted</td><td>Push proxy CA cert to trusted roots via Intune/GPO</td></tr><tr><td>ERR_MANDATORY_PROXY_CONFIGURATION_FAILED</td><td>Mandatory proxy unreachable at startup</td><td>Check ProxyServer policy; verify network before proxy</td></tr></tbody></table></div></div>';
+  document.getElementById('proxy-content').innerHTML=html;
 }
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function buildDnsPanel(data,rows){
+  var C=data.constants||{}, typeById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  var dnsFailEvts=[], dnsConfig=null;
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var tn=typeById[events[i].type]||'', p=events[i].params||{};
+    if(tn.indexOf('HOST_RESOLVER')>=0||tn.indexOf('DNS')>=0){ if(p.net_error&&p.net_error!==0) dnsFailEvts.push({type:tn,params:p,time:events[i].time}); }
+    if(tn.indexOf('DNS_CONFIG')>=0) dnsConfig=p;
+  }
+  var deRows=[];
+  for(var i=0;i<rows.length;i++){ if(rows[i].isDnsErr) deRows.push(rows[i]); }
+  var unSeen={};
+  for(var i=0;i<deRows.length;i++){ var h=''; try{ h=new URL(deRows[i].url).host; }catch(e){ h=deRows[i].url; } unSeen[h]=1; }
+  var unhosts=Object.keys(unSeen);
+  var html='<div class="info-section"><div class="info-section-head"><h3>DNS Status</h3>'+(deRows.length>0?'<span class="pill pill-red">'+deRows.length+' failures</span>':'<span class="pill pill-green">No DNS failures</span>')+'</div><div class="info-section-body">';
+  html+='<div class="info-kv"><span class="info-k">DNS error count</span><span class="info-v '+(deRows.length>0?'r':'g')+'">'+deRows.length+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Unresolved hosts</span><span class="info-v '+(unhosts.length?'r':'g')+'">'+(unhosts.length?unhosts.join(', '):'None')+'</span></div>';
+  if(dnsConfig) html+='<div class="info-kv"><span class="info-k">DNS config</span><span class="info-v">'+esc(JSON.stringify(dnsConfig).slice(0,300))+'</span></div>';
+  html+='</div></div>';
+  if(deRows.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>DNS Failures</h3></div><div class="info-section-body"><table class="info-table"><thead><tr><th>Host</th><th>URL</th><th>Error</th></tr></thead><tbody>';
+    for(var i=0;i<Math.min(deRows.length,50);i++){ var r=deRows[i]; var h=''; try{ h=new URL(r.url).host; }catch(e){ h=r.url; } html+='<tr><td style="color:var(--orange)">'+esc(h)+'</td><td style="max-width:240px;word-break:break-all;color:var(--text2)">'+esc(r.url)+'</td><td style="color:var(--red)">'+esc(r.displayError||'')+'</td></tr>'; }
+    html+='</tbody></table></div></div>';
+  }
+  if(dnsFailEvts.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>Raw DNS Event Failures</h3></div><div class="info-section-body">';
+    for(var i=0;i<Math.min(dnsFailEvts.length,30);i++){ var f=dnsFailEvts[i]; html+='<div class="evl"><span class="et">'+esc(f.time||'')+'</span><span class="etype">'+esc(f.type)+'</span><span class="epar">'+esc(JSON.stringify(f.params).slice(0,200))+'</span></div>'; }
+    html+='</div></div>';
+  }
+  document.getElementById('dns-content').innerHTML=html;
 }
 
-function toggleExpand(idx, row) {
-  const detailRow = document.getElementById(`detail-${idx}`);
-  if (!detailRow) return;
-  const isOpen = detailRow.style.display !== 'none';
-  // Close all
-  document.querySelectorAll('.detail-row').forEach(r => r.style.display = 'none');
-  if (isOpen) return;
-
-  const tbody = document.getElementById('table-body');
-  const r = tbody._filtered[idx];
-  if (!r) return;
-
-  detailRow.style.display = '';
-  const td = detailRow.querySelector('td');
-
-  const evRows = (r.events || []).slice(0, 50).map(ev => {
-    const params = ev.params ? Object.entries(ev.params).map(([k,v]) =>
-      `<span style="color:var(--text3)">${k}=</span><span style="color:var(--text2)">${typeof v === 'object' ? JSON.stringify(v).slice(0,120) : escHtml(String(v))}</span>`
-    ).join(' ') : '';
-    return `<div class="event-line">
-      <span class="event-time">${ev.time || ''}</span>
-      <span class="event-type">${ev.type || ''}</span>
-      <span class="event-phase">${['NONE','BEGIN','END'][ev.phase]||ev.phase||''}</span>
-      <span class="event-params">${params}</span>
-    </div>`;
-  }).join('');
-
-  const rhRows = (r.responseHeaders||[]).slice(0,20).map(h => `<div class="event-line"><span style="font-family:var(--mono);font-size:11px;color:var(--text2)">${escHtml(h)}</span></div>`).join('');
-
-  td.innerHTML = `<div class="detail-panel">
-    <div class="detail-grid">
-      <div class="detail-section">
-        <h4>Request</h4>
-        <div class="detail-kv"><span class="detail-k">URL</span><span class="detail-v blue">${escHtml(r.url)}</span></div>
-        <div class="detail-kv"><span class="detail-k">Method</span><span class="detail-v">${r.requestMethod||'—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Source type</span><span class="detail-v">${r.sourceType||'—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Source ID</span><span class="detail-v">${r.id}</span></div>
-        <div class="detail-kv"><span class="detail-k">Duration</span><span class="detail-v">${r.duration !== null ? r.duration+'ms' : '—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Sync endpoint</span><span class="detail-v">${r.syncRelated ? '<span style="color:var(--blue)">Yes</span>' : 'No'}</span></div>
-      </div>
-      <div class="detail-section">
-        <h4>Error / Response</h4>
-        <div class="detail-kv"><span class="detail-k">HTTP status</span><span class="detail-v ${r.httpStatus>=400?'red':''}">${r.httpStatus||'—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Net error code</span><span class="detail-v red">${r.errorCode !== null && r.errorCode !== undefined ? r.errorCode : '—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Error string</span><span class="detail-v red">${r.errorStr ? escHtml(r.errorStr) : '—'}</span></div>
-        <div class="detail-kv"><span class="detail-k">Severity</span><span class="detail-v">${r.severity}</span></div>
-      </div>
-    </div>
-    ${rhRows ? `<div class="detail-events"><h4>Response headers</h4>${rhRows}</div>` : ''}
-    <div class="detail-events">
-      <h4>Event trace (${Math.min(r.events.length,50)} of ${r.events.length})</h4>
-      ${evRows || '<div style="color:var(--text3);font-size:12px;padding:8px 0">No events recorded</div>'}
-    </div>
-  </div>`;
+function buildHttp2Panel(data){
+  var C=data.constants||{}, typeById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  var srcMap={};
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var tn=typeById[events[i].type]||'';
+    var sid=events[i].source&&events[i].source.id;
+    if(sid===undefined||sid===null) continue;
+    if(tn.indexOf('HTTP2')<0&&tn.indexOf('SPDY')<0) continue;
+    if(!srcMap[sid]) srcMap[sid]={id:sid,events:[]};
+    srcMap[sid].events.push({type:tn,params:events[i].params||{},time:events[i].time,phase:events[i].phase});
+  }
+  var sessions=[];
+  var sids=Object.keys(srcMap);
+  for(var si=0;si<sids.length;si++){
+    var src=srcMap[sids[si]]; var host=null,proxy=null,proto=null,err=null,streams=0;
+    for(var ei=0;ei<src.events.length;ei++){ var p=src.events[ei].params; if(p.host) host=p.host; if(p.proxy) proxy=p.proxy; if(p.negotiated_protocol) proto=p.negotiated_protocol; if(p.stream_id) streams=Math.max(streams,p.stream_id); if(p.net_error&&p.net_error!==0) err=NET_ERR[String(p.net_error)]||('NET_ERROR('+p.net_error+')'); }
+    sessions.push({id:src.id,host:host,proxy:proxy,proto:proto,err:err,streams:streams});
+  }
+  var errCount=0; for(var i=0;i<sessions.length;i++){ if(sessions[i].err) errCount++; }
+  var html='<div class="info-section"><div class="info-section-head"><h3>HTTP/2 Status</h3>'+(sessions.length>0?'<span class="pill pill-green">HTTP/2 Active</span>':'<span class="pill pill-gray">No HTTP/2 sessions</span>')+'</div><div class="info-section-body"><div class="info-kv"><span class="info-k">Sessions</span><span class="info-v">'+sessions.length+'</span></div><div class="info-kv"><span class="info-k">Sessions with errors</span><span class="info-v '+(errCount>0?'r':'g')+'">'+errCount+'</span></div></div></div>';
+  if(sessions.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>HTTP/2 Sessions</h3></div><div class="info-section-body"><table class="info-table"><thead><tr><th>Host</th><th>Protocol</th><th>Proxy</th><th>Max Stream</th><th>Error</th></tr></thead><tbody>';
+    for(var i=0;i<Math.min(sessions.length,40);i++){ var s=sessions[i]; html+='<tr><td style="color:var(--blue)">'+esc(s.host||'—')+'</td><td>'+esc(s.proto||'—')+'</td><td>'+esc(s.proxy||'—')+'</td><td>'+esc(s.streams||'—')+'</td><td style="color:var(--red)">'+esc(s.err||'')+'</td></tr>'; }
+    html+='</tbody></table></div></div>';
+  }
+  document.getElementById('http2-content').innerHTML=html;
 }
 
-function loadFile(file) {
+function buildQuicPanel(data){
+  var C=data.constants||{}, typeById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  var srcMap={};
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var tn=typeById[events[i].type]||'';
+    var sid=events[i].source&&events[i].source.id;
+    if(sid===undefined||sid===null) continue;
+    if(tn.indexOf('QUIC')<0) continue;
+    if(!srcMap[sid]) srcMap[sid]={id:sid,events:[]};
+    srcMap[sid].events.push({type:tn,params:events[i].params||{},time:events[i].time});
+  }
+  var sessions=[];
+  var sids=Object.keys(srcMap);
+  for(var si=0;si<sids.length;si++){
+    var src=srcMap[sids[si]]; var host=null,ver=null,err=null,sent=0,rcvd=0,lost=0;
+    for(var ei=0;ei<src.events.length;ei++){ var p=src.events[ei].params; if(p.host) host=p.host; if(p.version) ver=p.version; if(p.net_error&&p.net_error!==0) err=NET_ERR[String(p.net_error)]||('NET_ERROR('+p.net_error+')'); if(p.packets_sent) sent+=p.packets_sent; if(p.packets_received) rcvd+=p.packets_received; if(p.packets_lost) lost+=p.packets_lost; }
+    sessions.push({id:src.id,host:host,ver:ver,err:err,sent:sent,rcvd:rcvd,lost:lost});
+  }
+  var errCount=0; for(var i=0;i<sessions.length;i++){ if(sessions[i].err) errCount++; }
+  var html='<div class="info-section"><div class="info-section-head"><h3>QUIC Status</h3>'+(sessions.length>0?'<span class="pill pill-blue">QUIC Active</span>':'<span class="pill pill-gray">QUIC not detected</span>')+'</div><div class="info-section-body"><div class="info-kv"><span class="info-k">QUIC sessions</span><span class="info-v">'+sessions.length+'</span></div><div class="info-kv"><span class="info-k">Sessions with errors</span><span class="info-v '+(errCount>0?'r':'g')+'">'+errCount+'</span></div>';
+  if(!sessions.length) html+='<div class="box-info"><p>QUIC was not used. This may mean it is disabled by policy, or UDP port 443 is blocked on the network. Microsoft services can fall back to TCP but may have higher latency.</p></div>';
+  html+='</div></div>';
+  if(sessions.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>QUIC Sessions</h3></div><div class="info-section-body"><table class="info-table"><thead><tr><th>Host</th><th>Version</th><th>Pkts Sent</th><th>Pkts Rcvd</th><th>Pkts Lost</th><th>Error</th></tr></thead><tbody>';
+    for(var i=0;i<Math.min(sessions.length,30);i++){ var s=sessions[i]; html+='<tr><td style="color:var(--blue)">'+esc(s.host||'—')+'</td><td>'+esc(s.ver||'—')+'</td><td>'+esc(s.sent||'—')+'</td><td>'+esc(s.rcvd||'—')+'</td><td style="color:'+(s.lost?'var(--orange)':'inherit')+'">'+esc(s.lost||'—')+'</td><td style="color:var(--red)">'+esc(s.err||'')+'</td></tr>'; }
+    html+='</tbody></table></div></div>';
+  }
+  document.getElementById('quic-content').innerHTML=html;
+}
+
+function buildCachePanel(data){
+  var C=data.constants||{}, typeById={};
+  Object.keys(C.logEventTypes||{}).forEach(function(k){ typeById[C.logEventTypes[k]]=k; });
+  var hits=0,misses=0,cacheErrs=[],total=0;
+  var events=data.events||[];
+  for(var i=0;i<events.length;i++){
+    var tn=typeById[events[i].type]||'', p=events[i].params||{};
+    if(tn.indexOf('CACHE')<0) continue;
+    total++;
+    if(tn.indexOf('HIT')>=0) hits++;
+    else if(tn.indexOf('MISS')>=0) misses++;
+    if(p.net_error&&p.net_error!==0) cacheErrs.push({type:tn,params:p,time:events[i].time});
+  }
+  var html='<div class="info-section"><div class="info-section-head"><h3>Cache Statistics</h3></div><div class="info-section-body"><div class="info-kv"><span class="info-k">Cache events</span><span class="info-v">'+total+'</span></div><div class="info-kv"><span class="info-k">Hits</span><span class="info-v g">'+hits+'</span></div><div class="info-kv"><span class="info-k">Misses</span><span class="info-v">'+misses+'</span></div><div class="info-kv"><span class="info-k">Errors</span><span class="info-v '+(cacheErrs.length>0?'r':'g')+'">'+cacheErrs.length+'</span></div></div></div>';
+  if(cacheErrs.length){
+    html+='<div class="info-section"><div class="info-section-head"><h3>Cache Errors</h3></div><div class="info-section-body">';
+    for(var i=0;i<Math.min(cacheErrs.length,20);i++){ var r=cacheErrs[i]; html+='<div class="evl"><span class="et">'+esc(r.time||'')+'</span><span class="etype">'+esc(r.type)+'</span><span class="epar">'+esc(JSON.stringify(r.params).slice(0,200))+'</span></div>'; }
+    html+='</div></div>';
+  }
+  if(!total) html+='<div class="box-info"><p>No cache events found. Log may not include cache events, or cache was bypassed.</p></div>';
+  document.getElementById('cache-content').innerHTML=html;
+}
+
+function buildMetaPanel(data){
+  var C=data.constants||{}, md=C.clientInfo||C.metadata||{};
+  var build=md.version||md.product||C.version||'—', os=md.os||md.os_type||C.os||'—';
+  var cmdLine=md.command_line||'—', keys=Object.keys(C);
+  var html='<div class="info-section"><div class="info-section-head"><h3>Export Metadata</h3></div><div class="info-section-body">';
+  html+='<div class="info-kv"><span class="info-k">Build / Version</span><span class="info-v b">'+esc(build)+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">OS</span><span class="info-v">'+esc(os)+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Capture mode</span><span class="info-v">'+esc(String(data.captureMode||data.capture_mode||'—'))+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Time tick offset</span><span class="info-v">'+esc(String(C.timeTickOffset||'—'))+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Command line</span><span class="info-v" style="word-break:break-all">'+esc(cmdLine)+'</span></div>';
+  html+='<div class="info-kv"><span class="info-k">Total events in log</span><span class="info-v">'+(data.events||[]).length+'</span></div>';
+  html+='</div></div>';
+  html+='<div class="info-section"><div class="info-section-head"><h3>Constants Available</h3></div><div class="info-section-body"><p style="color:var(--text2);font-size:12px;font-family:var(--mono)">'+esc(keys.join(', '))+'</p></div></div>';
+  document.getElementById('meta-content').innerHTML=html;
+}
+
+function setF(f,btn){
+  curFilter=f;
+  var btns=document.querySelectorAll('[data-f]');
+  for(var i=0;i<btns.length;i++){ btns[i].classList.remove('active'); if(btns[i].getAttribute('data-f')===f) btns[i].classList.add('active'); }
+  renderEvents();
+}
+
+function searchFor(q){ document.getElementById('search-box').value=q; setF('all',null); renderEvents(); }
+
+function renderEvents(){
+  var q=(document.getElementById('search-box').value||'').toLowerCase();
+  var filtered=[];
+  for(var i=0;i<allRows.length;i++){
+    var r=allRows[i];
+    if(curFilter==='blocked'&&r.severity!=='blocked') continue;
+    if(curFilter==='failed'&&r.severity!=='failed') continue;
+    if(curFilter==='warn'&&r.severity!=='warn') continue;
+    if(curFilter==='ok'&&r.severity!=='ok') continue;
+    if(curFilter==='sync'&&!r.syncRelated) continue;
+    if(curFilter==='proxy_err'&&!r.isProxyErr) continue;
+    if(curFilter==='cert'&&!r.isCertErr) continue;
+    if(curFilter==='dns'&&!r.isDnsErr) continue;
+    if(q&&(r.url||'').toLowerCase().indexOf(q)<0&&(r.displayError||'').toLowerCase().indexOf(q)<0) continue;
+    filtered.push(r);
+  }
+  var tbody=document.getElementById('table-body'), empty=document.getElementById('empty-state');
+  if(!filtered.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  var html='';
+  for(var i=0;i<filtered.length;i++){
+    var r=filtered[i];
+    var dur=r.duration!==null?r.duration+'ms':'—';
+    var marks=(r.syncRelated?'<span class="mark mark-sync">SYNC</span>':'')+(r.proxyUsed?'<span class="mark mark-proxy">PROXY</span>':'')+(r.isCertErr?'<span class="mark mark-cert">CERT</span>':'')+(r.isDnsErr?'<span class="mark mark-dns">DNS</span>':'');
+    html+='<tr onclick="toggleExp('+i+')"><td>'+sevBadge(r.severity)+'</td><td><span class="chip">'+esc(r.sourceType||'URL_REQUEST')+'</span></td><td>'+fmtUrl(r.url)+marks+'</td><td><span class="err-text">'+esc(r.displayError||'')+'</span></td><td style="color:var(--text2)">'+dur+'</td><td><button class="copy-btn" onclick="event.stopPropagation();copyRow('+i+')" title="Copy error snippet">Copy</button></td></tr>';
+    html+='<tr class="detail-row" id="drow-'+i+'" style="display:none"><td colspan="6"></td></tr>';
+  }
+  tbody.innerHTML=html;
+  tbody._f=filtered;
+}
+
+function copyRow(idx){
+  var filtered=document.getElementById('table-body')._f;
+  if(!filtered||!filtered[idx]) return;
+  copyText(buildRowSnippet(filtered[idx]));
+}
+
+function toggleExp(idx){
+  var dr=document.getElementById('drow-'+idx);
+  if(!dr) return;
+  var isOpen=dr.style.display!=='none';
+  var allDr=document.querySelectorAll('.detail-row');
+  for(var i=0;i<allDr.length;i++) allDr[i].style.display='none';
+  if(isOpen) return;
+  var filtered=document.getElementById('table-body')._f;
+  if(!filtered||!filtered[idx]) return;
+  var r=filtered[idx];
+  dr.style.display='';
+  var td=dr.querySelector('td');
+  var rh='';
+  for(var i=0;i<Math.min((r.respHeaders||[]).length,20);i++) rh+='<div class="evl"><span style="font-family:var(--mono);font-size:11px;color:var(--text2)">'+esc(r.respHeaders[i])+'</span></div>';
+  var evRows='';
+  var evs=r.events||[];
+  for(var i=0;i<Math.min(evs.length,60);i++){
+    var ev=evs[i];
+    var params='';
+    if(ev.params){
+      var keys=Object.keys(ev.params).slice(0,6);
+      for(var ki=0;ki<keys.length;ki++){
+        var val=ev.params[keys[ki]];
+        params+='<span style="color:var(--text3)">'+keys[ki]+'=</span><span style="color:var(--text2)">'+(typeof val==='object'?JSON.stringify(val).slice(0,80):esc(String(val)))+'</span> ';
+      }
+    }
+    evRows+='<div class="evl"><span class="et">'+esc(ev.time||'')+'</span><span class="etype">'+esc(ev.type||'')+'</span><span class="eph">'+(['NONE','BEGIN','END'][ev.phase]||String(ev.phase||''))+'</span><span class="epar">'+params+'</span></div>';
+  }
+  td.innerHTML='<div class="dp">'+
+    '<div class="dp-header"><h4>Request Details</h4><button class="copy-btn" onclick="copyText(buildRowSnippet(document.getElementById(\'table-body\')._f['+idx+']),this)">Copy snippet</button></div>'+
+    '<div class="dp-grid">'+
+      '<div class="dp-sec"><h4>Request</h4>'+
+        '<div class="kv"><span class="kk">URL</span><span class="vv b">'+esc(r.url)+'</span></div>'+
+        '<div class="kv"><span class="kk">Method</span><span class="vv">'+esc(r.method||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Source type</span><span class="vv">'+esc(r.sourceType||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Source ID</span><span class="vv">'+r.id+'</span></div>'+
+        '<div class="kv"><span class="kk">Duration</span><span class="vv">'+(r.duration!==null?r.duration+'ms':'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Remote address</span><span class="vv">'+esc(r.remoteAddr||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Proxy used</span><span class="vv '+(r.proxyUsed?'o':'g')+'">'+esc(r.proxyUsed||'None')+'</span></div>'+
+        '<div class="kv"><span class="kk">SSL / Protocol</span><span class="vv">'+esc(r.sslInfo||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Sync endpoint</span><span class="vv '+(r.syncRelated?'b':'g')+'">'+(r.syncRelated?'Yes':'No')+'</span></div>'+
+      '</div>'+
+      '<div class="dp-sec"><h4>Error / Response</h4>'+
+        '<div class="kv"><span class="kk">HTTP status</span><span class="vv '+((r.httpStatus||0)>=400?'r':'')+'">'+esc(r.httpStatus||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Net error code</span><span class="vv r">'+esc(r.errorCode!==null&&r.errorCode!==undefined?r.errorCode:'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Error string</span><span class="vv r">'+esc(r.errorStr||'—')+'</span></div>'+
+        '<div class="kv"><span class="kk">Severity</span><span class="vv">'+r.severity+'</span></div>'+
+        '<div class="kv"><span class="kk">Proxy error</span><span class="vv '+(r.isProxyErr?'r':'g')+'">'+(r.isProxyErr?'Yes':'No')+'</span></div>'+
+        '<div class="kv"><span class="kk">Cert error</span><span class="vv '+(r.isCertErr?'r':'g')+'">'+(r.isCertErr?'Yes':'No')+'</span></div>'+
+        '<div class="kv"><span class="kk">DNS error</span><span class="vv '+(r.isDnsErr?'r':'g')+'">'+(r.isDnsErr?'Yes':'No')+'</span></div>'+
+      '</div>'+
+    '</div>'+
+    (rh?'<div class="ev-trace"><div class="ev-trace-header"><h4>Response Headers</h4></div>'+rh+'</div>':'')+
+    '<div class="ev-trace"><div class="ev-trace-header"><h4>Event Trace ('+Math.min(evs.length,60)+' of '+evs.length+')</h4></div>'+
+      (evRows||'<span style="color:var(--text3);font-size:12px">No events</span>')+
+    '</div>'+
+  '</div>';
+}
+
+function setSF(f,btn){
+  curSF=f;
+  var btns=document.querySelectorAll('[data-sf]');
+  for(var i=0;i<btns.length;i++){ btns[i].classList.remove('active'); if(btns[i].getAttribute('data-sf')===f) btns[i].classList.add('active'); }
+  renderSockets();
+}
+
+function renderSockets(){
+  var q=(document.getElementById('sock-search').value||'').toLowerCase();
+  var filtered=[];
+  for(var i=0;i<sockRows.length;i++){
+    var r=sockRows[i];
+    if(curSF==='error'&&r.severity==='ok') continue;
+    if(q&&(r.host||'').toLowerCase().indexOf(q)<0&&(r.remote||'').toLowerCase().indexOf(q)<0&&(r.proxy||'').toLowerCase().indexOf(q)<0) continue;
+    filtered.push(r);
+  }
+  var tbody=document.getElementById('sock-body'), empty=document.getElementById('sock-empty');
+  if(!filtered.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  var html='';
+  for(var i=0;i<filtered.length;i++){
+    var r=filtered[i];
+    html+='<tr><td>'+sevBadge(r.severity==='ok'?'ok':'failed')+'</td><td style="color:var(--blue);font-family:var(--mono);font-size:11px">'+esc(r.host||'—')+'</td><td style="font-family:var(--mono);font-size:11px">'+esc(r.remote||'—')+'</td><td style="color:'+(r.proxy?'var(--orange)':'var(--text3)')+';font-family:var(--mono);font-size:11px">'+esc(r.proxy||'—')+'</td><td style="font-family:var(--mono);font-size:11px">'+esc(r.ssl||'—')+'</td><td style="font-family:var(--mono);font-size:11px">'+(r.bIn!=null?r.bIn.toLocaleString():'—')+'</td><td style="font-family:var(--mono);font-size:11px">'+(r.bOut!=null?r.bOut.toLocaleString():'—')+'</td><td style="color:var(--red);font-family:var(--mono);font-size:11px">'+esc(r.err||'')+'</td></tr>';
+  }
+  tbody.innerHTML=html;
+}
+
+function showTab(name,btn){
+  var panels=document.querySelectorAll('.panel');
+  for(var i=0;i<panels.length;i++) panels[i].classList.remove('active');
+  var tabs=document.querySelectorAll('.tab-btn');
+  for(var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function loadFile(file){
   document.getElementById('loading').classList.add('show');
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      allRows = parseNetLog(data);
+  document.getElementById('file-label').textContent=file.name;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      allRows=parseNetLog(data);
+      sockRows=buildSockRows(data);
       document.getElementById('loading').classList.remove('show');
-      document.getElementById('dropzone-wrap').style.display = 'none';
-      document.getElementById('btn-new-file').style.display = 'inline-block';
-      document.getElementById('app').style.display = 'flex';
+      document.getElementById('dropzone-wrap').style.display='none';
+      document.getElementById('btn-new').style.display='inline-block';
+      document.getElementById('btn-copy-all').style.display='inline-block';
+      document.getElementById('app').style.display='flex';
       buildSummary(allRows);
       buildInsights(allRows);
-      renderTable();
-    } catch(err) {
+      updateTabBadges(allRows);
+      renderEvents();
+      renderSockets();
+      buildProxyPanel(data,allRows);
+      buildDnsPanel(data,allRows);
+      buildHttp2Panel(data);
+      buildQuicPanel(data);
+      buildCachePanel(data);
+      buildMetaPanel(data);
+    }catch(err){
       document.getElementById('loading').classList.remove('show');
-      alert('Failed to parse net-export.json: ' + err.message + '\n\nMake sure you are loading a file from edge://net-export/ or chrome://net-export/');
+      alert('Parse error: '+err.message+'\n\nLoad a net-export.json from edge://net-export/');
     }
   };
   reader.readAsText(file);
 }
 
-// Drop zone events
-const dz = document.getElementById('dropzone');
-dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-dz.addEventListener('drop', e => {
-  e.preventDefault();
-  dz.classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f) loadFile(f);
-});
+function resetApp(){
+  allRows=[]; sockRows=[]; curFilter='all'; curSF='all';
+  document.getElementById('app').style.display='none';
+  document.getElementById('dropzone-wrap').style.display='block';
+  document.getElementById('btn-new').style.display='none';
+  document.getElementById('btn-copy-all').style.display='none';
+  document.getElementById('file-label').textContent='';
+  document.getElementById('file-input').value='';
+  document.getElementById('search-box').value='';
+  var btns=document.querySelectorAll('[data-f]');
+  for(var i=0;i<btns.length;i++){ btns[i].classList.remove('active'); if(btns[i].getAttribute('data-f')==='all') btns[i].classList.add('active'); }
+  document.getElementById('tab-proxy').textContent='Proxy';
+  document.getElementById('tab-dns').textContent='DNS';
+  document.getElementById('tab-sockets').textContent='Sockets';
+  document.getElementById('insight-bar').classList.remove('show');
+  showTab('events',document.querySelector('.tab-btn'));
+}
 
-document.getElementById('file-input').addEventListener('change', e => {
-  if (e.target.files[0]) loadFile(e.target.files[0]);
-});
-
-document.getElementById('btn-new-file').addEventListener('click', () => {
-  allRows = [];
-  expandedIdx = null;
-  currentFilter = 'all';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('dropzone-wrap').style.display = 'block';
-  document.getElementById('btn-new-file').style.display = 'none';
-  document.getElementById('search-box').value = '';
-  document.querySelectorAll('.filter-btn').forEach(b => {
-    b.classList.remove('active');
-    if (b.dataset.filter === 'all') b.classList.add('active');
-  });
-  document.getElementById('file-input').value = '';
-});
+var dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',function(e){ e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave',function(){ dz.classList.remove('drag-over'); });
+dz.addEventListener('drop',function(e){ e.preventDefault(); dz.classList.remove('drag-over'); var f=e.dataTransfer.files[0]; if(f) loadFile(f); });
+document.getElementById('file-input').addEventListener('change',function(e){ if(e.target.files[0]) loadFile(e.target.files[0]); });
 </script>
 </body>
 </html>
