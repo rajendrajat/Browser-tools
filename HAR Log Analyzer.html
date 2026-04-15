@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAR Log Analyzer</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --error-bg: #451a1a;
+            --warning-bg: #451a00;
+            --info: #06b6d4;
+            --border: #475569;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 .icon {
+            font-size: 1.8rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Upload Area */
+        .upload-section {
+            padding: 40px 24px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            max-width: 600px;
+            width: 100%;
+            background: var(--bg-secondary);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-area .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+        }
+
+        .upload-area h2 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Summary Section */
+        .summary-section {
+            padding: 0 24px 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .summary-card .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-card.errors .value { color: var(--error); }
+        .summary-card.warnings .value { color: var(--warning); }
+        .summary-card.success .value { color: var(--success); }
+        .summary-card.info .value { color: var(--info); }
+        .summary-card.total .value { color: var(--accent); }
+
+        /* Errors Panel */
+        .errors-panel {
+            margin: 0 24px 20px;
+            background: var(--error-bg);
+            border: 1px solid var(--error);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .errors-panel-header {
+            background: rgba(239, 68, 68, 0.2);
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .errors-panel-header .count-badge {
+            background: var(--error);
+            color: white;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-left: auto;
+        }
+
+        .errors-panel-body {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .error-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .error-item:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .error-item:last-child {
+            border-bottom: none;
+        }
+
+        .error-item .error-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .error-item .error-url {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+
+        .error-item .error-details {
+            font-size: 0.8rem;
+            color: #fca5a5;
+        }
+
+        /* Warnings Panel */
+        .warnings-panel {
+            margin: 0 24px 20px;
+            background: var(--warning-bg);
+            border: 1px solid var(--warning);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .warnings-panel-header {
+            background: rgba(245, 158, 11, 0.2);
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .warnings-panel-header .count-badge {
+            background: var(--warning);
+            color: black;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-left: auto;
+        }
+
+        .warnings-panel-body {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .warning-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .warning-item:hover {
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        /* Tabs & Filters */
+        .controls-bar {
+            padding: 0 24px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .sort-select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        /* Entries Table */
+        .entries-section {
+            padding: 0 24px 24px;
+        }
+
+        .entries-table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+
+        .entries-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .entries-table th {
+            background: var(--bg-tertiary);
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .entries-table th:hover {
+            background: #3d4f69;
+        }
+
+        .entries-table th .sort-arrow {
+            margin-left: 4px;
+            font-size: 0.7rem;
+        }
+
+        .entries-table td {
+            padding: 10px 14px;
+            border-top: 1px solid rgba(71, 85, 105, 0.5);
+            vertical-align: middle;
+        }
+
+        .entries-table tbody tr {
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+
+        .entries-table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .entries-table tbody tr.row-error {
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .entries-table tbody tr.row-error:hover {
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .entries-table tbody tr.row-warning {
+            background: rgba(245, 158, 11, 0.06);
+        }
+
+        .entries-table tbody tr.row-warning:hover {
+            background: rgba(245, 158, 11, 0.12);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.78rem;
+        }
+
+        .status-2xx { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .status-3xx { background: rgba(6, 182, 212, 0.2); color: var(--info); }
+        .status-4xx { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .status-5xx { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+        .status-0 { background: rgba(239, 68, 68, 0.3); color: #fca5a5; }
+
+        .method-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .method-GET { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .method-POST { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
+        .method-PUT { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .method-DELETE { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+        .method-PATCH { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+        .method-OPTIONS { background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); }
+
+        .url-cell {
+            max-width: 350px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .size-cell, .time-cell {
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .time-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--bg-tertiary);
+            min-width: 50px;
+            margin-top: 4px;
+        }
+
+        .time-bar-inner {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .time-fast { background: var(--success); }
+        .time-medium { background: var(--warning); }
+        .time-slow { background: var(--error); }
+
+        /* Detail Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 1.1rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+        }
+
+        .modal-tab {
+            padding: 10px 16px;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .modal-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .modal-body {
+            overflow-y: auto;
+            padding: 20px 24px;
+            flex: 1;
+        }
+
+        .detail-group {
+            margin-bottom: 20px;
+        }
+
+        .detail-group h4 {
+            font-size: 0.9rem;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .detail-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+            font-size: 0.83rem;
+        }
+
+        .detail-table td:first-child {
+            color: var(--text-secondary);
+            white-space: nowrap;
+            width: 180px;
+            font-weight: 600;
+        }
+
+        .detail-table td:last-child {
+            word-break: break-all;
+        }
+
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        /* Waterfall Chart */
+        .waterfall-section {
+            padding: 0 24px 24px;
+        }
+
+        .waterfall-wrapper {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .waterfall-bar-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 3px;
+            font-size: 0.75rem;
+            height: 22px;
+        }
+
+        .waterfall-label {
+            width: 250px;
+            min-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-secondary);
+            padding-right: 10px;
+        }
+
+        .waterfall-track {
+            flex: 1;
+            height: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            position: relative;
+            min-width: 400px;
+        }
+
+        .waterfall-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 2px;
+            min-width: 2px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-tertiary);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .pagination .btn {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
+
+        .page-info {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Section headers */
+        .section-header {
+            padding: 0 24px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .collapsible-toggle {
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-group {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+            .url-cell {
+                max-width: 200px;
+            }
+        }
+
+        /* Timing breakdown */
+        .timing-breakdown {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .timing-segment {
+            height: 10px;
+            border-radius: 2px;
+            min-width: 1px;
+        }
+
+        .timing-legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            font-size: 0.78rem;
+        }
+
+        .timing-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+        }
+
+        .timing-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 20px;
+            z-index: 2000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Content type icons */
+        .content-type-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+        }
+
+        .ct-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .ct-html { background: #ef4444; }
+        .ct-js { background: #f59e0b; }
+        .ct-css { background: #3b82f6; }
+        .ct-img { background: #22c55e; }
+        .ct-json { background: #a855f7; }
+        .ct-font { background: #ec4899; }
+        .ct-other { background: #64748b; }
+        .ct-xml { background: #06b6d4; }
+        .ct-media { background: #f97316; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <h1><span class="icon">📊</span> HAR Log Analyzer</h1>
+        <div class="header-actions" id="headerActions" style="display:none;">
+            <button class="btn btn-outline" onclick="exportReport()">📄 Export Report</button>
+            <button class="btn btn-danger" onclick="resetTool()">✕ Clear</button>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-section" id="uploadSection">
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <h2>Drop your HAR file here</h2>
+            <p>or click to browse • Supports .har files</p>
+            <input type="file" id="fileInput" accept=".har">
+        </div>
+    </div>
+
+    <!-- Main Content (hidden until file loaded) -->
+    <div id="mainContent" class="hidden">
+
+        <!-- Summary Cards -->
+        <div class="summary-section">
+            <div class="summary-grid" id="summaryGrid"></div>
+        </div>
+
+        <!-- Errors Panel (Top Priority) -->
+        <div id="errorsPanel" class="errors-panel hidden">
+            <div class="errors-panel-header" onclick="togglePanel('errorsBody')">
+                ⛔ Errors & Failed Requests
+                <span class="count-badge" id="errorCount">0</span>
+                <span class="collapsible-toggle" id="errorsToggle">▼</span>
+            </div>
+            <div class="errors-panel-body" id="errorsBody"></div>
+        </div>
+
+        <!-- Warnings Panel -->
+        <div id="warningsPanel" class="warnings-panel hidden">
+            <div class="warnings-panel-header" onclick="togglePanel('warningsBody')">
+                ⚠️ Warnings (4xx Client Errors & Slow Requests)
+                <span class="count-badge" id="warningCount">0</span>
+                <span class="collapsible-toggle" id="warningsToggle">▼</span>
+            </div>
+            <div class="warnings-panel-body" id="warningsBody"></div>
+        </div>
+
+        <!-- Waterfall Chart -->
+        <div class="section-header">
+            <h2>⏱️ Waterfall Timeline</h2>
+            <span class="collapsible-toggle" onclick="toggleSection('waterfallWrapper')">▼ Toggle</span>
+        </div>
+        <div class="waterfall-section">
+            <div class="waterfall-wrapper" id="waterfallWrapper"></div>
+        </div>
+
+        <!-- Filters -->
+        <div class="controls-bar">
+            <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search URL, method, status, content type...">
+            <div class="filter-group" id="filterGroup">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="errors">Errors</button>
+                <button class="filter-btn" data-filter="html">HTML</button>
+                <button class="filter-btn" data-filter="js">JS</button>
+                <button class="filter-btn" data-filter="css">CSS</button>
+                <button class="filter-btn" data-filter="img">Images</button>
+                <button class="filter-btn" data-filter="json">JSON/API</button>
+                <button class="filter-btn" data-filter="font">Fonts</button>
+                <button class="filter-btn" data-filter="media">Media</button>
+                <button class="filter-btn" data-filter="other">Other</button>
+            </div>
+            <select class="sort-select" id="sortSelect">
+                <option value="default">Sort: Default Order</option>
+                <option value="time-desc">Slowest First</option>
+                <option value="time-asc">Fastest First</option>
+                <option value="size-desc">Largest First</option>
+                <option value="size-asc">Smallest First</option>
+                <option value="status-asc">Status ↑</option>
+                <option value="status-desc">Status ↓</option>
+            </select>
+        </div>
+
+        <!-- Entries Table -->
+        <div class="entries-section">
+            <div class="entries-table-wrapper">
+                <table class="entries-table" id="entriesTable">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th style="width:70px">Method</th>
+                            <th style="width:70px">Status</th>
+                            <th>URL</th>
+                            <th style="width:90px">Type</th>
+                            <th style="width:100px;text-align:right">Size</th>
+                            <th style="width:130px;text-align:right">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="entriesBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Request Details</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-tabs" id="modalTabs">
+                <button class="modal-tab active" data-tab="general" onclick="switchModalTab('general')">General</button>
+                <button class="modal-tab" data-tab="request" onclick="switchModalTab('request')">Request</button>
+                <button class="modal-tab" data-tab="response" onclick="switchModalTab('response')">Response</button>
+                <button class="modal-tab" data-tab="timing" onclick="switchModalTab('timing')">Timing</button>
+                <button class="modal-tab" data-tab="cookies" onclick="switchModalTab('cookies')">Cookies</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Global State
+        let harData = null;
+        let allEntries = [];
+        let filteredEntries = [];
+        let currentPage = 1;
+        const PAGE_SIZE = 50;
+        let currentSort = 'default';
+        let currentFilter = 'all';
+        let currentSearch = '';
+        let selectedEntryIndex = null;
+        let currentModalTab = 'general';
+
+        // DOM References
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const mainContent = document.getElementById('mainContent');
+        const headerActions = document.getElementById('headerActions');
+        const searchBox = document.getElementById('searchBox');
+        const sortSelect = document.getElementById('sortSelect');
+        const entriesBody = document.getElementById('entriesBody');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const toast = document.getElementById('toast');
+
+        // Upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFile);
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function handleFile(e) {
+            if (e.target.files.length) {
+                processFile(e.target.files[0]);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.name.endsWith('.har')) {
+                showToast('⚠️ Please select a valid .har file');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    harData = JSON.parse(e.target.result);
+                    if (!harData.log || !harData.log.entries) {
+                        throw new Error('Invalid HAR format');
+                    }
+                    allEntries = harData.log.entries.map((entry, i) => ({ ...entry, _index: i }));
+                    showToast(`✅ Loaded ${allEntries.length} requests from ${file.name}`);
+                    analyzeAndRender();
+                } catch (err) {
+                    showToast('❌ Error parsing HAR file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function analyzeAndRender() {
+            uploadSection.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            headerActions.style.display = 'flex';
+
+            renderSummary();
+            renderErrors();
+            renderWarnings();
+            renderWaterfall();
+            applyFilters();
+        }
+
+        // Summary
+        function renderSummary() {
+            const entries = allEntries;
+            const totalRequests = entries.length;
+            const errors = entries.filter(e => e.response.status >= 500 || e.response.status === 0).length;
+            const clientErrors = entries.filter(e => e.response.status >= 400 && e.response.status < 500).length;
+            const successful = entries.filter(e => e.response.status >= 200 && e.response.status < 400).length;
+            const totalSize = entries.reduce((sum, e) => sum + (e.response.content?.size || e.response.bodySize || 0), 0);
+            const totalTransferred = entries.reduce((sum, e) => {
+                const headers = e.response.headersSize || 0;
+                const body = e.response.bodySize || 0;
+                return sum + (body > 0 ? headers + body : 0);
+            }, 0);
+            const totalTime = entries.reduce((sum, e) => sum + (e.time || 0), 0);
+            const avgTime = totalRequests > 0 ? totalTime / totalRequests : 0;
+            const maxTime = Math.max(...entries.map(e => e.time || 0));
+            const slowRequests = entries.filter(e => e.time > 3000).length;
+
+            const pageLoad = harData.log.pages?.[0]?.pageTimings;
+            const domLoad = pageLoad?.onContentLoad || 0;
+            const fullLoad = pageLoad?.onLoad || 0;
+
+            document.getElementById('summaryGrid').innerHTML = `
+                <div class="summary-card total">
+                    <div class="value">${totalRequests}</div>
+                    <div class="label">Total Requests</div>
+                </div>
+                <div class="summary-card errors">
+                    <div class="value">${errors}</div>
+                    <div class="label">Server Errors (5xx/Failed)</div>
+                </div>
+                <div class="summary-card warnings">
+                    <div class="value">${clientErrors}</div>
+                    <div class="label">Client Errors (4xx)</div>
+                </div>
+                <div class="summary-card success">
+                    <div class="value">${successful}</div>
+                    <div class="label">Successful (2xx/3xx)</div>
+                </div>
+                <div class="summary-card info">
+                    <div class="value">${formatSize(totalSize)}</div>
+                    <div class="label">Total Size</div>
+                </div>
+                <div class="summary-card info">
+                    <div class="value">${formatSize(totalTransferred)}</div>
+                    <div class="label">Transferred</div>
+                </div>
+                <div class="summary-card ${avgTime > 2000 ? 'errors' : avgTime > 1000 ? 'warnings' : 'success'}">
+                    <div class="value">${formatTime(avgTime)}</div>
+                    <div class="label">Avg Response Time</div>
+                </div>
+                <div class="summary-card ${maxTime > 5000 ? 'errors' : 'warnings'}">
+                    <div class="value">${formatTime(maxTime)}</div>
+                    <div class="label">Slowest Request</div>
+                </div>
+                <div class="summary-card warnings">
+                    <div class="value">${slowRequests}</div>
+                    <div class="label">Slow Requests (&gt;3s)</div>
+                </div>
+                ${fullLoad > 0 ? `
+                <div class="summary-card info">
+                    <div class="value">${formatTime(domLoad)}</div>
+                    <div class="label">DOM Content Loaded</div>
+                </div>
+                <div class="summary-card info">
+                    <div class="value">${formatTime(fullLoad)}</div>
+                    <div class="label">Page Fully Loaded</div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        // Errors Panel
+        function renderErrors() {
+            const errors = allEntries.filter(e => e.response.status >= 500 || e.response.status === 0);
+            const panel = document.getElementById('errorsPanel');
+            const body = document.getElementById('errorsBody');
+            document.getElementById('errorCount').textContent = errors.length;
+
+            if (errors.length === 0) {
+                panel.classList.add('hidden');
+                return;
+            }
+            panel.classList.remove('hidden');
+
+            body.innerHTML = errors.map((entry) => {
+                const status = entry.response.status;
+                const statusText = entry.response.statusText || getStatusMessage(status);
+                const url = entry.request.url;
+                const method = entry.request.method;
+                const time = formatTime(entry.time);
+                const errorType = status === 0 ? 'Connection Failed / CORS / Blocked' :
+                    status === 500 ? 'Internal Server Error' :
+                    status === 502 ? 'Bad Gateway' :
+                    status === 503 ? 'Service Unavailable' :
+                    status === 504 ? 'Gateway Timeout' : `Server Error ${status}`;
+
+                return `
+                    <div class="error-item" onclick="showDetail(${entry._index})">
+                        <div class="error-status">
+                            <span class="status-badge ${getStatusClass(status)}">${status || 'ERR'}</span>
+                            <span class="method-badge method-${method}">${method}</span>
+                            <strong>${errorType}</strong>
+                            <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8rem">${time}</span>
+                        </div>
+                        <div class="error-url">${url}</div>
+                        ${statusText ? `<div class="error-details">${statusText}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Warnings Panel
+        function renderWarnings() {
+            const warnings = allEntries.filter(e => {
+                const s = e.response.status;
+                return (s >= 400 && s < 500) || (e.time > 5000 && s < 400 && s > 0);
+            });
+            const panel = document.getElementById('warningsPanel');
+            const body = document.getElementById('warningsBody');
+            document.getElementById('warningCount').textContent = warnings.length;
+
+            if (warnings.length === 0) {
+                panel.classList.add('hidden');
+                return;
+            }
+            panel.classList.remove('hidden');
+
+            body.innerHTML = warnings.map((entry) => {
+                const status = entry.response.status;
+                const url = entry.request.url;
+                const method = entry.request.method;
+                const time = formatTime(entry.time);
+                const isSlow = entry.time > 5000 && status < 400 && status > 0;
+                const warnType = isSlow ? `⏱️ Slow Request (${time})` :
+                    status === 404 ? '404 Not Found' :
+                    status === 401 ? '401 Unauthorized' :
+                    status === 403 ? '403 Forbidden' :
+                    status === 429 ? '429 Too Many Requests' : `${status} Client Error`;
+
+                return `
+                    <div class="warning-item" onclick="showDetail(${entry._index})">
+                        <div class="error-status">
+                            <span class="status-badge ${isSlow ? 'status-0' : getStatusClass(status)}">${isSlow ? 'SLOW' : status}</span>
+                            <span class="method-badge method-${method}">${method}</span>
+                            <strong>${warnType}</strong>
+                            <span style="margin-left:auto;color:var(--text-secondary);font-size:0.8rem">${time}</span>
+                        </div>
+                        <div class="error-url">${url}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Waterfall Chart
+        function renderWaterfall() {
+            const wrapper = document.getElementById('waterfallWrapper');
+            if (allEntries.length === 0) return;
+
+            const startTimes = allEntries.map(e => new Date(e.startedDateTime).getTime());
+            const minStart = Math.min(...startTimes);
+            const maxEnd = Math.max(...allEntries.map((e, i) => startTimes[i] + (e.time || 0)));
+            const totalDuration = maxEnd - minStart;
+
+            // Show max 80 entries for performance
+            const displayEntries = allEntries.slice(0, 80);
+
+            const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#06b6d4'];
+
+            let html = '';
+            displayEntries.forEach((entry, i) => {
+                const start = new Date(entry.startedDateTime).getTime() - minStart;
+                const duration = entry.time || 0;
+                const leftPct = totalDuration > 0 ? (start / totalDuration) * 100 : 0;
+                const widthPct = totalDuration > 0 ? (duration / totalDuration) * 100 : 0.5;
+                const urlShort = getShortUrl(entry.request.url);
+                const status = entry.response.status;
+                const barColor = status >= 500 || status === 0 ? '#ef4444' :
+                    status >= 400 ? '#f59e0b' : colors[i % colors.length];
+
+                html += `
+                    <div class="waterfall-bar-container" onclick="showDetail(${entry._index})" title="${entry.request.url} - ${formatTime(duration)}">
+                        <div class="waterfall-label">${urlShort}</div>
+                        <div class="waterfall-track">
+                            <div class="waterfall-bar" style="left:${leftPct}%;width:${Math.max(widthPct, 0.3)}%;background:${barColor}"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (allEntries.length > 80) {
+                html += `<div style="text-align:center;padding:10px;color:var(--text-secondary);font-size:0.8rem">Showing first 80 of ${allEntries.length} requests</div>`;
+            }
+
+            wrapper.innerHTML = html;
+        }
+
+        // Filters & Search
+        searchBox.addEventListener('input', debounce(() => {
+            currentSearch = searchBox.value.toLowerCase();
+            currentPage = 1;
+            applyFilters();
+        }, 200));
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                currentPage = 1;
+                applyFilters();
+            });
+        });
+
+        sortSelect.addEventListener('change', () => {
+            currentSort = sortSelect.value;
+            applyFilters();
+        });
+
+        function applyFilters() {
+            let entries = [...allEntries];
+
+            // Filter by type
+            if (currentFilter !== 'all') {
+                entries = entries.filter(e => {
+                    if (currentFilter === 'errors') {
+                        return e.response.status >= 400 || e.response.status === 0;
+                    }
+                    return getContentCategory(e) === currentFilter;
+                });
+            }
+
+            // Search
+            if (currentSearch) {
+                entries = entries.filter(e => {
+                    const url = e.request.url.toLowerCase();
+                    const method = e.request.method.toLowerCase();
+                    const status = String(e.response.status);
+                    const mime = (e.response.content?.mimeType || '').toLowerCase();
+                    return url.includes(currentSearch) || method.includes(currentSearch) || 
+                           status.includes(currentSearch) || mime.includes(currentSearch);
+                });
+            }
+
+            // Sort
+            switch (currentSort) {
+                case 'time-desc': entries.sort((a, b) => (b.time || 0) - (a.time || 0)); break;
+                case 'time-asc': entries.sort((a, b) => (a.time || 0) - (b.time || 0)); break;
+                case 'size-desc': entries.sort((a, b) => (getSize(b)) - (getSize(a))); break;
+                case 'size-asc': entries.sort((a, b) => (getSize(a)) - (getSize(b))); break;
+                case 'status-asc': entries.sort((a, b) => a.response.status - b.response.status); break;
+                case 'status-desc': entries.sort((a, b) => b.response.status - a.response.status); break;
+            }
+
+            filteredEntries = entries;
+            renderTable();
+            renderPagination();
+        }
+
+        function renderTable() {
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const pageEntries = filteredEntries.slice(start, start + PAGE_SIZE);
+            const maxTime = Math.max(...allEntries.map(e => e.time || 0), 1);
+
+            entriesBody.innerHTML = pageEntries.map((entry, i) => {
+                const status = entry.response.status;
+                const method = entry.request.method;
+                const url = entry.request.url;
+                const mime = entry.response.content?.mimeType || '';
+                const size = getSize(entry);
+                const time = entry.time || 0;
+                const rowClass = status >= 500 || status === 0 ? 'row-error' :
+                    status >= 400 ? 'row-warning' : '';
+                const timeWidth = (time / maxTime) * 100;
+                const timeClass = time < 500 ? 'time-fast' : time < 2000 ? 'time-medium' : 'time-slow';
+                const category = getContentCategory(entry);
+                const ctClass = `ct-${category}`;
+
+                return `
+                    <tr class="${rowClass}" onclick="showDetail(${entry._index})">
+                        <td style="color:var(--text-secondary)">${start + i + 1}</td>
+                        <td><span class="method-badge method-${method}">${method}</span></td>
+                        <td><span class="status-badge ${getStatusClass(status)}">${status || 'ERR'}</span></td>
+                        <td class="url-cell" title="${escapeHtml(url)}">${getShortUrl(url)}</td>
+                        <td><span class="content-type-icon"><span class="ct-dot ${ctClass}"></span>${category}</span></td>
+                        <td class="size-cell">${formatSize(size)}</td>
+                        <td class="time-cell">
+                            ${formatTime(time)}
+                            <div class="time-bar"><div class="time-bar-inner ${timeClass}" style="width:${timeWidth}%"></div></div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (pageEntries.length === 0) {
+                entriesBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary)">No matching requests found</td></tr>`;
+            }
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
+            const pag = document.getElementById('pagination');
+            if (totalPages <= 1) {
+                pag.innerHTML = `<span class="page-info">${filteredEntries.length} requests</span>`;
+                return;
+            }
+
+            pag.innerHTML = `
+                <button class="btn btn-outline" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">← Prev</button>
+                <span class="page-info">Page ${currentPage} of ${totalPages} (${filteredEntries.length} requests)</span>
+                <button class="btn btn-outline" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">Next →</button>
+            `;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            renderTable();
+            renderPagination();
+            document.querySelector('.entries-table-wrapper').scrollTop = 0;
+        }
+
+        // Detail Modal
+        function showDetail(index) {
+            selectedEntryIndex = index;
+            const entry = allEntries.find(e => e._index === index);
+            if (!entry) return;
+
+            currentModalTab = 'general';
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.modal-tab[data-tab="general"]').classList.add('active');
+
+            const url = entry.request.url;
+            document.getElementById('modalTitle').textContent = getShortUrl(url);
+            renderModalContent(entry);
+            modalOverlay.classList.add('active');
+        }
+
+        function switchModalTab(tab) {
+            currentModalTab = tab;
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.modal-tab[data-tab="${tab}"]`).classList.add('active');
+            const entry = allEntries.find(e => e._index === selectedEntryIndex);
+            if (entry) renderModalContent(entry);
+        }
+
+        function renderModalContent(entry) {
+            const body = document.getElementById('modalBody');
+            const req = entry.request;
+            const res = entry.response;
+            const timings = entry.timings || {};
+
+            switch (currentModalTab) {
+                case 'general':
+                    body.innerHTML = `
+                        <div class="detail-group">
+                            <h4>Request Overview</h4>
+                            <table class="detail-table">
+                                <tr><td>URL</td><td style="word-break:break-all">${escapeHtml(req.url)}</td></tr>
+                                <tr><td>Method</td><td><span class="method-badge method-${req.method}">${req.method}</span></td></tr>
+                                <tr><td>Status</td><td><span class="status-badge ${getStatusClass(res.status)}">${res.status} ${res.statusText || getStatusMessage(res.status)}</span></td></tr>
+                                <tr><td>HTTP Version</td><td>${req.httpVersion || 'N/A'}</td></tr>
+                                <tr><td>Started</td><td>${new Date(entry.startedDateTime).toLocaleString()}</td></tr>
+                                <tr><td>Total Time</td><td><strong>${formatTime(entry.time)}</strong></td></tr>
+                                <tr><td>Content Type</td><td>${res.content?.mimeType || 'N/A'}</td></tr>
+                                <tr><td>Content Size</td><td>${formatSize(res.content?.size || 0)}</td></tr>
+                                <tr><td>Transferred</td><td>${formatSize((res.headersSize || 0) + (res.bodySize || 0))}</td></tr>
+                                <tr><td>Server IP</td><td>${entry.serverIPAddress || 'N/A'}</td></tr>
+                                <tr><td>Connection</td><td>${entry.connection || 'N/A'}</td></tr>
+                            </table>
+                        </div>
+                        ${res.redirectURL ? `
+                        <div class="detail-group">
+                            <h4>Redirect</h4>
+                            <table class="detail-table">
+                                <tr><td>Redirect URL</td><td>${escapeHtml(res.redirectURL)}</td></tr>
+                            </table>
+                        </div>
+                        ` : ''}
+                    `;
+                    break;
+
+                case 'request':
+                    const queryString = req.queryString || [];
+                    const postData = req.postData;
+                    body.innerHTML = `
+                        <div class="detail-group">
+                            <h4>Request Headers (${(req.headers || []).length})</h4>
+                            ${renderHeadersTable(req.headers)}
+                        </div>
+                        ${queryString.length > 0 ? `
+                        <div class="detail-group">
+                            <h4>Query Parameters (${queryString.length})</h4>
+                            <table class="detail-table">
+                                ${queryString.map(q => `<tr><td>${escapeHtml(q.name)}</td><td>${escapeHtml(q.value)}</td></tr>`).join('')}
+                            </table>
+                        </div>
+                        ` : ''}
+                        ${postData ? `
+                        <div class="detail-group">
+                            <h4>Request Body${postData.mimeType ? ` (${postData.mimeType})` : ''}</h4>
+                            ${postData.params ? `
+                                <table class="detail-table">
+                                    ${postData.params.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.value || '')}</td></tr>`).join('')}
+                                </table>
+                            ` : ''}
+                            ${postData.text ? `<div class="code-block">${formatCodeBlock(postData.text, postData.mimeType)}</div>` : ''}
+                        </div>
+                        ` : ''}
+                    `;
+                    break;
+
+                case 'response':
+                    const resText = res.content?.text || '';
+                    const resMime = res.content?.mimeType || '';
+                    body.innerHTML = `
+                        <div class="detail-group">
+                            <h4>Response Headers (${(res.headers || []).length})</h4>
+                            ${renderHeadersTable(res.headers)}
+                        </div>
+                        <div class="detail-group">
+                            <h4>Response Body${resMime ? ` (${resMime})` : ''}</h4>
+                            ${resText ? `<div class="code-block">${formatCodeBlock(resText, resMime)}</div>` :
+                                `<p style="color:var(--text-secondary)">No response body captured (binary content or not recorded)</p>`}
+                        </div>
+                    `;
+                    break;
+
+                case 'timing':
+                    const t = timings;
+                    const timingEntries = [
+                        { label: 'Blocked (Queuing)', value: t.blocked, color: '#94a3b8' },
+                        { label: 'DNS Lookup', value: t.dns, color: '#06b6d4' },
+                        { label: 'Connecting', value: t.connect, color: '#22c55e' },
+                        { label: 'TLS/SSL', value: t.ssl, color: '#a855f7' },
+                        { label: 'Sending', value: t.send, color: '#3b82f6' },
+                        { label: 'Waiting (TTFB)', value: t.wait, color: '#f59e0b' },
+                        { label: 'Receiving', value: t.receive, color: '#ef4444' }
+                    ];
+                    const totalTimings = timingEntries.reduce((s, t) => s + Math.max(t.value || 0, 0), 0);
+
+                    body.innerHTML = `
+                        <div class="detail-group">
+                            <h4>Timing Breakdown — Total: ${formatTime(entry.time)}</h4>
+                            <table class="detail-table">
+                                ${timingEntries.map(t => `
+                                    <tr>
+                                        <td>
+                                            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${t.color};margin-right:6px;vertical-align:middle"></span>
+                                            ${t.label}
+                                        </td>
+                                        <td style="text-align:right">${t.value >= 0 ? formatTime(t.value) : 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </table>
+                        </div>
+                        <div class="detail-group">
+                            <h4>Visual Timeline</h4>
+                            <div style="display:flex;height:30px;border-radius:6px;overflow:hidden;background:var(--bg-primary)">
+                                ${timingEntries.filter(t => t.value > 0).map(t => {
+                                    const pct = (t.value / totalTimings) * 100;
+                                    return `<div title="${t.label}: ${formatTime(t.value)}" style="width:${Math.max(pct, 1)}%;background:${t.color};transition:width 0.3s"></div>`;
+                                }).join('')}
+                            </div>
+                            <div class="timing-legend">
+                                ${timingEntries.filter(t => t.value > 0).map(t => `
+                                    <div class="timing-legend-item">
+                                        <div class="timing-legend-dot" style="background:${t.color}"></div>
+                                        ${t.label}: ${formatTime(t.value)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'cookies':
+                    const reqCookies = req.cookies || [];
+                    const resCookies = res.cookies || [];
+                    body.innerHTML = `
+                        <div class="detail-group">
+                            <h4>Request Cookies (${reqCookies.length})</h4>
+                            ${reqCookies.length > 0 ? `
+                                <table class="detail-table">
+                                    ${reqCookies.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.value)}</td></tr>`).join('')}
+                                </table>
+                            ` : '<p style="color:var(--text-secondary)">No request cookies</p>'}
+                        </div>
+                        <div class="detail-group">
+                            <h4>Response Cookies (${resCookies.length})</h4>
+                            ${resCookies.length > 0 ? `
+                                <table class="detail-table">
+                                    ${resCookies.map(c => `
+                                        <tr><td>${escapeHtml(c.name)}</td><td>
+                                            ${escapeHtml(c.value)}
+                                            ${c.expires ? `<br><small>Expires: ${c.expires}</small>` : ''}
+                                            ${c.httpOnly ? ' <small>HttpOnly</small>' : ''}
+                                            ${c.secure ? ' <small>Secure</small>' : ''}
+                                        </td></tr>
+                                    `).join('')}
+                                </table>
+                            ` : '<p style="color:var(--text-secondary)">No response cookies</p>'}
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        function renderHeadersTable(headers) {
+            if (!headers || headers.length === 0) return '<p style="color:var(--text-secondary)">No headers</p>';
+            return `<table class="detail-table">${headers.map(h =>
+                `<tr><td>${escapeHtml(h.name)}</td><td>${escapeHtml(h.value)}</td></tr>`
+            ).join('')}</table>`;
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+        }
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Utility Functions
+        function getStatusClass(status) {
+            if (status === 0) return 'status-0';
+            if (status < 300) return 'status-2xx';
+            if (status < 400) return 'status-3xx';
+            if (status < 500) return 'status-4xx';
+            return 'status-5xx';
+        }
+
+        function getStatusMessage(status) {
+            const msgs = {
+                0: 'Failed', 200: 'OK', 201: 'Created', 204: 'No Content',
+                301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+                400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+                404: 'Not Found', 405: 'Method Not Allowed', 408: 'Request Timeout',
+                429: 'Too Many Requests', 500: 'Internal Server Error',
+                502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout'
+            };
+            return msgs[status] || '';
+        }
+
+        function getContentCategory(entry) {
+            const mime = (entry.response.content?.mimeType || '').toLowerCase();
+            const url = entry.request.url.toLowerCase();
+
+            if (mime.includes('html')) return 'html';
+            if (mime.includes('javascript') || mime.includes('ecmascript') || url.endsWith('.js')) return 'js';
+            if (mime.includes('css') || url.endsWith('.css')) return 'css';
+            if (mime.includes('image') || /\.(png|jpg|jpeg|gif|svg|ico|webp|avif)/.test(url)) return 'img';
+            if (mime.includes('json') || mime.includes('xml')) return 'json';
+            if (mime.includes('font') || /\.(woff|woff2|ttf|otf|eot)/.test(url)) return 'font';
+            if (mime.includes('video') || mime.includes('audio') || /\.(mp4|mp3|webm|ogg|wav)/.test(url)) return 'media';
+            return 'other';
+        }
+
+        function getSize(entry) {
+            return entry.response.content?.size || entry.response.bodySize || 0;
+        }
+
+        function formatSize(bytes) {
+            if (bytes <= 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatTime(ms) {
+            if (ms === undefined || ms === null || ms < 0) return 'N/A';
+            if (ms < 1) return '<1 ms';
+            if (ms < 1000) return Math.round(ms) + ' ms';
+            return (ms / 1000).toFixed(2) + ' s';
+        }
+
+        function getShortUrl(url) {
+            try {
+                const u = new URL(url);
+                let path = u.pathname;
+                if (path.length > 60) {
+                    path = '...' + path.slice(-57);
+                }
+                return u.hostname + path;
+            } catch {
+                return url.length > 80 ? url.slice(0, 77) + '...' : url;
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatCodeBlock(text, mimeType) {
+            if (!text) return '<em>empty</em>';
+            // Try to pretty-print JSON
+            if (mimeType && (mimeType.includes('json'))) {
+                try {
+                    const parsed = JSON.parse(text);
+                    return escapeHtml(JSON.stringify(parsed, null, 2));
+                } catch {}
+            }
+            // Limit display length
+            if (text.length > 50000) {
+                return escapeHtml(text.slice(0, 50000)) + '\n\n... [truncated]';
+            }
+            return escapeHtml(text);
+        }
+
+        function togglePanel(id) {
+            const el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? '' : 'none';
+        }
+
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? '' : 'none';
+        }
+
+        function debounce(fn, ms) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), ms);
+            };
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function resetTool() {
+            harData = null;
+            allEntries = [];
+            filteredEntries = [];
+            currentPage = 1;
+            currentSearch = '';
+            currentFilter = 'all';
+            currentSort = 'default';
+            searchBox.value = '';
+            sortSelect.value = 'default';
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.filter-btn[data-filter="all"]').classList.add('active');
+            mainContent.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+            headerActions.style.display = 'none';
+            fileInput.value = '';
+        }
+
+        function exportReport() {
+            if (!harData) return;
+            const entries = allEntries;
+            const errors = entries.filter(e => e.response.status >= 500 || e.response.status === 0);
+            const warnings = entries.filter(e => e.response.status >= 400 && e.response.status < 500);
+
+            let report = `HAR ANALYSIS REPORT\n${'='.repeat(60)}\nGenerated: ${new Date().toLocaleString()}\n\n`;
+            report += `SUMMARY\n${'-'.repeat(40)}\n`;
+            report += `Total Requests: ${entries.length}\n`;
+            report += `Server Errors (5xx/Failed): ${errors.length}\n`;
+            report += `Client Errors (4xx): ${warnings.length}\n`;
+            report += `Successful: ${entries.filter(e => e.response.status >= 200 && e.response.status < 400).length}\n`;
+            report += `Total Size: ${formatSize(entries.reduce((s, e) => s + getSize(e), 0))}\n`;
+            report += `Avg Time: ${formatTime(entries.reduce((s, e) => s + (e.time || 0), 0) / entries.length)}\n\n`;
+
+            if (errors.length > 0) {
+                report += `\nERRORS\n${'-'.repeat(40)}\n`;
+                errors.forEach((e, i) => {
+                    report += `${i + 1}. [${e.response.status || 'ERR'}] ${e.request.method} ${e.request.url}\n`;
+                    report += `   Time: ${formatTime(e.time)}\n\n`;
+                });
+            }
+
+            if (warnings.length > 0) {
+                report += `\nWARNINGS (4xx)\n${'-'.repeat(40)}\n`;
+                warnings.forEach((e, i) => {
+                    report += `${i + 1}. [${e.response.status}] ${e.request.method} ${e.request.url}\n`;
+                });
+            }
+
+            report += `\n\nALL REQUESTS\n${'-'.repeat(40)}\n`;
+            entries.forEach((e, i) => {
+                report += `${i + 1}. [${e.response.status || 'ERR'}] ${e.request.method} ${getShortUrl(e.request.url)} | ${formatSize(getSize(e))} | ${formatTime(e.time)}\n`;
+            });
+
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'har-analysis-report.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('📄 Report exported successfully');
+        }
+    </script>
+</body>
+</html>

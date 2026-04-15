@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Status Log Analyzer — dsregcmd /status</title>
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2235;
+            --bg-hover: #1f2b42;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8b9dc3;
+            --text-muted: #5a6a8a;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --success-border: rgba(16, 185, 129, 0.3);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --warning-border: rgba(245, 158, 11, 0.3);
+            --error: #ef4444;
+            --error-bg: rgba(239, 68, 68, 0.1);
+            --error-border: rgba(239, 68, 68, 0.3);
+            --info: #06b6d4;
+            --info-bg: rgba(6, 182, 212, 0.1);
+            --info-border: rgba(6, 182, 212, 0.3);
+            --border: #1e2d45;
+            --border-light: #2a3a55;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* HEADER */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 .icon { font-size: 1.6rem; }
+        .header .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .header-actions { display: flex; gap: 8px; }
+
+        /* BUTTONS */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn-outline { background: transparent; color: var(--text-primary); border: 1px solid var(--border-light); }
+        .btn-outline:hover { background: var(--bg-hover); }
+        .btn-danger { background: var(--error); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        /* INPUT SECTION */
+        .input-section {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 24px;
+        }
+        .input-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .input-card-header {
+            padding: 18px 24px;
+            background: rgba(59, 130, 246, 0.06);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .input-card-header h2 {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #logInput {
+            width: 100%;
+            min-height: 320px;
+            padding: 18px 22px;
+            background: var(--bg-primary);
+            border: none;
+            color: var(--text-primary);
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.82rem;
+            resize: vertical;
+            line-height: 1.7;
+        }
+        #logInput:focus { outline: none; }
+        #logInput::placeholder { color: var(--text-muted); }
+        .input-actions {
+            padding: 14px 24px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .input-actions .hint {
+            margin-left: auto;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .input-actions .hint code {
+            background: var(--bg-hover);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            color: var(--accent);
+        }
+
+        /* Drop overlay */
+        .drop-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 14, 26, 0.85);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent);
+            border: 3px dashed var(--accent);
+            margin: 20px;
+            border-radius: 20px;
+        }
+        .drop-overlay.active { display: flex; }
+
+        /* RESULTS */
+        .results-area {
+            max-width: 1100px;
+            margin: 0 auto 40px;
+            padding: 0 24px;
+        }
+
+        /* HEALTH SCORE */
+        .health-section {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+            align-items: start;
+        }
+        .health-circle-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .health-circle {
+            width: 120px;
+            height: 120px;
+            position: relative;
+        }
+        .health-circle svg {
+            transform: rotate(-90deg);
+            width: 120px;
+            height: 120px;
+        }
+        .health-circle .bg { fill: none; stroke: var(--border); stroke-width: 8; }
+        .health-circle .fg {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease;
+        }
+        .health-circle .score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: 800;
+        }
+        .health-label {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* FINDINGS */
+        .findings-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .findings-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .finding-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.85rem;
+            transition: background 0.15s;
+        }
+        .finding-item:hover { background: var(--bg-hover); }
+        .finding-item:last-child { border-bottom: none; }
+        .finding-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .finding-icon.critical { background: var(--error-bg); border: 1px solid var(--error-border); }
+        .finding-icon.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); }
+        .finding-icon.good { background: var(--success-bg); border: 1px solid var(--success-border); }
+        .finding-icon.info { background: var(--info-bg); border: 1px solid var(--info-border); }
+        .finding-text strong { display: block; margin-bottom: 2px; }
+        .finding-text span { color: var(--text-secondary); font-size: 0.82rem; }
+
+        /* INFO BADGES */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .info-badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .info-badge-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        .info-badge-text .label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-badge-text .value {
+            font-size: 0.88rem;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        /* SECTION CARDS */
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .section-card-header {
+            padding: 16px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .section-card-header:hover { background: var(--bg-hover); }
+        .section-card-header h3 {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-status-pills { display: flex; gap: 6px; }
+        .status-pill {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .pill-good { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+        .pill-warn { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+        .pill-bad { background: var(--error-bg); color: var(--error); border: 1px solid var(--error-border); }
+        .collapse-icon {
+            color: var(--text-muted);
+            transition: transform 0.3s;
+            font-size: 0.8rem;
+        }
+        .section-card.collapsed .section-card-body { display: none; }
+        .section-card.collapsed .collapse-icon { transform: rotate(-90deg); }
+        .section-card-body { border-top: 1px solid var(--border); }
+
+        /* FIELD ROWS */
+        .field-row {
+            display: grid;
+            grid-template-columns: 220px 200px 1fr;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .field-row:last-child { border-bottom: none; }
+        .field-row:hover { background: var(--bg-hover); }
+        .field-name {
+            padding: 12px 18px;
+            font-weight: 600;
+            font-size: 0.83rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-right: 1px solid var(--border);
+        }
+        .field-value {
+            padding: 12px 16px;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-right: 1px solid var(--border);
+            word-break: break-all;
+        }
+        .field-explanation {
+            padding: 12px 16px;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .val-yes { color: var(--success); font-weight: 700; }
+        .val-no { color: var(--text-muted); }
+        .val-error { color: var(--error); font-weight: 700; }
+        .val-warning { color: var(--warning); font-weight: 700; }
+        .val-info { color: var(--info); }
+        .val-success { color: var(--success); font-weight: 700; }
+        .val-url { color: var(--accent); font-size: 0.78rem; }
+        .val-id { color: #a78bfa; font-size: 0.78rem; }
+        .val-date { color: #f0abfc; }
+        .tag {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .tag-good { background: var(--success-bg); color: var(--success); }
+        .tag-bad { background: var(--error-bg); color: var(--error); }
+        .tag-warn { background: var(--warning-bg); color: var(--warning); }
+        .tag-info { background: var(--info-bg); color: var(--info); }
+
+        /* TOAST */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            z-index: 2000;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            font-size: 0.85rem;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        .hidden { display: none !important; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .health-section { grid-template-columns: 1fr; }
+            .field-row { grid-template-columns: 1fr; }
+            .field-name { border-right: none; border-bottom: 1px solid var(--border); padding: 8px 16px; }
+            .field-value { border-right: none; border-bottom: 1px solid var(--border); padding: 8px 16px; }
+            .field-explanation { padding: 8px 16px 14px; }
+            .info-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 600px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .header h1 .subtitle { display: none; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+        @media print {
+            .header, .input-section, .btn { display: none !important; }
+            body { background: white; color: black; }
+            .results-area { max-width: 100%; }
+            .section-card, .health-circle-wrapper, .findings-card, .info-badge {
+                background: #f9f9f9; border-color: #ddd;
+            }
+            .field-row { border-color: #ddd; }
+            .field-name, .field-value { border-color: #ddd; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- DROP OVERLAY -->
+<div class="drop-overlay" id="dropOverlay">📂 Drop your .txt or .log file here</div>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>
+        <span class="icon">🖥️</span>
+        Device Status Analyzer
+        <span class="subtitle">dsregcmd /status • Azure AD • Hybrid Join Diagnostics</span>
+    </h1>
+    <div class="header-actions" id="headerActions">
+        <button class="btn btn-outline" onclick="exportReport()" id="btnExport" style="display:none">📄 Export</button>
+        <button class="btn btn-outline" onclick="window.print()" id="btnPrint" style="display:none">🖨️ Print</button>
+        <button class="btn btn-danger" onclick="resetTool()" id="btnReset" style="display:none">✕ Clear</button>
+    </div>
+</div>
+
+<!-- INPUT SECTION -->
+<div class="input-section" id="inputSection">
+    <div class="input-card">
+        <div class="input-card-header">
+            <h2>📋 Paste Device Status Log</h2>
+        </div>
+        <div>
+            <textarea id="logInput" placeholder="Paste your dsregcmd /status output here...
+
+You can also drag & drop a .txt or .log file onto this page."></textarea>
+        </div>
+        <div class="input-actions">
+            <button class="btn btn-primary" onclick="analyzeLog()">🔍 Analyze Log</button>
+            <button class="btn btn-outline" onclick="document.getElementById('logInput').value=''; document.getElementById('logInput').focus();">🗑️ Clear</button>
+            <input type="file" id="fileInput" accept=".txt,.log,.har" style="display:none">
+            <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">📁 Upload File</button>
+            <span class="hint">Run <code>dsregcmd /status</code> on the device and paste the output</span>
+        </div>
+    </div>
+</div>
+
+<!-- RESULTS -->
+<div class="results-area hidden" id="resultsArea"></div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// KNOWLEDGE BASE
+// =====================================================
+const FIELD_KB = {
+    "AzureAdJoined": {
+        explanation: "Indicates whether this device is joined to Azure Active Directory (Entra ID). YES means the device has a computer object in Azure AD, enabling cloud-based management, Conditional Access, and SSO to cloud resources.",
+        goodValues: ["YES"],
+        category: "critical",
+        tip: "If NO and expected, re-run Azure AD Join or check Hybrid Azure AD Join configuration via GPO/Intune."
+    },
+    "EnterpriseJoined": {
+        explanation: "Indicates if the device is joined to an on-premises enterprise environment (legacy workplace join). Modern setups use Azure AD Join or Hybrid Join instead.",
+        goodValues: ["NO"],
+        category: "info",
+        tip: "Typically NO in modern environments. YES may indicate a legacy workplace join configuration."
+    },
+    "DomainJoined": {
+        explanation: "Indicates if the device is joined to an on-premises Active Directory domain. YES means the device has a computer account in local AD and can authenticate using Kerberos with on-prem resources.",
+        goodValues: ["YES"],
+        category: "critical",
+        tip: "For Hybrid Azure AD Join, this MUST be YES. If NO, the device is not part of the corporate AD domain."
+    },
+    "DomainName": {
+        explanation: "The NetBIOS name of the on-premises Active Directory domain this device is joined to.",
+        category: "info"
+    },
+    "Device Name": {
+        explanation: "The full hostname (FQDN) of the device as registered in Active Directory and DNS.",
+        category: "info"
+    },
+    "DeviceId": {
+        explanation: "The unique device identifier (GUID) in Azure AD (Entra ID). This is the primary key for the device object in the directory. Used in Conditional Access policies and Intune device management.",
+        category: "info"
+    },
+    "Thumbprint": {
+        explanation: "The SHA-1 thumbprint of the device certificate used for Azure AD authentication. This certificate is issued during the device join process and stored in the local machine certificate store.",
+        category: "info"
+    },
+    "DeviceCertificateValidity": {
+        explanation: "The validity period of the device's Azure AD authentication certificate. If expired, the device cannot authenticate to Azure AD and will lose SSO, Conditional Access compliance, etc.",
+        category: "critical",
+        tip: "If expired, the device must be re-joined to Azure AD. Certificate is typically valid for 10 years."
+    },
+    "KeyContainerId": {
+        explanation: "The identifier for the cryptographic key container where the device's private key is stored.",
+        category: "info"
+    },
+    "KeyProvider": {
+        explanation: "The Key Storage Provider (KSP) storing the device's private key. 'Microsoft Software Key Storage Provider' = software-based. 'Microsoft Platform Crypto Provider' = TPM hardware-backed.",
+        category: "info",
+        tip: "Software-based keys are less secure than TPM-backed keys."
+    },
+    "TpmProtected": {
+        explanation: "Indicates if the device private key is protected by the Trusted Platform Module (TPM) hardware chip. YES means the key is stored in hardware and cannot be exported — providing stronger security.",
+        goodValues: ["YES"],
+        warnValues: ["NO"],
+        category: "security",
+        tip: "NO means the device key is in software. For high-security environments, enable TPM protection. Some Conditional Access policies may require TPM-protected devices."
+    },
+    "DeviceAuthStatus": {
+        explanation: "The result of the last device authentication attempt to Azure AD. SUCCESS means the device can successfully authenticate using its certificate. FAILED indicates a broken trust relationship.",
+        goodValues: ["SUCCESS"],
+        badValues: ["FAILED"],
+        category: "critical",
+        tip: "If FAILED, the device certificate may be invalid, revoked, or the key corrupted. Try re-joining the device to Azure AD."
+    },
+    "TenantName": {
+        explanation: "The display name of the Azure AD (Entra ID) tenant this device is registered to.",
+        category: "info"
+    },
+    "TenantId": {
+        explanation: "The unique GUID identifier for the Azure AD tenant. Used across all Microsoft services to identify your organization's directory.",
+        category: "info"
+    },
+    "AuthCodeUrl": {
+        explanation: "The OAuth 2.0 authorization endpoint URL for the tenant. Applications use this to initiate the authorization code flow for user authentication.",
+        category: "info"
+    },
+    "AccessTokenUrl": {
+        explanation: "The OAuth 2.0 token endpoint URL. After authorization, applications exchange the auth code for access tokens at this endpoint.",
+        category: "info"
+    },
+    "MdmUrl": {
+        explanation: "The MDM (Mobile Device Management) enrollment URL. If populated, devices auto-enroll into MDM (e.g., Intune) during Azure AD Join. Empty means MDM auto-enrollment is NOT configured.",
+        warnIfEmpty: true,
+        category: "management",
+        tip: "If empty and you use Intune, configure MDM auto-enrollment in Azure AD → Mobility (MDM and MAM) settings."
+    },
+    "MdmTouUrl": {
+        explanation: "The MDM Terms of Use URL. Users may see terms of use during MDM enrollment if configured.",
+        category: "info"
+    },
+    "MdmComplianceUrl": {
+        explanation: "The MDM compliance URL used to check device compliance status with the MDM provider.",
+        category: "info"
+    },
+    "SettingsUrl": {
+        explanation: "Base64-encoded settings URL containing configuration endpoints for Windows cloud management services.",
+        category: "info"
+    },
+    "JoinSrvVersion": { explanation: "Version of the Device Registration Service (DRS) for join operations.", category: "info" },
+    "JoinSrvUrl": { explanation: "The URL of the Enterprise Device Registration Service endpoint where devices register/join to Azure AD.", category: "info" },
+    "JoinSrvId": { explanation: "Service identifier (URN) for the Device Registration Service.", category: "info" },
+    "KeySrvVersion": { explanation: "Version of the Key Service for device key registration.", category: "info" },
+    "KeySrvUrl": { explanation: "URL of the Key Service endpoint for registering device keys with Azure AD.", category: "info" },
+    "KeySrvId": { explanation: "Service identifier (URN) for the Key Service.", category: "info" },
+    "WebAuthNSrvVersion": { explanation: "Version of the WebAuthN (FIDO2) service endpoint for passwordless authentication.", category: "info" },
+    "WebAuthNSrvUrl": { explanation: "URL for the WebAuthN/FIDO2 authentication service for passwordless sign-in with security keys.", category: "info" },
+    "WebAuthNSrvId": { explanation: "Service identifier (URN) for the WebAuthN service.", category: "info" },
+    "DeviceManagementSrvVer": { explanation: "Version of the Device Management Service endpoint.", category: "info" },
+    "DeviceManagementSrvUrl": { explanation: "URL of the Device Management Service endpoint for managing device objects in Azure AD.", category: "info" },
+    "DeviceManagementSrvId": { explanation: "Service identifier (URN) for the Device Management Service.", category: "info" },
+    "NgcSet": {
+        explanation: "Indicates if Windows Hello for Business (NGC = Next Generation Credential) is configured for the current user. YES means the user has enrolled a PIN, fingerprint, or face recognition for passwordless sign-in.",
+        goodValues: ["YES"],
+        category: "security",
+        tip: "If NO, the user hasn't set up Windows Hello. This may be fine or may indicate a policy issue preventing enrollment."
+    },
+    "WorkplaceJoined": {
+        explanation: "Indicates if the current user performed a Workplace Join (Azure AD Registration). This is separate from device-level Azure AD Join.",
+        category: "info",
+        tip: "YES means BYOD registration. In Hybrid Join environments, this is typically NO."
+    },
+    "WamDefaultSet": {
+        explanation: "Indicates if the Web Account Manager (WAM) default account is configured. WAM is the modern Windows auth broker used by Office, Teams, Edge for SSO.",
+        goodValues: ["YES"],
+        category: "critical",
+        tip: "If NO, Microsoft 365 apps may not get SSO and users will be prompted to sign in repeatedly."
+    },
+    "WamDefaultAuthority": {
+        explanation: "The authentication authority used by WAM. 'organizations' = multi-tenant Azure AD. A specific tenant URL = single-tenant.",
+        category: "info"
+    },
+    "WamDefaultId": {
+        explanation: "The identity provider URL used by WAM. 'https://login.microsoft.com' is the standard Microsoft identity platform.",
+        category: "info"
+    },
+    "WamDefaultGUID": {
+        explanation: "The GUID identifying the WAM authentication plugin. {B16898C6-A148-4967-9171-64D755DA8520} = Azure AD WAM plugin.",
+        category: "info"
+    },
+    "AzureAdPrt": {
+        explanation: "Indicates if the user has a Primary Refresh Token (PRT) from Azure AD. The PRT is the KEY to SSO — it enables single sign-on to all Azure AD-integrated applications (Office 365, Azure Portal, SaaS apps). Without it, users must authenticate repeatedly.",
+        goodValues: ["YES"],
+        badValues: ["NO"],
+        category: "critical",
+        tip: "If NO, SSO is BROKEN. Check: 1) User signed in with Azure AD credentials, 2) Device is properly joined, 3) No certificate/trust issues, 4) Network connectivity to login.microsoftonline.com."
+    },
+    "AzureAdPrtUpdateTime": {
+        explanation: "Timestamp when the PRT was last refreshed. PRTs refresh every 4 hours during normal use. A very old date may indicate a stale PRT.",
+        category: "info"
+    },
+    "AzureAdPrtExpiryTime": {
+        explanation: "When the current PRT expires. PRTs are valid for 14 days and continuously refreshed during active use. If expired, the user must re-authenticate.",
+        category: "critical",
+        tip: "If expired, the user will lose SSO. Lock/unlock or sign out and back in to refresh."
+    },
+    "AzureAdPrtAuthority": {
+        explanation: "The Azure AD authority (tenant endpoint) that issued the PRT. Should match your organization's tenant ID.",
+        category: "info"
+    },
+    "EnterprisePrt": {
+        explanation: "Indicates if the user has an Enterprise PRT from AD FS or on-premises STS. Used in federated environments for SSO to on-premises resources.",
+        category: "info",
+        tip: "If your organization uses AD FS federation, this should be YES for full SSO coverage."
+    },
+    "EnterprisePrtAuthority": { explanation: "The authority URL that issued the Enterprise PRT (typically an AD FS endpoint).", category: "info" },
+    "OnPremTgt": {
+        explanation: "Indicates if the user has an on-premises Kerberos Ticket Granting Ticket (TGT). YES means the user can access on-premises AD resources (file shares, printers, intranet apps) using Kerberos SSO.",
+        goodValues: ["YES"],
+        category: "critical",
+        tip: "If NO and device is domain-joined, there may be a DC connectivity issue or the user didn't sign in with domain credentials."
+    },
+    "CloudTgt": {
+        explanation: "Indicates if the user has a Cloud Kerberos TGT. YES enables SSO to cloud resources that support Kerberos (Azure Files, Windows 365).",
+        goodValues: ["YES"],
+        category: "info",
+        tip: "If NO, Azure AD Kerberos may not be deployed. Needed for Azure Files identity-based access."
+    },
+    "KerbTopLevelNames": {
+        explanation: "DNS suffixes for which Cloud Kerberos tickets are requested. Defines the scope of cloud Kerberos SSO (e.g., .windows.net for Azure SQL, .azure.net for Azure services).",
+        category: "info"
+    },
+    "AadRecoveryEnabled": {
+        explanation: "Indicates if Azure AD self-service device recovery is enabled. YES means a recovery key is escrowed to Azure AD allowing trust recovery without re-joining.",
+        category: "info"
+    },
+    "Executing Account Name": {
+        explanation: "The user account under which dsregcmd was executed. Shows both SAM name (DOMAIN\\user) and UPN (user@domain).",
+        category: "info"
+    },
+    "KeySignTest": {
+        explanation: "Result of the device key signing test. PASSED means the device can successfully sign data with its private key — confirming the key is intact. FAILED = corrupted or inaccessible key.",
+        goodValues: ["PASSED"],
+        badValues: ["FAILED", "NOT TESTED"],
+        category: "critical",
+        tip: "If FAILED, the device trust is broken. The device must be unjoined and re-joined to Azure AD."
+    },
+    "DisplayNameUpdated": { explanation: "Whether the device display name was successfully synced to Azure AD.", goodValues: ["YES"], category: "info" },
+    "OsVersionUpdated": { explanation: "Whether the device's OS version info was successfully updated in Azure AD.", goodValues: ["YES"], category: "info" },
+    "HostNameUpdated": { explanation: "Whether the device hostname was successfully updated in Azure AD.", goodValues: ["YES"], category: "info" },
+    "Last HostName Update": { explanation: "Result of the most recent hostname update attempt to Azure AD.", goodValues: ["SUCCESS"], category: "info" },
+    "Client Time": { explanation: "Local time on the client device when the last sync occurred.", category: "info" },
+    "Request ID": { explanation: "Unique correlation ID for the last Azure AD request. Use for troubleshooting with Microsoft support or sign-in logs.", category: "info" },
+    "Server Time": { explanation: "Azure AD server time when the last request was processed. Compare with Client Time to detect clock skew.", category: "info" },
+    "HTTP Status": {
+        explanation: "HTTP status code from Azure AD for the last device operation. 200 = success, 4xx = client error, 5xx = server error.",
+        goodValues: ["200"],
+        category: "info"
+    },
+    "Server Message": { explanation: "Response message from Azure AD for the last operation — details what was updated or any errors.", category: "info" },
+    "Auto Detect Settings": { explanation: "Whether IE/WinINET auto-detects proxy settings using WPAD.", category: "info" },
+    "Auto-Configuration URL": { explanation: "URL of the Proxy Auto-Configuration (PAC) file.", category: "info" },
+    "Proxy Server List": {
+        explanation: "Manually configured proxy server(s). A proxy here could interfere with Azure AD communication if not configured correctly.",
+        category: "network",
+        tip: "If proxy is set, ensure *.microsoftonline.com, *.microsoft.com, *.windows.net are in the bypass list or can pass through."
+    },
+    "Proxy Bypass List": { explanation: "Addresses that bypass the proxy. Critical Azure AD endpoints should be here if a proxy is configured.", category: "network" },
+    "Access Type": {
+        explanation: "WinHTTP proxy configuration. DIRECT = no proxy. NAMED_PROXY = specific proxy. WinHTTP is used by system services (Windows Update, Azure AD device auth) — separate from user proxy.",
+        category: "network",
+        tip: "DIRECT is simplest. If your network requires a proxy, configure via: netsh winhttp set proxy"
+    },
+    "IsDeviceJoined": { explanation: "Pre-check for Windows Hello: confirms device is Azure AD or Hybrid Joined.", goodValues: ["YES"], category: "info" },
+    "IsUserAzureAD": { explanation: "Pre-check for Windows Hello: confirms current user is an Azure AD user (not local).", goodValues: ["YES"], category: "info" },
+    "PolicyEnabled": {
+        explanation: "Whether Windows Hello for Business is enabled via Group Policy or Intune policy. NO means it's not being enforced.",
+        goodValues: ["YES"],
+        warnValues: ["NO"],
+        category: "security",
+        tip: "To enforce passwordless, enable Windows Hello for Business policy via GPO or Intune."
+    },
+    "PostLogonEnabled": { explanation: "Whether Windows Hello enrollment is triggered after user logon.", goodValues: ["YES"], category: "info" },
+    "DeviceEligible": {
+        explanation: "Whether the device meets hardware/software requirements for Windows Hello. NO may indicate missing TPM, biometric hardware, or incompatible Windows edition.",
+        goodValues: ["YES"],
+        warnValues: ["NO"],
+        category: "security",
+        tip: "If NO, check: TPM 2.0 availability, Windows edition (Pro/Enterprise), and biometric drivers."
+    },
+    "SessionIsNotRemote": {
+        explanation: "Checks if the current session is local (not RDP/remote). Windows Hello enrollment requires a local console session.",
+        goodValues: ["YES"],
+        warnValues: ["NO"],
+        category: "info",
+        tip: "NO = RDP/remote session. Windows Hello can only be enrolled from a local console session."
+    },
+    "CertEnrollment": { explanation: "Certificate enrollment type for Windows Hello. 'none' = key-based. 'enrollment authority' or 'certificate authority' = cert-based deployment.", category: "info" },
+    "PreReqResult": {
+        explanation: "Final prerequisite check result for Windows Hello for Business. 'WillProvision' = ready to enroll. 'WillNotProvision' = requirements not met.",
+        goodValues: ["WillProvision"],
+        warnValues: ["WillNotProvision"],
+        category: "security",
+        tip: "WillNotProvision means Windows Hello won't auto-enroll. Check individual prerequisites above."
+    }
+};
+
+// =====================================================
+// PARSER
+// =====================================================
+function parseLog(text) {
+    const sections = [];
+    let currentSection = null;
+    const lines = text.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const sectionMatch = line.match(/^\|\s*(.+?)\s*\|$/);
+        if (sectionMatch) {
+            const name = sectionMatch[1].trim();
+            if (name && !name.match(/^-+$/) && !name.match(/^\++$/)) {
+                currentSection = { name, fields: [] };
+                sections.push(currentSection);
+            }
+            continue;
+        }
+        if (line.match(/^\+[-+]+\+$/) || line.trim() === '') continue;
+        const kvMatch = line.match(/^\s*(.+?)\s*:\s*(.*)$/);
+        if (kvMatch && currentSection) {
+            const key = kvMatch[1].trim();
+            let value = kvMatch[2].trim();
+            if (key === 'DeviceCertificateValidity') {
+                while (i + 1 < lines.length && !lines[i + 1].match(/^\s*\w/) && lines[i + 1].trim() && !lines[i + 1].match(/^\+/)) {
+                    value += ' ' + lines[i + 1].trim();
+                    i++;
+                }
+            }
+            currentSection.fields.push({ key, value });
+        }
+    }
+    return sections;
+}
+
+// =====================================================
+// ANALYZER
+// =====================================================
+function analyze(sections) {
+    const findings = [];
+    let score = 100;
+    const allFields = {};
+    sections.forEach(s => s.fields.forEach(f => allFields[f.key] = f.value));
+
+    // Azure AD Joined
+    if (allFields['AzureAdJoined'] === 'YES') {
+        findings.push({ type: 'good', title: 'Azure AD Joined', desc: 'Device is registered in Azure AD. Cloud identity is established.' });
+    } else if (allFields['AzureAdJoined'] === 'NO') {
+        findings.push({ type: 'critical', title: 'NOT Azure AD Joined', desc: 'Device is not joined to Azure AD. Cloud SSO, Conditional Access, and Intune management will NOT work.' });
+        score -= 25;
+    }
+
+    // Domain Joined
+    if (allFields['DomainJoined'] === 'YES') {
+        findings.push({ type: 'good', title: 'Domain Joined', desc: `Device is joined to on-premises AD domain "${allFields['DomainName'] || 'Unknown'}". Kerberos authentication available.` });
+    }
+
+    // Hybrid
+    if (allFields['AzureAdJoined'] === 'YES' && allFields['DomainJoined'] === 'YES') {
+        findings.push({ type: 'good', title: 'Hybrid Azure AD Joined', desc: 'Device is both domain-joined and Azure AD joined — Hybrid Azure AD Join configuration.' });
+    }
+
+    // Device Auth
+    if (allFields['DeviceAuthStatus'] === 'SUCCESS') {
+        findings.push({ type: 'good', title: 'Device Authentication OK', desc: 'Device successfully authenticates to Azure AD using its certificate.' });
+    } else if (allFields['DeviceAuthStatus'] === 'FAILED') {
+        findings.push({ type: 'critical', title: 'Device Authentication FAILED', desc: 'Device cannot authenticate to Azure AD. Trust relationship is broken. Re-join may be required.' });
+        score -= 30;
+    }
+
+    // Key Sign Test
+    if (allFields['KeySignTest'] === 'PASSED') {
+        findings.push({ type: 'good', title: 'Key Signing Test Passed', desc: 'Device private key is intact and can sign authentication tokens.' });
+    } else if (allFields['KeySignTest'] && allFields['KeySignTest'] !== 'PASSED') {
+        findings.push({ type: 'critical', title: 'Key Signing Test FAILED', desc: 'Device private key is corrupted or inaccessible. Re-join required.' });
+        score -= 30;
+    }
+
+    // Certificate validity
+    if (allFields['DeviceCertificateValidity']) {
+        const match = allFields['DeviceCertificateValidity'].match(/--\s*(\d{4}-\d{2}-\d{2})/);
+        if (match) {
+            const expiry = new Date(match[1]);
+            const now = new Date();
+            const daysLeft = Math.floor((expiry - now) / 86400000);
+            if (daysLeft < 0) {
+                findings.push({ type: 'critical', title: 'Device Certificate EXPIRED', desc: `Certificate expired ${Math.abs(daysLeft)} days ago. Re-join required.` });
+                score -= 30;
+            } else if (daysLeft < 30) {
+                findings.push({ type: 'warning', title: 'Device Certificate Expiring Soon', desc: `Certificate expires in ${daysLeft} days.` });
+                score -= 10;
+            } else {
+                findings.push({ type: 'good', title: 'Device Certificate Valid', desc: `Certificate valid for ${daysLeft} more days (expires ${expiry.toDateString()}).` });
+            }
+        }
+    }
+
+    // TPM
+    if (allFields['TpmProtected'] === 'NO') {
+        findings.push({ type: 'warning', title: 'TPM Not Protecting Device Key', desc: 'Device key stored in software, not hardware TPM. Less secure — key could be exported.' });
+        score -= 5;
+    } else if (allFields['TpmProtected'] === 'YES') {
+        findings.push({ type: 'good', title: 'TPM Protected', desc: 'Device key is hardware-protected by TPM.' });
+    }
+
+    // PRT
+    if (allFields['AzureAdPrt'] === 'YES') {
+        findings.push({ type: 'good', title: 'Azure AD PRT Present', desc: 'User has a Primary Refresh Token — SSO to cloud apps is working.' });
+        if (allFields['AzureAdPrtExpiryTime']) {
+            const prtExpiry = new Date(allFields['AzureAdPrtExpiryTime'].replace(' UTC', 'Z'));
+            const now = new Date();
+            if (prtExpiry < now) {
+                findings.push({ type: 'critical', title: 'PRT Expired', desc: 'Primary Refresh Token has expired. SSO is broken. User needs to sign out and back in.' });
+                score -= 20;
+            }
+        }
+    } else if (allFields['AzureAdPrt'] === 'NO') {
+        findings.push({ type: 'critical', title: 'NO Azure AD PRT', desc: 'User has NO Primary Refresh Token. SSO to Microsoft 365 and cloud apps is NOT working.' });
+        score -= 25;
+    }
+
+    // On-Prem TGT
+    if (allFields['OnPremTgt'] === 'YES') {
+        findings.push({ type: 'good', title: 'On-Premises Kerberos TGT Present', desc: 'User has a Kerberos ticket for on-premises resources.' });
+    } else if (allFields['OnPremTgt'] === 'NO' && allFields['DomainJoined'] === 'YES') {
+        findings.push({ type: 'warning', title: 'No On-Premises TGT', desc: 'Device is domain-joined but no Kerberos TGT. On-prem SSO may be broken.' });
+        score -= 10;
+    }
+
+    // Cloud TGT
+    if (allFields['CloudTgt'] === 'YES') {
+        findings.push({ type: 'good', title: 'Cloud Kerberos TGT Present', desc: 'Cloud Kerberos ticket available for Azure-based Kerberos resources.' });
+    }
+
+    // WAM
+    if (allFields['WamDefaultSet'] === 'YES') {
+        findings.push({ type: 'good', title: 'WAM Default Account Set', desc: 'Web Account Manager configured — Office, Teams, Edge get SSO.' });
+    } else if (allFields['WamDefaultSet'] === 'NO') {
+        findings.push({ type: 'warning', title: 'WAM Default Not Set', desc: 'Microsoft 365 apps may not get automatic SSO.' });
+        score -= 10;
+    }
+
+    // MDM
+    if (allFields['MdmUrl'] !== undefined && allFields['MdmUrl'] === '') {
+        findings.push({ type: 'warning', title: 'MDM Not Configured', desc: 'No MDM enrollment URL. Devices will NOT auto-enroll in Intune during Azure AD Join.' });
+        score -= 5;
+    }
+
+    // Windows Hello
+    if (allFields['PreReqResult'] === 'WillNotProvision') {
+        findings.push({ type: 'warning', title: 'Windows Hello Will Not Provision', desc: 'Prerequisites not met for Windows Hello for Business. Passwordless won\'t auto-configure.' });
+        score -= 5;
+    } else if (allFields['PreReqResult'] === 'WillProvision') {
+        findings.push({ type: 'good', title: 'Windows Hello Ready', desc: 'All prerequisites met for Windows Hello enrollment.' });
+    }
+
+    if (allFields['NgcSet'] === 'NO') {
+        findings.push({ type: 'info', title: 'Windows Hello Not Enrolled', desc: 'User has not set up Windows Hello (PIN/Biometric).' });
+    }
+
+    // Proxy
+    if (allFields['Proxy Server List'] && allFields['Proxy Server List'] !== '') {
+        findings.push({ type: 'info', title: 'Proxy Configured', desc: `Proxy: ${allFields['Proxy Server List']}. Ensure Azure AD endpoints are accessible.` });
+    }
+
+    // Remote session
+    if (allFields['SessionIsNotRemote'] === 'NO') {
+        findings.push({ type: 'info', title: 'Remote Session Detected', desc: 'Running in RDP/remote session. Some features require local console.' });
+    }
+
+    // HTTP Status
+    if (allFields['HTTP Status'] && allFields['HTTP Status'] !== '200') {
+        findings.push({ type: 'warning', title: `Last Sync HTTP ${allFields['HTTP Status']}`, desc: `Last device sync returned HTTP ${allFields['HTTP Status']}.` });
+        score -= 10;
+    }
+
+    // AAD Recovery
+    if (allFields['AadRecoveryEnabled'] === 'NO') {
+        findings.push({ type: 'info', title: 'AAD Recovery Not Enabled', desc: 'Self-service device recovery is disabled.' });
+    }
+
+    // Enterprise PRT
+    if (allFields['EnterprisePrt'] === 'NO' && allFields['DomainJoined'] === 'YES') {
+        findings.push({ type: 'info', title: 'No Enterprise PRT', desc: 'Enterprise PRT not present. If using AD FS, federation SSO may not be active.' });
+    }
+
+    score = Math.max(0, Math.min(100, score));
+    return { findings, score, allFields };
+}
+
+// =====================================================
+// RENDERER
+// =====================================================
+function render(sections, analysis) {
+    const area = document.getElementById('resultsArea');
+    let html = '';
+
+    const scoreColor = analysis.score >= 80 ? 'var(--success)' : analysis.score >= 60 ? 'var(--warning)' : 'var(--error)';
+    const scoreLabel = analysis.score >= 90 ? 'EXCELLENT' : analysis.score >= 75 ? 'GOOD' : analysis.score >= 60 ? 'FAIR' : analysis.score >= 40 ? 'POOR' : 'CRITICAL';
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference - (analysis.score / 100) * circumference;
+
+    // Health + Findings
+    html += `<div class="health-section">
+        <div class="health-circle-wrapper">
+            <div class="health-circle">
+                <svg viewBox="0 0 120 120">
+                    <circle class="bg" cx="60" cy="60" r="52"/>
+                    <circle class="fg" cx="60" cy="60" r="52" stroke="${scoreColor}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+                </svg>
+                <div class="score-text" style="color:${scoreColor}">${analysis.score}</div>
+            </div>
+            <div class="health-label" style="color:${scoreColor}">${scoreLabel}</div>
+        </div>
+        <div class="findings-card">
+            <div class="findings-header">🩺 Diagnostic Findings (${analysis.findings.length})</div>
+            ${analysis.findings.map(f => {
+                const icons = { critical: '🔴', warning: '🟡', good: '🟢', info: '🔵' };
+                return `<div class="finding-item">
+                    <div class="finding-icon ${f.type}">${icons[f.type]}</div>
+                    <div class="finding-text"><strong>${f.title}</strong><span>${f.desc}</span></div>
+                </div>`;
+            }).join('')}
+        </div>
+    </div>`;
+
+    // Quick badges
+    const af = analysis.allFields;
+    const badges = [];
+    if (af['Device Name']) badges.push({ icon: '💻', label: 'Device', value: af['Device Name'], bg: 'var(--accent-glow)' });
+    if (af['DomainName']) badges.push({ icon: '🏢', label: 'Domain', value: af['DomainName'], bg: 'var(--accent-glow)' });
+    if (af['TenantName']) badges.push({ icon: '☁️', label: 'Tenant', value: af['TenantName'], bg: 'var(--info-bg)' });
+    if (af['Executing Account Name']) badges.push({ icon: '👤', label: 'User', value: af['Executing Account Name'], bg: 'var(--accent-glow)' });
+    if (af['DeviceId']) badges.push({ icon: '🆔', label: 'Device ID', value: af['DeviceId'], bg: 'rgba(167,139,250,0.1)' });
+    if (af['TenantId']) badges.push({ icon: '🔑', label: 'Tenant ID', value: af['TenantId'], bg: 'rgba(167,139,250,0.1)' });
+
+    if (badges.length) {
+        html += `<div class="info-grid">${badges.map(b => `
+            <div class="info-badge">
+                <div class="info-badge-icon" style="background:${b.bg}">${b.icon}</div>
+                <div class="info-badge-text">
+                    <div class="label">${b.label}</div>
+                    <div class="value">${esc(b.value)}</div>
+                </div>
+            </div>`).join('')}</div>`;
+    }
+
+    // Section cards
+    const sectionIcons = {
+        'Device State': '🖥️', 'Device Details': '🔧', 'Tenant Details': '☁️',
+        'User State': '👤', 'SSO State': '🔐', 'Diagnostic Data': '🩺',
+        'IE Proxy Config for Current User': '🌐', 'WinHttp Default Proxy Config': '🌐',
+        'Ngc Prerequisite Check': '🔑'
+    };
+
+    sections.forEach((section, si) => {
+        const icon = sectionIcons[section.name] || '📋';
+        let goods = 0, warns = 0, bads = 0;
+        section.fields.forEach(f => {
+            const kb = FIELD_KB[f.key];
+            if (kb) {
+                if (kb.goodValues?.includes(f.value)) goods++;
+                else if (kb.badValues?.includes(f.value)) bads++;
+                else if (kb.warnValues?.includes(f.value)) warns++;
+                else if (kb.warnIfEmpty && f.value === '') warns++;
+            }
+        });
+        let pills = '';
+        if (goods) pills += `<span class="status-pill pill-good">${goods} OK</span>`;
+        if (warns) pills += `<span class="status-pill pill-warn">${warns} Warn</span>`;
+        if (bads) pills += `<span class="status-pill pill-bad">${bads} Issue</span>`;
+
+        html += `<div class="section-card" id="sec-${si}">
+            <div class="section-card-header" onclick="toggleCard('sec-${si}')">
+                <h3>${icon} ${section.name}</h3>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="section-status-pills">${pills}</div>
+                    <span class="collapse-icon">▼</span>
+                </div>
+            </div>
+            <div class="section-card-body">
+                <div class="field-row" style="background:var(--bg-hover);">
+                    <div class="field-name" style="font-weight:700;color:var(--text-primary);">Field</div>
+                    <div class="field-value" style="font-weight:700;font-family:inherit;color:var(--text-primary);">Value</div>
+                    <div class="field-explanation" style="font-weight:700;color:var(--text-primary);">Explanation</div>
+                </div>
+                ${section.fields.map(f => renderField(f)).join('')}
+            </div>
+        </div>`;
+    });
+
+    area.innerHTML = html;
+}
+
+function renderField(field) {
+    const kb = FIELD_KB[field.key] || {};
+    const val = field.value;
+    let valClass = '', tag = '';
+
+    if (kb.goodValues?.includes(val)) { valClass = 'val-success'; tag = '<span class="tag tag-good">✓ OK</span>'; }
+    else if (kb.badValues?.includes(val)) { valClass = 'val-error'; tag = '<span class="tag tag-bad">✕ ISSUE</span>'; }
+    else if (kb.warnValues?.includes(val)) { valClass = 'val-warning'; tag = '<span class="tag tag-warn">⚠ WARN</span>'; }
+    else if (kb.warnIfEmpty && val === '') { valClass = 'val-warning'; tag = '<span class="tag tag-warn">EMPTY</span>'; }
+    else if (val === 'YES') valClass = 'val-yes';
+    else if (val === 'NO') valClass = 'val-no';
+    else if (val.match(/^https?:\/\//)) valClass = 'val-url';
+    else if (val.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i)) valClass = 'val-id';
+    else if (val.match(/\d{4}-\d{2}-\d{2}/) || val.match(/\d{2}-\d{2}-\d{4}/)) valClass = 'val-date';
+    else if (val === 'SUCCESS' || val === 'PASSED') { valClass = 'val-success'; tag = '<span class="tag tag-good">✓</span>'; }
+    else if (val === 'FAILED') { valClass = 'val-error'; tag = '<span class="tag tag-bad">✕</span>'; }
+
+    const explanation = kb.explanation || getGenericExplanation(field.key, val);
+    const tip = kb.tip ? `<br><em style="color:var(--warning);font-size:0.78rem">💡 ${kb.tip}</em>` : '';
+
+    return `<div class="field-row">
+        <div class="field-name">${esc(field.key)}</div>
+        <div class="field-value"><span class="${valClass}">${esc(val) || '<em style="color:var(--text-muted)">(empty)</em>'}</span> ${tag}</div>
+        <div class="field-explanation">${explanation}${tip}</div>
+    </div>`;
+}
+
+function getGenericExplanation(key, value) {
+    if (key.match(/Url$/i) || key.match(/URL$/)) return 'Service endpoint URL used for device registration or management.';
+    if (key.match(/Version$/i) || key.match(/Ver$/)) return 'Version of the associated service endpoint.';
+    if (key.match(/Id$/i) && value.match(/^urn:/)) return 'Service identifier (URN) for the registration service.';
+    if (key.match(/GUID$/)) return 'Unique identifier (GUID) for this component.';
+    return 'Device configuration field.';
+}
+
+// =====================================================
+// UI ACTIONS
+// =====================================================
+function analyzeLog() {
+    const text = document.getElementById('logInput').value.trim();
+    if (!text) { showToast('⚠️ Please paste a device status log first'); return; }
+    const sections = parseLog(text);
+    if (sections.length === 0) { showToast('❌ Could not parse any sections. Ensure this is a dsregcmd /status output.'); return; }
+    const analysis = analyze(sections);
+
+    document.getElementById('inputSection').classList.add('hidden');
+    document.getElementById('resultsArea').classList.remove('hidden');
+    document.getElementById('btnExport').style.display = '';
+    document.getElementById('btnPrint').style.display = '';
+    document.getElementById('btnReset').style.display = '';
+
+    render(sections, analysis);
+    const totalFields = sections.reduce((s, sec) => s + sec.fields.length, 0);
+    showToast(`✅ Analyzed ${sections.length} sections, ${totalFields} fields — Health Score: ${analysis.score}/100`);
+}
+
+function resetTool() {
+    document.getElementById('inputSection').classList.remove('hidden');
+    document.getElementById('resultsArea').classList.add('hidden');
+    document.getElementById('resultsArea').innerHTML = '';
+    document.getElementById('btnExport').style.display = 'none';
+    document.getElementById('btnPrint').style.display = 'none';
+    document.getElementById('btnReset').style.display = 'none';
+}
+
+function toggleCard(id) { document.getElementById(id).classList.toggle('collapsed'); }
+
+function esc(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// File upload
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    if (e.target.files.length) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            document.getElementById('logInput').value = ev.target.result;
+            showToast('📂 File loaded — click Analyze!');
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+});
+
+// Drag & drop
+let dragCounter = 0;
+document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; document.getElementById('dropOverlay').classList.add('active'); });
+document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { document.getElementById('dropOverlay').classList.remove('active'); dragCounter = 0; } });
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    document.getElementById('dropOverlay').classList.remove('active');
+    if (e.dataTransfer.files.length) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            document.getElementById('logInput').value = ev.target.result;
+            showToast('📂 File loaded — click Analyze!');
+        };
+        reader.readAsText(e.dataTransfer.files[0]);
+    }
+});
+
+// Export
+function exportReport() {
+    const text = document.getElementById('logInput').value.trim();
+    const sections = parseLog(text);
+    const analysis = analyze(sections);
+
+    let report = `DEVICE STATUS ANALYSIS REPORT\n${'='.repeat(60)}\nGenerated: ${new Date().toLocaleString()}\nHealth Score: ${analysis.score}/100\n\n`;
+    report += `FINDINGS\n${'-'.repeat(40)}\n`;
+    analysis.findings.forEach((f, i) => {
+        const icon = { critical: '[CRITICAL]', warning: '[WARNING]', good: '[OK]', info: '[INFO]' };
+        report += `${i + 1}. ${icon[f.type]} ${f.title}\n   ${f.desc}\n\n`;
+    });
+    report += `\nDETAILED FIELDS\n${'-'.repeat(40)}\n`;
+    sections.forEach(s => {
+        report += `\n[${s.name}]\n`;
+        s.fields.forEach(f => {
+            const kb = FIELD_KB[f.key] || {};
+            report += `  ${f.key}: ${f.value}\n`;
+            if (kb.explanation) report += `    → ${kb.explanation}\n`;
+        });
+    });
+
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `device-status-report-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📄 Report exported!');
+}
+</script>
+</body>
+</html>
