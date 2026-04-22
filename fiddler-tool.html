@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebTrace Analyzer — Fiddler-like Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg0: #1a1d21;
+  --bg1: #22262b;
+  --bg2: #2a2f36;
+  --bg3: #313740;
+  --bg4: #3a4149;
+  --border: #3d4450;
+  --border2: #4a5260;
+  --text0: #e8eaf0;
+  --text1: #b0b8c8;
+  --text2: #7a8499;
+  --accent: #4a9eff;
+  --accent2: #2d7dd6;
+  --green: #4caf7d;
+  --red: #e05555;
+  --orange: #e8943a;
+  --yellow: #d4b84a;
+  --purple: #9b7fe8;
+  --teal: #3dbfa0;
+  --font: 'Consolas', 'Cascadia Code', 'SF Mono', monospace;
+  --font-ui: system-ui, -apple-system, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text0);font-family:var(--font-ui);font-size:12px}
+
+/* TOOLBAR */
+#toolbar{height:36px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 8px;gap:6px;flex-shrink:0;z-index:100}
+#toolbar .logo{font-weight:700;font-size:13px;color:var(--accent);margin-right:8px;letter-spacing:.5px}
+.tb-btn{padding:3px 10px;border:1px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text0);cursor:pointer;font-size:11px;white-space:nowrap}
+.tb-btn:hover{background:var(--bg4);border-color:var(--accent)}
+.tb-btn.active{background:var(--accent2);border-color:var(--accent);color:#fff}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+#filterBar{flex:1;display:flex;align-items:center;gap:6px}
+#filterInput{flex:1;max-width:320px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--text0);padding:3px 8px;font-size:11px;font-family:var(--font)}
+#filterInput:focus{outline:none;border-color:var(--accent)}
+select.tb-sel{background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--text0);padding:3px 6px;font-size:11px}
+.stat-pill{font-size:10px;padding:2px 7px;border-radius:10px;background:var(--bg3);color:var(--text1);border:1px solid var(--border)}
+#fileLabel{font-size:10px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* MAIN LAYOUT */
+#main{display:flex;height:calc(100vh - 36px)}
+
+/* LEFT PANEL */
+#leftPanel{width:480px;min-width:280px;display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0}
+#sessionHeader{display:grid;grid-template-columns:32px 40px 55px 1fr 70px 55px 60px;background:var(--bg2);border-bottom:1px solid var(--border);padding:3px 0}
+.sh-col{padding:2px 6px;font-size:10px;color:var(--text2);font-weight:600;cursor:pointer;user-select:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sh-col:hover{color:var(--text0)}
+#sessionList{flex:1;overflow-y:auto;overflow-x:hidden}
+.session-row{display:grid;grid-template-columns:32px 40px 55px 1fr 70px 55px 60px;border-bottom:1px solid rgba(61,68,80,.5);cursor:pointer;align-items:center}
+.session-row:hover{background:var(--bg3)}
+.session-row.selected{background:var(--accent2)!important}
+.session-row.selected .sc{color:#fff!important}
+.sc{padding:2px 6px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font)}
+.sc-num{color:var(--text2);font-size:10px}
+.sc-method{font-weight:700}
+.method-GET{color:var(--green)}
+.method-POST{color:var(--orange)}
+.method-PUT{color:var(--yellow)}
+.method-DELETE{color:var(--red)}
+.method-CONNECT{color:var(--purple)}
+.method-WS{color:var(--teal)}
+.status-2xx{color:var(--green)}
+.status-3xx{color:var(--yellow)}
+.status-4xx{color:var(--orange)}
+.status-5xx{color:var(--red)}
+.status-auth{color:var(--purple)}
+.sc-host{color:var(--text1)}
+.sc-size{color:var(--text2);text-align:right}
+.sc-time{color:var(--text1);text-align:right}
+.sc-type{color:var(--text2);font-size:10px}
+.row-ws{background:rgba(61,196,178,.05)}
+.row-auth{background:rgba(155,127,232,.07)}
+.row-err{background:rgba(224,85,85,.07)}
+
+/* RIGHT SPLIT */
+#rightPanel{flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* TABS */
+.tab-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{padding:6px 14px;font-size:11px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--text0)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* CONTENT AREAS */
+#topRight{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+#bottomRight{height:280px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.resize-handle{height:4px;background:var(--border);cursor:ns-resize;flex-shrink:0}
+.resize-handle:hover{background:var(--accent)}
+
+/* INSPECTOR */
+#inspectorContent{flex:1;overflow:auto;padding:0}
+.insp-grid{display:grid;grid-template-columns:1fr 1fr;height:100%;gap:0}
+.insp-pane{display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.insp-pane:last-child{border-right:none}
+.insp-title{padding:4px 10px;font-size:10px;font-weight:700;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
+.insp-body{flex:1;overflow:auto;padding:8px;font-family:var(--font);font-size:11px;line-height:1.6;white-space:pre-wrap;word-break:break-all;color:var(--text1)}
+.hdr-key{color:var(--accent)}
+.hdr-val{color:var(--text0)}
+.hdr-row{display:flex;gap:0;border-bottom:1px solid rgba(61,68,80,.3);padding:2px 0}
+.hdr-row .hdr-key{min-width:180px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis}
+.body-content{white-space:pre-wrap;word-break:break-all;font-size:11px;color:var(--text1)}
+.json-key{color:#9b7fe8}
+.json-str{color:#4caf7d}
+.json-num{color:#e8943a}
+.json-bool{color:#4a9eff}
+
+/* TIMELINE */
+#timelineContent{flex:1;overflow:auto;padding:8px}
+.wf-row{display:flex;align-items:center;margin-bottom:3px;gap:6px}
+.wf-label{width:200px;flex-shrink:0;font-size:10px;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font)}
+.wf-track{flex:1;height:16px;position:relative;background:var(--bg2);border-radius:2px}
+.wf-bar{position:absolute;height:100%;border-radius:2px;min-width:2px}
+.wf-time{width:55px;text-align:right;font-size:10px;color:var(--text2);flex-shrink:0}
+.wf-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.wf-hdr-label{width:200px;font-size:10px;font-weight:700;color:var(--text2)}
+.wf-scale{flex:1;display:flex;justify-content:space-between;font-size:9px;color:var(--text2)}
+
+/* AUTH PANEL */
+#authContent{flex:1;overflow:auto;padding:10px}
+.auth-section{margin-bottom:14px}
+.auth-section h3{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.auth-card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:6px}
+.auth-card .ac-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.auth-badge{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700}
+.badge-ntlm{background:rgba(232,148,58,.2);color:var(--orange);border:1px solid rgba(232,148,58,.3)}
+.badge-kerb{background:rgba(74,158,255,.2);color:var(--accent);border:1px solid rgba(74,158,255,.3)}
+.badge-aad{background:rgba(155,127,232,.2);color:var(--purple);border:1px solid rgba(155,127,232,.3)}
+.badge-bearer{background:rgba(76,175,125,.2);color:var(--green);border:1px solid rgba(76,175,125,.3)}
+.badge-basic{background:rgba(212,184,74,.2);color:var(--yellow);border:1px solid rgba(212,184,74,.3)}
+.badge-ws{background:rgba(61,191,160,.2);color:var(--teal);border:1px solid rgba(61,191,160,.3)}
+.ac-url{font-size:10px;color:var(--text2);font-family:var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-detail{font-size:10px;color:var(--text1);line-height:1.5}
+
+/* WEBSOCKET */
+#wsContent{flex:1;overflow:auto;padding:8px}
+.ws-session{background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:8px}
+.ws-hdr{padding:6px 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);cursor:pointer}
+.ws-hdr:hover{background:var(--bg3)}
+.ws-url{font-size:11px;font-family:var(--font);color:var(--teal);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws-msgs{padding:6px 10px;max-height:160px;overflow-y:auto}
+.ws-msg{font-size:10px;font-family:var(--font);padding:2px 0;border-bottom:1px solid rgba(61,68,80,.3);color:var(--text1)}
+.ws-msg .dir{color:var(--teal);margin-right:6px}
+.ws-msg .dir.out{color:var(--orange)}
+
+/* FINDINGS */
+#findingsContent{flex:1;overflow:auto;padding:10px}
+.finding-item{display:flex;gap:8px;padding:6px 8px;border-radius:4px;margin-bottom:4px;align-items:flex-start}
+.fi-crit{background:rgba(224,85,85,.1);border-left:3px solid var(--red)}
+.fi-warn{background:rgba(232,148,58,.1);border-left:3px solid var(--orange)}
+.fi-info{background:rgba(74,158,255,.1);border-left:3px solid var(--accent)}
+.fi-ok{background:rgba(76,175,125,.1);border-left:3px solid var(--green)}
+.fi-icon{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px}
+.fi-icon.r{background:var(--red);color:#fff}
+.fi-icon.w{background:var(--orange);color:#fff}
+.fi-icon.i{background:var(--accent);color:#fff}
+.fi-icon.g{background:var(--green);color:#fff}
+.fi-text{font-size:11px;color:var(--text0);line-height:1.5}
+.fi-text .fi-sub{font-size:10px;color:var(--text2);margin-top:2px;font-family:var(--font)}
+.copy-findings{margin-top:10px;padding:5px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text0);cursor:pointer;font-size:11px}
+.copy-findings:hover{background:var(--bg4);border-color:var(--accent)}
+
+/* BOTTOM INSPECTOR */
+.insp-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+
+/* DROP OVERLAY */
+#dropOverlay{position:fixed;inset:0;background:rgba(26,29,33,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px}
+#dropOverlay.hidden{display:none}
+.drop-box{border:2px dashed var(--border2);border-radius:8px;padding:40px 60px;text-align:center;cursor:pointer}
+.drop-box:hover,.drop-box.over{border-color:var(--accent)}
+.drop-title{font-size:20px;font-weight:700;color:var(--text0);margin-bottom:8px}
+.drop-sub{font-size:12px;color:var(--text2)}
+.fmt-pills{display:flex;gap:8px;margin-top:12px;justify-content:center}
+.fmt-pill{font-size:10px;padding:3px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text1)}
+#fileInputHidden{display:none}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text2);gap:8px}
+.empty-state .big{font-size:32px}
+.empty-state p{font-size:12px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border2)}
+
+/* RESIZER */
+#resizer{width:4px;background:var(--border);cursor:ew-resize;flex-shrink:0}
+#resizer:hover{background:var(--accent)}
+
+/* STATUS BAR */
+#statusBar{height:20px;background:var(--bg1);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:12px;flex-shrink:0}
+.sb-item{font-size:10px;color:var(--text2)}
+.sb-item span{color:var(--text0)}
+
+.prog-overlay{position:fixed;inset:0;background:rgba(26,29,33,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:998;gap:12px}
+.prog-overlay.hidden{display:none}
+.prog-bar-outer{width:320px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.prog-bar-inner{height:100%;background:var(--accent);transition:width .1s;border-radius:3px}
+.prog-text{font-size:12px;color:var(--text1)}
+</style>
+</head>
+<body>
+
+<!-- DROP OVERLAY -->
+<div id="dropOverlay">
+  <div class="drop-box" id="dropBox" onclick="document.getElementById('fileInputHidden').click()">
+    <div class="drop-title">WebTrace Analyzer</div>
+    <div class="drop-sub">Drop your capture file here, or click to browse</div>
+    <div class="fmt-pills">
+      <span class="fmt-pill">SAZ (Fiddler)</span>
+      <span class="fmt-pill">HAR (DevTools)</span>
+      <span class="fmt-pill">ETL XML/TXT</span>
+    </div>
+  </div>
+  <input type="file" id="fileInputHidden" accept=".saz,.har,.xml,.txt,.json">
+</div>
+
+<!-- PROGRESS -->
+<div class="prog-overlay hidden" id="progOverlay">
+  <div class="prog-text" id="progText">Parsing file…</div>
+  <div class="prog-bar-outer"><div class="prog-bar-inner" id="progBar" style="width:0%"></div></div>
+</div>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <span class="logo">⬡ WebTrace</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" onclick="document.getElementById('fileInputHidden').click()">Open File</button>
+  <button class="tb-btn" onclick="clearSessions()">Clear</button>
+  <div class="tb-sep"></div>
+  <div id="filterBar">
+    <input type="text" id="filterInput" placeholder="Filter: URL, host, status, method…" oninput="applyFilter()">
+    <select class="tb-sel" id="filterMethod" onchange="applyFilter()">
+      <option value="">All Methods</option>
+      <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option><option>CONNECT</option><option>WebSocket</option>
+    </select>
+    <select class="tb-sel" id="filterStatus" onchange="applyFilter()">
+      <option value="">All Status</option>
+      <option value="2">2xx OK</option>
+      <option value="3">3xx Redirect</option>
+      <option value="4">4xx Client Error</option>
+      <option value="5">5xx Server Error</option>
+      <option value="auth">Auth (401/407)</option>
+    </select>
+    <select class="tb-sel" id="filterType" onchange="applyFilter()">
+      <option value="">All Types</option>
+      <option>HTML</option><option>JSON</option><option>CSS</option><option>JS</option><option>Image</option><option>XHR</option><option>WebSocket</option>
+    </select>
+    <button class="tb-btn" onclick="applyFilter()">Apply</button>
+  </div>
+  <div class="tb-sep"></div>
+  <span class="stat-pill" id="statTotal">0 sessions</span>
+  <span class="stat-pill" id="statFiltered"></span>
+  <span id="fileLabel">No file loaded</span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- LEFT: SESSION LIST -->
+  <div id="leftPanel">
+    <div id="sessionHeader">
+      <div class="sh-col">#</div>
+      <div class="sh-col">Res</div>
+      <div class="sh-col">Method</div>
+      <div class="sh-col">Host / URL</div>
+      <div class="sh-col">Type</div>
+      <div class="sh-col">Size</div>
+      <div class="sh-col">Time</div>
+    </div>
+    <div id="sessionList">
+      <div class="empty-state"><div class="big">📡</div><p>Open a SAZ, HAR, or ETL file to begin</p></div>
+    </div>
+  </div>
+
+  <div id="resizer"></div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rightPanel">
+    <!-- TOP: Inspector / Timeline / Auth / WS / Findings -->
+    <div id="topRight">
+      <div class="tab-bar" id="topTabs">
+        <div class="tab active" onclick="switchTopTab('inspector')">Inspector</div>
+        <div class="tab" onclick="switchTopTab('timeline')">Timeline</div>
+        <div class="tab" onclick="switchTopTab('auth')">Auth Analyzer</div>
+        <div class="tab" onclick="switchTopTab('ws')">WebSockets</div>
+        <div class="tab" onclick="switchTopTab('findings')">Findings / RCA</div>
+      </div>
+
+      <!-- INSPECTOR -->
+      <div id="tab-inspector" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+        <div class="insp-grid" id="inspectorContent">
+          <div class="empty-state" style="grid-column:1/-1"><div class="big">🔍</div><p>Select a session to inspect</p></div>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div id="tab-timeline" style="flex:1;overflow:hidden;display:flex;flex-direction:column;display:none">
+        <div id="timelineContent"><div class="empty-state"><div class="big">⏱</div><p>Load a file to see waterfall timeline</p></div></div>
+      </div>
+
+      <!-- AUTH -->
+      <div id="tab-auth" style="flex:1;overflow:hidden;display:flex;flex-direction:column;display:none">
+        <div id="authContent"><div class="empty-state"><div class="big">🔐</div><p>Auth events will appear here</p></div></div>
+      </div>
+
+      <!-- WS -->
+      <div id="tab-ws" style="flex:1;overflow:hidden;display:flex;flex-direction:column;display:none">
+        <div id="wsContent"><div class="empty-state"><div class="big">🔌</div><p>WebSocket sessions will appear here</p></div></div>
+      </div>
+
+      <!-- FINDINGS -->
+      <div id="tab-findings" style="flex:1;overflow:hidden;display:flex;flex-direction:column;display:none">
+        <div id="findingsContent"><div class="empty-state"><div class="big">📋</div><p>Load a file to generate findings</p></div></div>
+      </div>
+    </div>
+
+    <div class="resize-handle" id="vResizer"></div>
+
+    <!-- BOTTOM: Request / Response raw view -->
+    <div id="bottomRight">
+      <div class="insp-tabs tab-bar" id="bottomTabs">
+        <div class="tab active" onclick="switchBottomTab('raw')">Raw</div>
+        <div class="tab" onclick="switchBottomTab('headers')">Headers</div>
+        <div class="tab" onclick="switchBottomTab('body')">Body</div>
+        <div class="tab" onclick="switchBottomTab('cookies')">Cookies</div>
+        <div class="tab" onclick="switchBottomTab('timing')">Timing</div>
+      </div>
+      <div id="bottomContent" style="flex:1;overflow:auto;padding:8px;font-family:var(--font);font-size:11px;color:var(--text1)">
+        <span style="color:var(--text2)">Select a session above to view details</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusBar">
+  <div class="sb-item">Sessions: <span id="sbSessions">0</span></div>
+  <div class="sb-item">Errors: <span id="sbErrors" style="color:var(--red)">0</span></div>
+  <div class="sb-item">Auth: <span id="sbAuth" style="color:var(--purple)">0</span></div>
+  <div class="sb-item">WS: <span id="sbWs" style="color:var(--teal)">0</span></div>
+  <div class="sb-item">Total Size: <span id="sbSize">0 B</span></div>
+  <div class="sb-item">Duration: <span id="sbDuration">—</span></div>
+  <div class="sb-item" id="sbFile" style="margin-left:auto"></div>
+</div>
+
+<script>
+let allSessions=[], filteredSessions=[], selectedIdx=-1, currentBottomTab='raw';
+
+// ─── FILE INPUT ───────────────────────────────────────────────────
+document.getElementById('fileInputHidden').addEventListener('change', e=>{
+  if(e.target.files[0]) loadFile(e.target.files[0]);
+});
+const dropBox=document.getElementById('dropBox');
+document.body.addEventListener('dragover', e=>{e.preventDefault(); dropBox.classList.add('over');});
+document.body.addEventListener('dragleave', ()=>dropBox.classList.remove('over'));
+document.body.addEventListener('drop', e=>{
+  e.preventDefault(); dropBox.classList.remove('over');
+  if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function showProg(txt, pct){
+  document.getElementById('progOverlay').classList.remove('hidden');
+  document.getElementById('progText').textContent=txt;
+  document.getElementById('progBar').style.width=pct+'%';
+}
+function hideProg(){document.getElementById('progOverlay').classList.add('hidden');}
+
+async function loadFile(file){
+  document.getElementById('dropOverlay').classList.add('hidden');
+  showProg('Reading file…', 10);
+  document.getElementById('fileLabel').textContent=file.name+' ('+(file.size/1024/1024).toFixed(1)+'MB)';
+  const ext=file.name.split('.').pop().toLowerCase();
+  try{
+    if(ext==='saz') await parseSAZ(file);
+    else if(ext==='har') await parseHAR(file);
+    else await parseETL(file);
+  }catch(err){
+    hideProg();
+    alert('Parse error: '+err.message);
+    document.getElementById('dropOverlay').classList.remove('hidden');
+  }
+}
+
+// ─── SAZ PARSER ──────────────────────────────────────────────────
+async function parseSAZ(file){
+  showProg('Unzipping SAZ…', 20);
+  const zip=await JSZip.loadAsync(file);
+  showProg('Parsing sessions…', 40);
+  const sessions=[];
+  const rawFiles=Object.keys(zip.files).filter(n=>n.startsWith('raw/') && n.endsWith('_c.txt'));
+  let done=0;
+  for(const cf of rawFiles){
+    const num=cf.match(/raw\/(\d+)_c\.txt/)?.[1];
+    if(!num) continue;
+    const reqText=await zip.files[cf].async('text').catch(()=>'');
+    const resFile=zip.files[`raw/${num}_s.txt`];
+    const resText=resFile?await resFile.async('text').catch(()=>''):'';
+    const s=buildSessionFromRaw(num, reqText, resText);
+    sessions.push(s);
+    done++;
+    if(done%20===0) showProg(`Parsing session ${done}/${rawFiles.length}…`, 40+Math.round(done/rawFiles.length*50));
+  }
+  sessions.sort((a,b)=>a.num-b.num);
+  finalise(sessions);
+}
+
+function buildSessionFromRaw(num, reqText, resText){
+  const reqLines=reqText.split('\n');
+  const firstLine=(reqLines[0]||'').trim();
+  const parts=firstLine.split(' ');
+  const method=parts[0]||'GET';
+  const url=parts[1]||'';
+  const reqHeaders={}, resHeaders={};
+  let reqBody='', resBody='', status=0, statusText='';
+  // parse req headers
+  let i=1, inBody=false;
+  for(;i<reqLines.length;i++){
+    const l=reqLines[i];
+    if(l.trim()===''){ inBody=true; i++; break;}
+    const ci=l.indexOf(':');
+    if(ci>0) reqHeaders[l.substring(0,ci).trim()]=l.substring(ci+1).trim();
+  }
+  reqBody=reqLines.slice(i).join('\n');
+  // parse res
+  const resLines=resText.split('\n');
+  const resFirst=(resLines[0]||'').trim();
+  const rm=resFirst.match(/HTTP\/[\d.]+ (\d+)(.*)/);
+  if(rm){status=parseInt(rm[1]);statusText=rm[2].trim();}
+  let j=1, inResBody=false;
+  for(;j<resLines.length;j++){
+    const l=resLines[j];
+    if(l.trim()===''){ inResBody=true; j++; break;}
+    const ci=l.indexOf(':');
+    if(ci>0) resHeaders[l.substring(0,ci).trim()]=l.substring(ci+1).trim();
+  }
+  resBody=resLines.slice(j).join('\n');
+  const ct=(resHeaders['Content-Type']||resHeaders['content-type']||'').toLowerCase();
+  const size=resBody.length;
+  const host=getHost(url);
+  const isWS=method==='GET'&&(reqHeaders['Upgrade']||'').toLowerCase()==='websocket';
+  return{num:parseInt(num),method:isWS?'WebSocket':method,url,host,status,statusText,reqHeaders,resHeaders,reqBody,resBody,contentType:ct,size,time:0,isWS,raw:{req:reqText,res:resText}};
+}
+
+// ─── HAR PARSER ──────────────────────────────────────────────────
+async function parseHAR(file){
+  showProg('Reading HAR…', 20);
+  const text=await file.text();
+  showProg('Parsing HAR JSON…', 50);
+  const har=JSON.parse(text);
+  const entries=har.log?.entries||[];
+  const sessions=entries.map((e,i)=>{
+    const req=e.request||{};
+    const res=e.response||{};
+    const reqHeaders={}, resHeaders={};
+    (req.headers||[]).forEach(h=>reqHeaders[h.name]=h.value);
+    (res.headers||[]).forEach(h=>resHeaders[h.name]=h.value);
+    const url=req.url||'';
+    const method=req.method||'GET';
+    const status=res.status||0;
+    const ct=(resHeaders['Content-Type']||resHeaders['content-type']||'').toLowerCase();
+    const resBodyText=res.content?.text||'';
+    const size=res.content?.size||resBodyText.length||0;
+    const time=e.time||0;
+    const host=getHost(url);
+    const isWS=method==='GET'&&(reqHeaders['Upgrade']||'').toLowerCase()==='websocket';
+    const startTime=e.startedDateTime?new Date(e.startedDateTime).getTime():i*10;
+    const timings=e.timings||{};
+    return{num:i+1,method:isWS?'WebSocket':method,url,host,status,statusText:res.statusText||'',reqHeaders,resHeaders,reqBody:req.postData?.text||'',resBody:resBodyText,contentType:ct,size,time,isWS,startTime,timings,raw:{req:formatHARReq(req),res:formatHARRes(res)}};
+  });
+  finalise(sessions);
+}
+
+function formatHARReq(req){
+  let s=`${req.method} ${req.url} HTTP/1.1\n`;
+  (req.headers||[]).forEach(h=>s+=`${h.name}: ${h.value}\n`);
+  if(req.postData?.text) s+='\n'+req.postData.text;
+  return s;
+}
+function formatHARRes(res){
+  let s=`HTTP/1.1 ${res.status} ${res.statusText||''}\n`;
+  (res.headers||[]).forEach(h=>s+=`${h.name}: ${h.value}\n`);
+  if(res.content?.text) s+='\n'+res.content.text.substring(0,5000);
+  return s;
+}
+
+// ─── ETL TXT/XML PARSER ──────────────────────────────────────────
+async function parseETL(file){
+  showProg('Reading ETL export…', 20);
+  const text=await file.text();
+  showProg('Parsing events…', 50);
+  const sessions=[];
+  const isXML=text.trim().startsWith('<');
+  if(isXML){
+    const urlRegex=/url[^>]*>([^<]+)/gi;
+    const matches=[...text.matchAll(/<Event[^>]*>([\s\S]*?)<\/Event>/gi)];
+    matches.slice(0,2000).forEach((m,i)=>{
+      const block=m[1];
+      const url=(block.match(/Url[">][^"<]*["<]([^"<]{10,})/i)||[])[1]||'';
+      const method=(block.match(/Method[">][^"<]*["<]([A-Z]+)/i)||[])[1]||'GET';
+      const status=parseInt((block.match(/StatusCode[">][^"<]*["<](\d+)/i)||[])[1]||0);
+      const provider=(block.match(/Provider[^>]*Name="([^"]+)"/i)||[])[1]||'ETL';
+      const time=(block.match(/SystemTime="([^"]+)"/i)||[])[1]||'';
+      if(url||method) sessions.push({num:i+1,method,url,host:getHost(url),status,statusText:'',reqHeaders:{Provider:provider},resHeaders:{},reqBody:'',resBody:block.substring(0,500),contentType:'',size:0,time:0,raw:{req:block,res:''}});
+    });
+  } else {
+    const lines=text.split('\n');
+    lines.slice(0,5000).forEach((line,i)=>{
+      const urlM=line.match(/https?:\/\/[^\s"'>]+/);
+      if(!urlM)return;
+      const url=urlM[0];
+      const methodM=line.match(/\b(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT)\b/);
+      const method=methodM?methodM[1]:'GET';
+      const statusM=line.match(/\b([2345]\d{2})\b/);
+      const status=statusM?parseInt(statusM[1]):0;
+      sessions.push({num:sessions.length+1,method,url,host:getHost(url),status,statusText:'',reqHeaders:{},resHeaders:{},reqBody:'',resBody:line.substring(0,300),contentType:'',size:0,time:0,raw:{req:line,res:''}});
+    });
+  }
+  finalise(sessions);
+}
+
+// ─── FINALISE ────────────────────────────────────────────────────
+function finalise(sessions){
+  showProg('Rendering…', 90);
+  allSessions=sessions;
+  filteredSessions=[...sessions];
+  setTimeout(()=>{
+    renderSessionList();
+    renderTimeline();
+    renderAuth();
+    renderWS();
+    renderFindings();
+    updateStatusBar();
+    hideProg();
+    showProg('Done!', 100);
+    setTimeout(hideProg, 500);
+  }, 50);
+}
+
+function clearSessions(){
+  allSessions=[]; filteredSessions=[]; selectedIdx=-1;
+  document.getElementById('sessionList').innerHTML='<div class="empty-state"><div class="big">📡</div><p>Open a SAZ, HAR, or ETL file to begin</p></div>';
+  document.getElementById('inspectorContent').innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="big">🔍</div><p>Select a session to inspect</p></div>';
+  document.getElementById('bottomContent').innerHTML='<span style="color:var(--text2)">Select a session above to view details</span>';
+  updateStatusBar();
+  document.getElementById('dropOverlay').classList.remove('hidden');
+}
+
+// ─── SESSION LIST ─────────────────────────────────────────────────
+function renderSessionList(){
+  const list=document.getElementById('sessionList');
+  if(!filteredSessions.length){list.innerHTML='<div class="empty-state"><div class="big">🔍</div><p>No sessions match filter</p></div>';return;}
+  list.innerHTML=filteredSessions.map((s,i)=>{
+    const sc=statusClass(s.status);
+    const mc=`method-${s.isWS?'WS':s.method}`;
+    const rowCls=s.isWS?'row-ws':(s.status===401||s.status===407)?'row-auth':(s.status>=400)?'row-err':'';
+    const shortUrl=s.url.replace(/^https?:\/\/[^/]+/,'').substring(0,60)||'/';
+    const typeLabel=guessType(s.contentType,s.url);
+    const sizeStr=fmtSize(s.size);
+    const timeStr=s.time?fmtMs(s.time):'—';
+    return`<div class="session-row ${rowCls}" onclick="selectSession(${i})" id="sr${i}">
+      <div class="sc sc-num">${s.num}</div>
+      <div class="sc sc-method ${sc}">${s.status||'—'}</div>
+      <div class="sc sc-method ${mc}">${s.isWS?'WS':s.method}</div>
+      <div class="sc sc-host" title="${escH(s.url)}">${escH(s.host||s.url.substring(0,50))}<span style="color:var(--text2);margin-left:4px;font-size:10px">${escH(shortUrl)}</span></div>
+      <div class="sc sc-type">${typeLabel}</div>
+      <div class="sc sc-size">${sizeStr}</div>
+      <div class="sc sc-time">${timeStr}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('statTotal').textContent=allSessions.length+' sessions';
+  if(filteredSessions.length!==allSessions.length)
+    document.getElementById('statFiltered').textContent=filteredSessions.length+' shown';
+  else document.getElementById('statFiltered').textContent='';
+}
+
+function selectSession(idx){
+  selectedIdx=idx;
+  document.querySelectorAll('.session-row').forEach((r,i)=>r.classList.toggle('selected',i===idx));
+  const s=filteredSessions[idx];
+  renderInspector(s);
+  renderBottom(s, currentBottomTab);
+}
+
+// ─── INSPECTOR ────────────────────────────────────────────────────
+function renderInspector(s){
+  document.getElementById('inspectorContent').innerHTML=`
+    <div class="insp-pane">
+      <div class="insp-title">Request Headers</div>
+      <div class="insp-body">${renderHeadersHtml(s.reqHeaders)}</div>
+    </div>
+    <div class="insp-pane">
+      <div class="insp-title">Response Headers</div>
+      <div class="insp-body">${renderHeadersHtml(s.resHeaders)}</div>
+    </div>
+  `;
+}
+
+function renderHeadersHtml(hdrs){
+  return Object.entries(hdrs).map(([k,v])=>`<div class="hdr-row"><span class="hdr-key">${escH(k)}: </span><span class="hdr-val">${escH(v)}</span></div>`).join('');
+}
+
+// ─── BOTTOM TABS ──────────────────────────────────────────────────
+function switchBottomTab(name){
+  currentBottomTab=name;
+  document.querySelectorAll('#bottomTabs .tab').forEach((t,i)=>{
+    const names=['raw','headers','body','cookies','timing'];
+    t.classList.toggle('active',names[i]===name);
+  });
+  if(selectedIdx>=0) renderBottom(filteredSessions[selectedIdx], name);
+}
+
+function renderBottom(s, tab){
+  const el=document.getElementById('bottomContent');
+  if(tab==='raw'){
+    el.innerHTML=`<div style="margin-bottom:8px;color:var(--text2);font-size:10px;text-transform:uppercase">▶ Request</div><pre class="body-content">${escH((s.raw?.req||'').substring(0,3000))}</pre><div style="margin:10px 0 6px;color:var(--text2);font-size:10px;text-transform:uppercase">◀ Response</div><pre class="body-content">${escH((s.raw?.res||'').substring(0,3000))}</pre>`;
+  } else if(tab==='headers'){
+    el.innerHTML=`<div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase">Request Headers</div>${renderHeadersHtml(s.reqHeaders)}<div style="font-size:10px;color:var(--text2);margin:10px 0 6px;text-transform:uppercase">Response Headers</div>${renderHeadersHtml(s.resHeaders)}`;
+  } else if(tab==='body'){
+    const body=s.resBody||'';
+    let rendered=escH(body.substring(0,5000));
+    if(s.contentType.includes('json')){try{rendered=syntaxHighlightJSON(body.substring(0,5000));}catch(e){}}
+    el.innerHTML=`<pre class="body-content">${rendered}</pre>`;
+  } else if(tab==='cookies'){
+    const reqCookie=s.reqHeaders['Cookie']||s.reqHeaders['cookie']||'';
+    const resCookie=s.resHeaders['Set-Cookie']||s.resHeaders['set-cookie']||'';
+    el.innerHTML=`<div style="color:var(--text2);font-size:10px;margin-bottom:4px">REQUEST COOKIES</div><pre class="body-content">${escH(reqCookie||'(none)')}</pre><div style="color:var(--text2);font-size:10px;margin:8px 0 4px">SET-COOKIE</div><pre class="body-content">${escH(resCookie||'(none)')}</pre>`;
+  } else if(tab==='timing'){
+    const t=s.timings||{};
+    const rows=[['DNS',t.dns||0],['Connect',t.connect||0],['SSL',t.ssl||0],['Send',t.send||0],['Wait (TTFB)',t.wait||0],['Receive',t.receive||0],['Total',s.time||0]];
+    el.innerHTML=rows.map(([k,v])=>`<div class="hdr-row"><span class="hdr-key" style="min-width:120px">${k}: </span><span class="hdr-val">${v>0?fmtMs(v):'—'}</span></div>`).join('');
+  }
+}
+
+// ─── TIMELINE ─────────────────────────────────────────────────────
+function renderTimeline(){
+  const el=document.getElementById('timelineContent');
+  if(!allSessions.length){el.innerHTML='<div class="empty-state"><div class="big">⏱</div><p>Load a file to see timeline</p></div>';return;}
+  const timed=allSessions.filter(s=>s.time>0||s.startTime);
+  if(!timed.length){el.innerHTML='<div style="color:var(--text2);padding:16px;font-size:12px">No timing data available in this file</div>';return;}
+  const starts=timed.map(s=>s.startTime||0);
+  const minT=Math.min(...starts.filter(t=>t>0))||0;
+  const ends=timed.map(s=>(s.startTime||0)+(s.time||0));
+  const maxT=Math.max(...ends)||1;
+  const range=maxT-minT||1;
+  const labels=['0ms'];
+  for(let i=1;i<=4;i++) labels.push(fmtMs(range*i/4));
+  let html=`<div class="wf-hdr"><div class="wf-hdr-label">Request</div><div class="wf-scale">${labels.map(l=>`<span>${l}</span>`).join('')}</div><div style="width:55px"></div></div>`;
+  timed.slice(0,150).forEach(s=>{
+    const start=((s.startTime||0)-minT)/range;
+    const width=(s.time||10)/range;
+    const clampedStart=Math.max(0,Math.min(0.95,start));
+    const clampedWidth=Math.max(0.003,Math.min(1-clampedStart,width));
+    const col=s.status>=500?'#e05555':s.status>=400?'#e8943a':s.status>=300?'#d4b84a':s.isWS?'#3dbfa0':'#4a9eff';
+    const label=(s.host||s.url.substring(0,30))+(s.url.replace(/^https?:\/\/[^/]+/,'').substring(0,25)||'/');
+    html+=`<div class="wf-row" onclick="selectBySession(${s.num})" style="cursor:pointer">
+      <div class="wf-label" title="${escH(s.url)}">${s.num}. ${escH(label)}</div>
+      <div class="wf-track"><div class="wf-bar" style="left:${(clampedStart*100).toFixed(1)}%;width:${(clampedWidth*100).toFixed(1)}%;background:${col}"></div></div>
+      <div class="wf-time">${s.time?fmtMs(s.time):'—'}</div>
+    </div>`;
+  });
+  if(timed.length>150) html+=`<div style="color:var(--text2);font-size:10px;padding:8px">Showing 150 of ${timed.length} sessions</div>`;
+  el.innerHTML=html;
+}
+
+function selectBySession(num){
+  const idx=filteredSessions.findIndex(s=>s.num===num);
+  if(idx>=0) selectSession(idx);
+}
+
+// ─── AUTH ANALYZER ────────────────────────────────────────────────
+function renderAuth(){
+  const el=document.getElementById('authContent');
+  const authSessions=allSessions.filter(s=>{
+    const allHdrs=Object.entries({...s.reqHeaders,...s.resHeaders}).map(([k,v])=>`${k}: ${v}`).join('\n').toLowerCase();
+    return s.status===401||s.status===407||allHdrs.includes('ntlm')||allHdrs.includes('kerberos')||allHdrs.includes('negotiate')||allHdrs.includes('bearer')||allHdrs.includes('authorization')||s.url.toLowerCase().includes('login.microsoftonline')||s.url.toLowerCase().includes('login.live')||s.url.toLowerCase().includes('oauth')||s.url.toLowerCase().includes('token')||s.url.toLowerCase().includes('auth');
+  });
+  if(!authSessions.length){el.innerHTML='<div style="color:var(--text2);padding:16px;font-size:12px">No authentication events detected</div>';return;}
+  const byType={NTLM:[],Kerberos:[],AAD:[],Bearer:[],Basic:[],Other:[]};
+  authSessions.forEach(s=>{
+    const allH=Object.entries({...s.reqHeaders,...s.resHeaders}).map(([k,v])=>`${k}: ${v}`).join('\n').toLowerCase();
+    if(allH.includes('ntlm')) byType.NTLM.push(s);
+    else if(allH.includes('kerberos')||allH.includes('negotiate')) byType.Kerberos.push(s);
+    else if(s.url.toLowerCase().includes('login.microsoftonline')||s.url.toLowerCase().includes('aad')||s.url.toLowerCase().includes('entra')) byType.AAD.push(s);
+    else if(allH.includes('bearer')) byType.Bearer.push(s);
+    else if(allH.includes('basic')) byType.Basic.push(s);
+    else byType.Other.push(s);
+  });
+  const badgeMap={NTLM:'badge-ntlm',Kerberos:'badge-kerb',AAD:'badge-aad',Bearer:'badge-bearer',Basic:'badge-basic',Other:'badge-ws'};
+  let html='';
+  // Summary
+  html+=`<div class="auth-section"><h3>Auth Summary</h3><div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  Object.entries(byType).forEach(([t,arr])=>{if(arr.length) html+=`<div class="auth-badge ${badgeMap[t]}">${t}: ${arr.length}</div>`;});
+  html+=`</div></div>`;
+  // 401 chain
+  const chain401=allSessions.filter(s=>s.status===401||s.status===407);
+  if(chain401.length){
+    html+=`<div class="auth-section"><h3>401/407 Challenge Chain (${chain401.length})</h3>`;
+    chain401.forEach(s=>{
+      const wwwAuth=s.resHeaders['WWW-Authenticate']||s.resHeaders['www-authenticate']||'';
+      html+=`<div class="auth-card"><div class="ac-top"><span class="auth-badge ${badgeMap[wwwAuth.toLowerCase().includes('ntlm')?'NTLM':wwwAuth.toLowerCase().includes('kerberos')||wwwAuth.toLowerCase().includes('negotiate')?'Kerberos':'Other']}">${s.status}</span><span class="ac-url">${escH(s.url.substring(0,100))}</span></div><div class="ac-detail">WWW-Authenticate: <span style="color:var(--accent)">${escH(wwwAuth.substring(0,120)||'—')}</span></div></div>`;
+    });
+    html+=`</div>`;
+  }
+  // Per type
+  Object.entries(byType).forEach(([t,arr])=>{
+    if(!arr.length) return;
+    html+=`<div class="auth-section"><h3>${t} Sessions (${arr.length})</h3>`;
+    arr.slice(0,20).forEach(s=>{
+      const authHdr=s.reqHeaders['Authorization']||s.reqHeaders['authorization']||'';
+      html+=`<div class="auth-card" onclick="selectBySession(${s.num})" style="cursor:pointer"><div class="ac-top"><span class="auth-badge ${badgeMap[t]}">${t}</span><span style="color:var(--text2);font-size:10px">${s.method} ${s.status}</span><span class="ac-url">${escH(s.url.substring(0,80))}</span></div>${authHdr?`<div class="ac-detail">Auth: ${escH(authHdr.substring(0,80))}</div>`:''}</div>`;
+    });
+    html+=`</div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ─── WEBSOCKETS ───────────────────────────────────────────────────
+function renderWS(){
+  const el=document.getElementById('wsContent');
+  const wsSessions=allSessions.filter(s=>s.isWS||s.method==='WebSocket'||(s.url&&s.url.startsWith('ws')));
+  if(!wsSessions.length){el.innerHTML='<div style="color:var(--text2);padding:16px;font-size:12px">No WebSocket sessions found</div>';return;}
+  el.innerHTML=wsSessions.map(s=>{
+    const msgs=(s.wsMessages||[]);
+    return`<div class="ws-session"><div class="ws-hdr" onclick="selectBySession(${s.num})"><span class="auth-badge badge-ws">WS</span><span class="ws-url">${escH(s.url)}</span><span style="color:var(--text2);font-size:10px">${s.status||101}</span></div>${msgs.length?`<div class="ws-msgs">${msgs.slice(0,20).map(m=>`<div class="ws-msg"><span class="dir ${m.type==='send'?'out':''}">${m.type==='send'?'↑':'↓'}</span>${escH(String(m.data||'').substring(0,100))}</div>`).join('')}</div>`:''}</div>`;
+  }).join('');
+}
+
+// ─── FINDINGS ─────────────────────────────────────────────────────
+function renderFindings(){
+  const el=document.getElementById('findingsContent');
+  if(!allSessions.length){el.innerHTML='<div class="empty-state"><div class="big">📋</div><p>Load a file to generate findings</p></div>';return;}
+  const items=[];
+  const total=allSessions.length;
+  const errors=allSessions.filter(s=>s.status>=400);
+  const s5xx=allSessions.filter(s=>s.status>=500);
+  const s4xx=allSessions.filter(s=>s.status>=400&&s.status<500);
+  const auth401=allSessions.filter(s=>s.status===401||s.status===407);
+  const redirects=allSessions.filter(s=>s.status>=300&&s.status<400);
+  const wsSessions=allSessions.filter(s=>s.isWS||s.method==='WebSocket');
+  const hasNTLM=allSessions.some(s=>Object.values({...s.reqHeaders,...s.resHeaders}).join(' ').toLowerCase().includes('ntlm'));
+  const hasKerb=allSessions.some(s=>Object.values({...s.reqHeaders,...s.resHeaders}).join(' ').toLowerCase().includes('kerberos'));
+  const hasAAD=allSessions.some(s=>s.url.toLowerCase().includes('login.microsoftonline')||s.url.toLowerCase().includes('microsoftonline.com'));
+  const timed=allSessions.filter(s=>s.time>5000);
+  const maxTime=allSessions.reduce((m,s)=>Math.max(m,s.time||0),0);
+  const totalSize=allSessions.reduce((m,s)=>m+(s.size||0),0);
+
+  items.push({t:'i',text:`Total sessions: ${total}`,sub:`${fmtSize(totalSize)} transferred`});
+  if(s5xx.length) items.push({t:'r',text:`${s5xx.length} server errors (5xx) detected`,sub:s5xx.slice(0,3).map(s=>`${s.status} ${s.host}`).join(', ')});
+  if(s4xx.length>auth401.length) items.push({t:'w',text:`${s4xx.length} client errors (4xx)`,sub:s4xx.slice(0,3).map(s=>`${s.status} ${s.host}`).join(', ')});
+  if(auth401.length){
+    items.push({t:'w',text:`${auth401.length} auth challenge(s) (401/407) — review Auth Analyzer tab`,sub:auth401.slice(0,2).map(s=>s.host).join(', ')});
+    if(auth401.length>2) items.push({t:'r',text:'Multiple 401 responses — possible auth loop or credential issue'});
+  }
+  if(hasNTLM) items.push({t:'w',text:'NTLM authentication detected',sub:'May cause delays in cloud/proxy environments. Consider Kerberos or modern auth.'});
+  if(hasKerb) items.push({t:'i',text:'Kerberos / Negotiate authentication present'});
+  if(hasAAD) items.push({t:'i',text:'Azure AD / Microsoft Online auth endpoints detected',sub:'Check for token acquisition delays in Timeline tab'});
+  if(redirects.length) items.push({t:'i',text:`${redirects.length} redirect(s) (3xx)`,sub:redirects.slice(0,2).map(s=>`${s.status} ${s.host}`).join(', ')});
+  if(timed.length) items.push({t:'w',text:`${timed.length} slow request(s) over 5 seconds`,sub:`Slowest: ${fmtMs(maxTime)}`});
+  else if(maxTime>0) items.push({t:'g',text:`No unusually slow requests. Max response time: ${fmtMs(maxTime)}`});
+  if(wsSessions.length) items.push({t:'i',text:`${wsSessions.length} WebSocket connection(s) found`});
+  if(!s5xx.length&&!auth401.length&&errors.length===0) items.push({t:'g',text:'No errors detected in this capture'});
+
+  let html=items.map(f=>`<div class="finding-item fi-${f.t==='r'?'crit':f.t==='w'?'warn':f.t==='g'?'ok':'info'}"><div class="fi-icon ${f.t==='r'?'r':f.t==='w'?'w':f.t==='g'?'g':'i'}">${f.t==='r'?'!':f.t==='w'?'~':f.t==='g'?'✓':'i'}</div><div class="fi-text">${f.text}${f.sub?`<div class="fi-sub">${escH(f.sub)}</div>`:''}</div></div>`).join('');
+  html+=`<button class="copy-findings" onclick="copyFindings()">Copy findings to clipboard</button>`;
+  el.innerHTML=html;
+}
+
+function copyFindings(){
+  const text=document.getElementById('findingsContent').innerText.replace(/^[!~✓i]\n/gm,'').trim();
+  navigator.clipboard.writeText(text).then(()=>{
+    const b=document.querySelector('.copy-findings');
+    if(b){b.textContent='Copied!';setTimeout(()=>b.textContent='Copy findings to clipboard',2000);}
+  });
+}
+
+// ─── FILTER ───────────────────────────────────────────────────────
+function applyFilter(){
+  const search=(document.getElementById('filterInput').value||'').toLowerCase();
+  const method=document.getElementById('filterMethod').value.toLowerCase();
+  const status=document.getElementById('filterStatus').value;
+  const type=document.getElementById('filterType').value.toLowerCase();
+  filteredSessions=allSessions.filter(s=>{
+    if(search&&!s.url.toLowerCase().includes(search)&&!s.host.toLowerCase().includes(search)&&!(s.status+'').includes(search)) return false;
+    if(method&&s.method.toLowerCase()!==method&&!(method==='websocket'&&s.isWS)) return false;
+    if(status){
+      if(status==='auth'&&s.status!==401&&s.status!==407) return false;
+      else if(status!=='auth'&&!String(s.status).startsWith(status)) return false;
+    }
+    if(type){
+      const ct=guessType(s.contentType,s.url).toLowerCase();
+      if(!ct.includes(type)) return false;
+    }
+    return true;
+  });
+  renderSessionList();
+}
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────
+function switchTopTab(name){
+  const tabs=['inspector','timeline','auth','ws','findings'];
+  document.querySelectorAll('#topTabs .tab').forEach((t,i)=>t.classList.toggle('active',tabs[i]===name));
+  tabs.forEach(t=>{
+    const el=document.getElementById('tab-'+t);
+    if(el) el.style.display=t===name?'flex':'none';
+  });
+}
+
+// ─── STATUS BAR ───────────────────────────────────────────────────
+function updateStatusBar(){
+  const total=allSessions.length;
+  const errs=allSessions.filter(s=>s.status>=400).length;
+  const auth=allSessions.filter(s=>s.status===401||s.status===407).length;
+  const ws=allSessions.filter(s=>s.isWS||s.method==='WebSocket').length;
+  const size=allSessions.reduce((m,s)=>m+(s.size||0),0);
+  const times=allSessions.filter(s=>s.time>0).map(s=>s.time);
+  const dur=times.length?fmtMs(times.reduce((a,b)=>a+b,0)):'—';
+  document.getElementById('sbSessions').textContent=total;
+  document.getElementById('sbErrors').textContent=errs;
+  document.getElementById('sbAuth').textContent=auth;
+  document.getElementById('sbWs').textContent=ws;
+  document.getElementById('sbSize').textContent=fmtSize(size);
+  document.getElementById('sbDuration').textContent=dur;
+}
+
+// ─── RESIZER ──────────────────────────────────────────────────────
+(()=>{
+  let dragging=false,startX=0,startW=0;
+  const r=document.getElementById('resizer');
+  const lp=document.getElementById('leftPanel');
+  r.addEventListener('mousedown',e=>{dragging=true;startX=e.clientX;startW=lp.offsetWidth;});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const w=Math.max(220,Math.min(800,startW+e.clientX-startX));lp.style.width=w+'px';});
+  document.addEventListener('mouseup',()=>dragging=false);
+
+  let vDragging=false,startY=0,startH=0;
+  const vr=document.getElementById('vResizer');
+  const br=document.getElementById('bottomRight');
+  vr.addEventListener('mousedown',e=>{vDragging=true;startY=e.clientY;startH=br.offsetHeight;});
+  document.addEventListener('mousemove',e=>{if(!vDragging)return;const h=Math.max(100,Math.min(500,startH-(e.clientY-startY)));br.style.height=h+'px';});
+  document.addEventListener('mouseup',()=>vDragging=false);
+})();
+
+// ─── HELPERS ──────────────────────────────────────────────────────
+function getHost(url){try{return new URL(url).hostname;}catch{return url.split('/')[0]||url.substring(0,40);}}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtSize(b){if(!b)return'—';if(b<1024)return b+'B';if(b<1024*1024)return(b/1024).toFixed(1)+'KB';return(b/1024/1024).toFixed(1)+'MB';}
+function fmtMs(ms){if(ms>=1000)return(ms/1000).toFixed(2)+'s';return Math.round(ms)+'ms';}
+function statusClass(s){if(!s)return'';if(s===401||s===407)return'status-auth';if(s<300)return'status-2xx';if(s<400)return'status-3xx';if(s<500)return'status-4xx';return'status-5xx';}
+function guessType(ct,url){
+  if(!ct&&url){const u=url.toLowerCase();if(u.includes('.js'))return'JS';if(u.includes('.css'))return'CSS';if(u.includes('.png')||u.includes('.jpg')||u.includes('.gif')||u.includes('.svg'))return'Image';if(u.includes('.html'))return'HTML';}
+  if(ct.includes('html'))return'HTML';if(ct.includes('json'))return'JSON';if(ct.includes('javascript'))return'JS';if(ct.includes('css'))return'CSS';if(ct.includes('image'))return'Image';if(ct.includes('xml'))return'XML';if(ct.includes('font'))return'Font';return 'XHR';
+}
+function syntaxHighlightJSON(str){
+  try{
+    const j=JSON.stringify(JSON.parse(str),null,2);
+    return j.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m=>{
+      if(/^"/.test(m)){if(/:$/.test(m))return`<span class="json-key">${escH(m)}</span>`;return`<span class="json-str">${escH(m)}</span>`;}
+      if(/true|false/.test(m))return`<span class="json-bool">${m}</span>`;
+      if(/null/.test(m))return`<span class="json-bool">${m}</span>`;
+      return`<span class="json-num">${m}</span>`;
+    });
+  }catch{return escH(str);}
+}
+</script>
+</body>
+</html>
