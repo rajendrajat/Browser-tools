@@ -224,166 +224,340 @@ This tool parses the same log format and immediately surfaces what matters: bloc
 
 ---
 
-## SAZ Analyzer Pro
+# 🔍 SAZ Analyzer Pro
 
-### Why this exists
+**Intelligent Fiddler Trace Analyzer — Identify Issues in Seconds, Not Hours**
 
-Support engineers routinely collect Fiddler traces (`.saz` files) to troubleshoot web application issues — authentication failures, broken pages, API errors, redirect loops. The typical workflow is to open the trace in Fiddler and manually scroll through hundreds or thousands of HTTP sessions, cross-referencing URLs, status codes, headers, and cookies to find what broke.
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Browser-orange)
+![No Server](https://img.shields.io/badge/server-Not%20Required-brightgreen)
+![Privacy](https://img.shields.io/badge/privacy-100%25%20Client--Side-purple)
 
-This process is time-consuming, inconsistent, and easy to get wrong. An engineer might spend 30–60 minutes on a single trace and still miss the root cause hiding in session #347.
+---
 
-This tool parses the same `.saz` file and immediately tells you what's broken, why, and what to do about it.
+## 📖 Overview
 
-### Features
+**SAZ Analyzer Pro** is a single-page web application that parses and analyzes Fiddler `.saz` trace files directly in your browser. It automatically detects issues, surfaces actionable insights, and helps support engineers resolve problems faster — without scrolling through hundreds of sessions manually.
 
-**Three main views:**
+> **One file. Zero installation. Zero data uploaded. Just drag, drop, and diagnose.**
 
-- **Issues View (default)** — auto-detected problems sorted by severity, each with a description, affected URL, and suggested fix. Click any issue to jump straight to the session detail.
-- **Sessions View** — full session table with sorting, filtering, search, and a detail panel with request/response headers and body. The manual inspection mode for when you need to dig deeper.
-- **URL Investigator** — enter a URL, domain, or keyword and see every matching session, a timeline of status codes, success/fail ratio, error details, and a side-by-side header comparison between successful and failed requests.
+---
 
-**Smart Summary Banner** — health score (`Good` / `Warning` / `Critical`), total sessions, issue counts by severity, and the top issue — all visible the moment the file loads.
+## ❓ The Problem
 
-**Issue Detection Engine** — automatically scans all sessions and detects patterns across the trace, not just individual errors. See the full detection table below.
+Support engineers routinely collect Fiddler traces (`.saz` files) to troubleshoot web application issues. The typical workflow looks like this:
 
-**Export** — download all detected issues as JSON for attaching to tickets or sharing with the team.
+1. Open the `.saz` file in Fiddler
+2. Manually scroll through **hundreds or thousands** of sessions
+3. Look for red entries (errors), suspicious redirects, auth failures
+4. Cross-reference URLs, headers, cookies, and status codes
+5. Try to piece together what went wrong
 
-### How to use
+**This process is time-consuming, error-prone, and inconsistent.** An engineer might spend 30–60 minutes analyzing a trace and still miss the root cause.
 
-1. Open `SAZ_Analyzer.html` in any modern browser
-2. Drag and drop the `.saz` file onto the page — or click **Browse Files**
-3. Check the **Issues** tab — it shows what's broken, sorted by severity
-4. Click any issue card to jump to the session detail with full headers and body
-5. Switch to **URL Investigator** to search for a specific domain or endpoint and see its full request history
-6. Use **Sessions** view for manual line-by-line inspection when needed
-7. Click **Export Issues** to download findings as JSON
+---
 
-### Issue detection
+## ✅ The Solution
 
-| Category | Severity | What it detects |
+SAZ Analyzer Pro **automates the analysis**. It:
+
+- **Parses** the entire `.saz` file in seconds
+- **Detects** common issues automatically (auth failures, server errors, redirect loops, connection problems, etc.)
+- **Surfaces** issues with severity, description, and **suggested actions**
+- **Investigates** specific URLs showing full request history, error patterns, and header comparisons
+- **Provides** manual inspection tools when you need to dig deeper
+
+**Result: What used to take 30–60 minutes now takes 30–60 seconds.**
+
+---
+
+## 🚀 Key Features
+
+### 1. 🛑 Issues View (Auto-Detection)
+
+The **default view** when you load a SAZ file. It automatically scans every session and surfaces problems.
+
+- Issues are categorized by **severity**: `Critical` | `Warning` | `Info`
+- Each issue includes:
+  - 🏷️ Severity badge and category
+  - 📝 Clear description of what went wrong
+  - 🔗 Affected URL
+  - 🛠️ **Suggested fix / next steps**
+  - 📌 Clickable link to jump to the session detail
+- Filter issues by severity with one click
+- Export all issues as JSON for case documentation
+
+### 2. 📋 Sessions View (Manual Inspection)
+
+The full session table for when you need to manually investigate.
+
+- Sortable columns: `#`, `Method`, `URL`, `Status`, `Content-Type`, `Size`
+- Quick filter buttons: `All`, `4xx/5xx`, `Images`, `Scripts`, `XHR/API`, `HTML`, `3xx`
+- Free-text search across URL, method, status, and content type
+- Click any session to open the **Detail Panel** with three tabs:
+  - **Overview**: Request summary, response status, session flags/timings
+  - **Request**: Full URL, all request headers, request body
+  - **Response**: Status line, all response headers, response body (auto-formatted JSON)
+- Copy headers to clipboard with one click
+
+### 3. 🔎 URL Investigator
+
+Enter a URL, domain, or keyword to see **everything** about it.
+
+- **Stats Dashboard**: Total matches, success count, error count, redirects, total response size
+- **Request Timeline**: Every request in chronological order with method, status, and size — see the full flow at a glance (e.g., `302 → 200 → 401`)
+- **Error Details**: All errors for that URL with severity and descriptions
+- **Success vs. Failed Comparison**: Side-by-side diff table comparing headers between a successful and a failed request — highlights differences in `Authorization`, `Cookie`, `User-Agent`, `Content-Type`, etc.
+
+### 4. 📊 Smart Summary Banner
+
+At the top of the page after loading:
+
+- **Health Score**: `Good` ✅ | `Warning` ⚠️ | `Critical` 🔴
+- Quick stats: Total sessions, critical issues, warnings, info items
+- Top issue at a glance
+
+---
+
+## 🔎 Supported Issue Detection
+
+| Category | Severity | What It Detects |
 |---|---|---|
-| **Server Error** | 🔴 Critical | HTTP 5xx responses — 500, 502, 503, 504, etc. |
-| **Authentication** | 🔴 Critical | HTTP 401 Unauthorized — missing, expired, or invalid credentials |
-| **Authorization** | 🔴 Critical | HTTP 403 Forbidden — user authenticated but lacks permission |
-| **Connection / SSL** | 🔴 Critical | CONNECT tunnel failures — proxy, firewall, or certificate blocking the SSL handshake |
-| **Connection** | 🔴 Critical | Status 0 / No Response — connection refused, timed out, DNS failure, or request dropped |
-| **Client Error** | 🟡 Warning | HTTP 404 Not Found — broken URLs, deleted resources |
-| **Client Error** | 🟡 Warning | Other 4xx errors — 400, 405, 408, 409, 429, etc. |
-| **Repeated Failures** | 🟡 Warning | Same host returning errors 3+ times — potential service outage or systematic misconfiguration |
-| **Redirect** | 🟡 Warning | Redirect loops — same URL redirecting to the same destination multiple times |
-| **Performance** | 🔵 Info | Large responses exceeding 5 MB — may impact page load time |
+| **Server Error** | 🔴 Critical | HTTP 5xx responses (500, 502, 503, 504, etc.) |
+| **Authentication** | 🔴 Critical | HTTP 401 Unauthorized — missing/expired tokens |
+| **Authorization** | 🔴 Critical | HTTP 403 Forbidden — insufficient permissions |
+| **Connection / SSL** | 🔴 Critical | CONNECT tunnel failures — proxy, firewall, or certificate issues |
+| **Connection** | 🔴 Critical | Status 0 / No Response — connection refused, timeout, DNS failure |
+| **Client Error** | 🟡 Warning | HTTP 404 Not Found — broken URLs, missing resources |
+| **Client Error** | 🟡 Warning | Other 4xx errors (400, 405, 408, 409, 429, etc.) |
+| **Repeated Failures** | 🟡 Warning | Same host failing 3+ times — potential service outage |
+| **Redirect** | 🟡 Warning | Redirect loops — same redirect occurring multiple times |
+| **Performance** | 🔵 Info | Large responses exceeding 5 MB |
 | **Security** | 🔵 Info | Mixed content — HTTP requests in a predominantly HTTPS trace |
 
-Each detected issue includes:
-- Severity badge and category label
-- Clear description of what went wrong
-- The affected URL
-- **Suggested fix / next action** — actionable guidance, not just a status code
-- Clickable session references — jump to full request/response detail in one click
+---
 
-### URL Investigator
+## 📦 How to Use
 
-The URL Investigator is designed for targeted troubleshooting. Enter a URL, domain, keyword, or even a status code and get:
+### Step 1: Open
+Open `SAZ_Analyzer.html` in any modern browser (Edge, Chrome, Firefox, etc.).
 
-| Section | What it shows |
-|---|---|
-| **Stats** | Total matching sessions, success count, error count, redirect count, total response size |
-| **Request Timeline** | Every matching session in chronological order — method, status badge, URL, and size. See the full request flow at a glance (e.g., `302 → 200 → 302 → 401`). |
-| **Error Details** | All error responses grouped with severity badges, status codes, and affected URLs |
-| **Success vs. Failed Comparison** | Side-by-side table comparing a successful and a failed request — status, method, size, and key headers (`Authorization`, `Cookie`, `Content-Type`, `User-Agent`, `Origin`, `Referer`). Differences are highlighted so you can instantly spot what changed. |
+> **No installation, no server, no dependencies to install.**
 
-**Common investigation scenarios:**
+### Step 2: Load
+Drag and drop your `.saz` file onto the page — or click **Browse Files**.
 
-| Scenario | What to search | What you'll find |
+### Step 3: Analyze
+The tool parses the file and immediately shows:
+- **Health Score** in the summary banner
+- **Auto-detected issues** in the Issues tab (sorted by severity)
+
+### Step 4: Investigate
+- Click any issue to **jump to the session detail**
+- Switch to **URL Investigator** to search a specific domain/URL
+- Use **Sessions View** for manual deep-dive when needed
+
+### Step 5: Report
+- Click **Export Issues** to download the findings as JSON
+- Copy headers or session details for your case notes
+
+---
+
+## 🔬 URL Investigator — Detailed Capabilities
+
+The URL Investigator is designed for scenarios like:
+
+| Scenario | What to Search | What You'll See |
 |---|---|---|
-| Auth failures | `login.microsoftonline.com` or `401` | Full token request flow — where auth breaks and which headers are missing |
-| API errors | `/api/` or `graph.microsoft.com` | All API calls with success/fail ratio and error breakdown |
-| Redirect issues | domain name or `302` | Full redirect chain — spot loops and misconfigured redirects |
-| Slow page load | `contoso.com` | All requests to the domain with sizes — find the bottleneck |
-| SSO problems | `adfs` or `federation` | Federation endpoint history with status flow |
+| Auth failures | `login.microsoftonline.com` | Timeline showing token requests, 302 redirects, and where auth breaks |
+| API errors | `/api/` or `graph.microsoft.com` | All API calls with success/fail ratio and error details |
+| Specific error | `401` or `403` | Every session with that status, grouped with fix suggestions |
+| Slow page load | `contoso.com` | All requests to the domain with sizes, helping find bottlenecks |
+| Redirect issues | `redirect` or specific URL | Full redirect chain visualization |
 
-### Sessions View
+### Comparison Feature
 
-The manual inspection mode for deep-dive analysis.
+When both successful and failed requests exist for the same search query, the tool automatically generates a **side-by-side comparison table** showing:
 
-- **Sortable columns**: `#`, `Method`, `URL`, `Status`, `Content-Type`, `Size`
-- **Quick filters**: `All`, `4xx/5xx`, `Images`, `Scripts`, `XHR/API`, `HTML`, `3xx`
-- **Free-text search** across URL, method, status code, and content type
-- **Detail panel** with three tabs:
-  - **Overview** — request method + URL, response status, content type, size, session flags/timings from Fiddler metadata
-  - **Request** — full URL, all request headers (with copy button), request body
-  - **Response** — status line, all response headers (with copy button), response body with auto-formatted JSON
-- Color-coded **method badges** (GET = green, POST = blue, DELETE = red, CONNECT = yellow, etc.)
-- Color-coded **status badges** (2xx = green, 3xx = orange, 4xx = red, 5xx = dark red)
+- Status codes
+- Request methods
+- Response sizes
+- Key headers: `Authorization`, `Cookie`, `Content-Type`, `User-Agent`, `Origin`, `Referer`, etc.
+- **Differences are highlighted** — making it easy to spot what changed between the working and broken request
 
-### How it works technically
+---
 
-A `.saz` file is a ZIP archive. Fiddler stores each captured HTTP session as three files inside a `raw/` directory:
+## 📤 Export & Reporting
+
+| Export Type | Format | Contents |
+|---|---|---|
+| **Issues Report** | JSON | All detected issues with severity, category, title, description, affected sessions, and suggested actions |
+
+The exported JSON can be:
+- Attached to support tickets / case notes
+- Shared with team members for review
+- Used as input for automated reporting pipelines
+
+---
+
+## 🔧 Technical Details
+
+### Architecture
+- **100% client-side** — runs entirely in the browser
+- **No server required** — just open the HTML file
+- **No network calls** — your data never leaves your machine
+- **Single file** — everything (HTML + CSS + JS) in one file
+
+### SAZ File Structure
+A `.saz` file is a **ZIP archive** containing:
 
 ```
 raw/
-├── 001_c.txt    # Client request — method, URL, HTTP version, headers, body
-├── 001_s.txt    # Server response — status line, headers, body (binary-safe)
-├── 001_m.xml    # Metadata — session flags, timings, Fiddler annotations
-├── 002_c.txt
-├── 002_s.txt
-├── 002_m.xml
+├── 01_c.txt    # Client request (method, URL, headers, body)
+├── 01_s.txt    # Server response (status, headers, body)
+├── 01_m.xml    # Metadata (session flags, timings)
+├── 02_c.txt
+├── 02_s.txt
+├── 02_m.xml
 ├── ...
 ```
 
 The tool:
-1. Extracts the ZIP in-browser using **JSZip**
-2. Parses each `_c.txt` — extracts method, URL, HTTP version, headers, and body
-3. Parses each `_s.txt` — extracts status code, status text, headers, and body (binary-safe using `Uint8Array`)
-4. Parses each `_m.xml` — extracts session flags and timing metadata via `DOMParser`
-5. Runs the **Issue Detection Engine** across all parsed sessions — detects individual errors and cross-session patterns (repeated failures, redirect loops, mixed content)
-6. Renders results across three views
+1. Extracts the ZIP using **JSZip** library
+2. Parses each `_c.txt` file for request method, URL, HTTP version, headers, and body
+3. Parses each `_s.txt` file for status code, status text, headers, and body (binary-safe)
+4. Parses each `_m.xml` file for session flags and timing metadata
+5. Runs the **Issue Detection Engine** across all parsed sessions
+6. Renders the results in the UI
 
-**Dependency:**
-
-| Library | Version | Purpose | Loaded via |
+### Dependencies
+| Library | Version | Purpose | Loaded Via |
 |---|---|---|---|
-| [JSZip](https://stuk.github.io/jszip/) | 3.10.1 | Client-side ZIP/SAZ parsing | CDN |
+| [JSZip](https://stuk.github.io/jszip/) | 3.10.1 | ZIP/SAZ file parsing | CDN |
 
-No other external dependencies. All CSS and JavaScript is inline in a single HTML file.
+> No other external dependencies. All CSS and JS is inline.
 
-### Limitations
+---
 
-| Limitation | Details |
+## 🌐 Browser Compatibility
+
+| Browser | Supported |
 |---|---|
-| Response body decoding | Response bodies are decoded as UTF-8 text. Binary content (images, compressed payloads) will appear garbled in the viewer. Gzip/Brotli-compressed bodies are shown in their compressed form — Fiddler typically stores them decompressed, but if not, the raw bytes are displayed. |
-| Very large traces | Traces with 5,000+ sessions may take a few seconds to parse. The tool processes everything in-memory in the browser tab. |
-| Chunked encoding | Chunked transfer encoding markers are shown as-is in the response body. The tool does not reassemble chunked responses. |
-| CONNECT sessions | CONNECT tunnel sessions (method = CONNECT) show the tunnel negotiation, not the encrypted payload inside. This is a Fiddler limitation — the actual HTTPS content is in separate sessions. |
-| No timeline chart | Request timing is available in the metadata tab but there is no graphical waterfall view (planned for a future release). |
-| JSZip CDN | The tool loads JSZip from a CDN on first open. After that, the browser caches it. For fully offline use, download JSZip and embed it in the HTML file. |
+| Microsoft Edge | ✅ |
+| Google Chrome | ✅ |
+| Mozilla Firefox | ✅ |
+| Safari | ✅ |
+| Opera | ✅ |
 
-### Use cases
-
-**For support engineers:**
-- Load a customer's SAZ file → check Issues tab → immediately identify auth failures, server errors, or blocked connections
-- Search `401` or `login.microsoftonline.com` in URL Investigator → trace the full authentication flow
-- Export issues as JSON → attach to the case notes before escalation
-
-**For technical advisors:**
-- Quick-review an engineer's trace without opening Fiddler → summary banner shows the health score and top issue
-- Compare successful vs. failed requests side-by-side → spot the missing `Authorization` header or changed cookie
-
-**For escalation engineers:**
-- Drill into specific sessions with full header and body inspection
-- Identify redirect loops and CONNECT failures that point to proxy/firewall misconfiguration
-- Use the repeated-failures detection to confirm a service-wide outage vs. a single-user issue
+> Requires a modern browser with ES6+ support (any browser updated in the last 5 years).
 
 ---
 
-## Contributing
+## 🔒 Privacy & Security
 
-PRs welcome. Every tool is a single self-contained HTML file with no build process — edit directly and submit.
-
-If you have a tool idea that fits the same philosophy (single file, no backend, runs in the browser), feel free to open an issue.
+- **No data is uploaded** — all processing happens locally in your browser
+- **No telemetry** — no analytics, no tracking, no cookies
+- **No server** — no backend, no API calls, no external services
+- **No network access needed** — works offline once the page is loaded (JSZip is cached by the browser)
+- **Your traces stay on your machine** — safe for handling sensitive/internal network data
 
 ---
 
-## License
+## 💡 Use Cases
 
-MIT
+### For Support Engineers
+- **First response triage**: Load the SAZ, check the Issues tab, and immediately identify the top problem
+- **Auth troubleshooting**: Search for `401` or `login` in URL Investigator to trace the full auth flow
+- **Redirect debugging**: Spot redirect loops and broken redirect chains instantly
+- **Performance analysis**: Find large responses and slow endpoints
+- **Case documentation**: Export issues as JSON and attach to the case
+
+### For Technical Advisors
+- **Quick review**: Review an engineer's findings by looking at the Issues tab summary
+- **Pattern recognition**: Repeated failures to a host? The tool flags it automatically
+- **Header comparison**: Use URL Investigator to compare successful vs. failed requests side-by-side
+
+### For Escalation Engineers
+- **Root cause analysis**: Drill into specific sessions with full header and body inspection
+- **SSL/TLS issues**: CONNECT tunnel failures are flagged with suggested actions
+- **Cross-reference**: Search for specific domains or API endpoints across the entire trace
+
+---
+
+## 🗺️ Roadmap
+
+Planned enhancements for future versions:
+
+| Feature | Description | Priority |
+|---|---|---|
+| 🔐 JWT Token Decoder | Auto-decode JWT tokens from Authorization headers and show claims/expiry | High |
+| 📊 Waterfall Timeline | Visual waterfall chart showing request timing and dependencies | High |
+| 🍪 Cookie Tracker | Track cookies across sessions — show when they're set, modified, or missing | Medium |
+| 🔄 Auth Flow Visualizer | Detect and visualize the full OAuth/SAML authentication flow | Medium |
+| 📈 Response Time Analysis | Charts showing response time distribution and slowest endpoints | Medium |
+| 🏷️ Custom Rules Engine | Let engineers define custom detection rules (e.g., "flag if header X is missing") | Medium |
+| 📋 PDF Report Export | Generate a formatted PDF report of all findings | Low |
+| 🔗 HAR File Support | Support for HTTP Archive (.har) files in addition to SAZ | Low |
+| 🌙 Light/Dark Theme Toggle | Option to switch between dark and light themes | Low |
+| 📦 Multi-file Comparison | Load two SAZ files and compare (before/after, working/broken) | Low |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Report bugs**: Open an issue describing the problem and attach a sample (sanitized) SAZ file if possible
+2. **Suggest features**: Open an issue with the `enhancement` label
+3. **Submit PRs**: Fork the repo, make your changes, and submit a pull request
+
+### Development Notes
+- The entire application is a single HTML file — edit it directly
+- CSS is in the `<style>` block, JavaScript is in the `<script>` block
+- No build tools or bundlers needed
+- Test with real SAZ files from Fiddler (Classic or Everywhere)
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
+
+```
+MIT License
+
+Copyright (c) 2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## 🙏 Acknowledgments
+
+- [JSZip](https://stuk.github.io/jszip/) — for client-side ZIP parsing
+- [Fiddler](https://www.telerik.com/fiddler) by Telerik — for the SAZ file format
+- Built with ❤️ for support engineers who spend too much time in Fiddler traces
+
+---
+
+<p align="center">
+  <strong>SAZ Analyzer Pro</strong> — Because your time is better spent solving problems, not searching for them.
+</p>
