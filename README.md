@@ -13,6 +13,7 @@ No installation. No backend. No data leaves your browser. Every tool is a single
 | Endpoint Reachability Checker | Test if service/API endpoints are reachable from your network without opening them in the address bar | `Endpoint_Reachability_Checker.html` |
 | Plain Text Converter | Strip bullets, markdown, and formatting from emails and documents to get clean plain text | `plain_text_converter.html` |
 | NetLog Analyzer | Parse and triage Edge/Chrome `net-export.json` logs — surfaces blocked endpoints, proxy issues, cert errors, DNS failures, and HTTP/2/QUIC session details without manual event-by-event inspection | `netlog-analyzer.html` |
+| SAZ Analyzer Pro | Parse and analyze Fiddler `.saz` trace files — auto-detects HTTP errors, auth failures, redirect loops, connection issues, and provides URL investigation with request history, success/fail comparison, and suggested fixes | `SAZ_Analyzer.html` |
 
 ---
 
@@ -220,6 +221,158 @@ This tool parses the same log format and immediately surfaces what matters: bloc
 | Large logs | Very large captures (100 MB+) may be slow to parse; the tool processes everything in-memory in the browser tab. |
 | Capture mode | Some event types (cache, sockets) are only present if the log was captured in **All events** mode, not the default mode. |
 | No timeline view | Raw event timing is visible in the expanded row detail, but there is no graphical timeline chart. |
+
+---
+
+## SAZ Analyzer Pro
+
+### Why this exists
+
+Support engineers routinely collect Fiddler traces (`.saz` files) to troubleshoot web application issues — authentication failures, broken pages, API errors, redirect loops. The typical workflow is to open the trace in Fiddler and manually scroll through hundreds or thousands of HTTP sessions, cross-referencing URLs, status codes, headers, and cookies to find what broke.
+
+This process is time-consuming, inconsistent, and easy to get wrong. An engineer might spend 30–60 minutes on a single trace and still miss the root cause hiding in session #347.
+
+This tool parses the same `.saz` file and immediately tells you what's broken, why, and what to do about it.
+
+### Features
+
+**Three main views:**
+
+- **Issues View (default)** — auto-detected problems sorted by severity, each with a description, affected URL, and suggested fix. Click any issue to jump straight to the session detail.
+- **Sessions View** — full session table with sorting, filtering, search, and a detail panel with request/response headers and body. The manual inspection mode for when you need to dig deeper.
+- **URL Investigator** — enter a URL, domain, or keyword and see every matching session, a timeline of status codes, success/fail ratio, error details, and a side-by-side header comparison between successful and failed requests.
+
+**Smart Summary Banner** — health score (`Good` / `Warning` / `Critical`), total sessions, issue counts by severity, and the top issue — all visible the moment the file loads.
+
+**Issue Detection Engine** — automatically scans all sessions and detects patterns across the trace, not just individual errors. See the full detection table below.
+
+**Export** — download all detected issues as JSON for attaching to tickets or sharing with the team.
+
+### How to use
+
+1. Open `SAZ_Analyzer.html` in any modern browser
+2. Drag and drop the `.saz` file onto the page — or click **Browse Files**
+3. Check the **Issues** tab — it shows what's broken, sorted by severity
+4. Click any issue card to jump to the session detail with full headers and body
+5. Switch to **URL Investigator** to search for a specific domain or endpoint and see its full request history
+6. Use **Sessions** view for manual line-by-line inspection when needed
+7. Click **Export Issues** to download findings as JSON
+
+### Issue detection
+
+| Category | Severity | What it detects |
+|---|---|---|
+| **Server Error** | 🔴 Critical | HTTP 5xx responses — 500, 502, 503, 504, etc. |
+| **Authentication** | 🔴 Critical | HTTP 401 Unauthorized — missing, expired, or invalid credentials |
+| **Authorization** | 🔴 Critical | HTTP 403 Forbidden — user authenticated but lacks permission |
+| **Connection / SSL** | 🔴 Critical | CONNECT tunnel failures — proxy, firewall, or certificate blocking the SSL handshake |
+| **Connection** | 🔴 Critical | Status 0 / No Response — connection refused, timed out, DNS failure, or request dropped |
+| **Client Error** | 🟡 Warning | HTTP 404 Not Found — broken URLs, deleted resources |
+| **Client Error** | 🟡 Warning | Other 4xx errors — 400, 405, 408, 409, 429, etc. |
+| **Repeated Failures** | 🟡 Warning | Same host returning errors 3+ times — potential service outage or systematic misconfiguration |
+| **Redirect** | 🟡 Warning | Redirect loops — same URL redirecting to the same destination multiple times |
+| **Performance** | 🔵 Info | Large responses exceeding 5 MB — may impact page load time |
+| **Security** | 🔵 Info | Mixed content — HTTP requests in a predominantly HTTPS trace |
+
+Each detected issue includes:
+- Severity badge and category label
+- Clear description of what went wrong
+- The affected URL
+- **Suggested fix / next action** — actionable guidance, not just a status code
+- Clickable session references — jump to full request/response detail in one click
+
+### URL Investigator
+
+The URL Investigator is designed for targeted troubleshooting. Enter a URL, domain, keyword, or even a status code and get:
+
+| Section | What it shows |
+|---|---|
+| **Stats** | Total matching sessions, success count, error count, redirect count, total response size |
+| **Request Timeline** | Every matching session in chronological order — method, status badge, URL, and size. See the full request flow at a glance (e.g., `302 → 200 → 302 → 401`). |
+| **Error Details** | All error responses grouped with severity badges, status codes, and affected URLs |
+| **Success vs. Failed Comparison** | Side-by-side table comparing a successful and a failed request — status, method, size, and key headers (`Authorization`, `Cookie`, `Content-Type`, `User-Agent`, `Origin`, `Referer`). Differences are highlighted so you can instantly spot what changed. |
+
+**Common investigation scenarios:**
+
+| Scenario | What to search | What you'll find |
+|---|---|---|
+| Auth failures | `login.microsoftonline.com` or `401` | Full token request flow — where auth breaks and which headers are missing |
+| API errors | `/api/` or `graph.microsoft.com` | All API calls with success/fail ratio and error breakdown |
+| Redirect issues | domain name or `302` | Full redirect chain — spot loops and misconfigured redirects |
+| Slow page load | `contoso.com` | All requests to the domain with sizes — find the bottleneck |
+| SSO problems | `adfs` or `federation` | Federation endpoint history with status flow |
+
+### Sessions View
+
+The manual inspection mode for deep-dive analysis.
+
+- **Sortable columns**: `#`, `Method`, `URL`, `Status`, `Content-Type`, `Size`
+- **Quick filters**: `All`, `4xx/5xx`, `Images`, `Scripts`, `XHR/API`, `HTML`, `3xx`
+- **Free-text search** across URL, method, status code, and content type
+- **Detail panel** with three tabs:
+  - **Overview** — request method + URL, response status, content type, size, session flags/timings from Fiddler metadata
+  - **Request** — full URL, all request headers (with copy button), request body
+  - **Response** — status line, all response headers (with copy button), response body with auto-formatted JSON
+- Color-coded **method badges** (GET = green, POST = blue, DELETE = red, CONNECT = yellow, etc.)
+- Color-coded **status badges** (2xx = green, 3xx = orange, 4xx = red, 5xx = dark red)
+
+### How it works technically
+
+A `.saz` file is a ZIP archive. Fiddler stores each captured HTTP session as three files inside a `raw/` directory:
+
+```
+raw/
+├── 001_c.txt    # Client request — method, URL, HTTP version, headers, body
+├── 001_s.txt    # Server response — status line, headers, body (binary-safe)
+├── 001_m.xml    # Metadata — session flags, timings, Fiddler annotations
+├── 002_c.txt
+├── 002_s.txt
+├── 002_m.xml
+├── ...
+```
+
+The tool:
+1. Extracts the ZIP in-browser using **JSZip**
+2. Parses each `_c.txt` — extracts method, URL, HTTP version, headers, and body
+3. Parses each `_s.txt` — extracts status code, status text, headers, and body (binary-safe using `Uint8Array`)
+4. Parses each `_m.xml` — extracts session flags and timing metadata via `DOMParser`
+5. Runs the **Issue Detection Engine** across all parsed sessions — detects individual errors and cross-session patterns (repeated failures, redirect loops, mixed content)
+6. Renders results across three views
+
+**Dependency:**
+
+| Library | Version | Purpose | Loaded via |
+|---|---|---|---|
+| [JSZip](https://stuk.github.io/jszip/) | 3.10.1 | Client-side ZIP/SAZ parsing | CDN |
+
+No other external dependencies. All CSS and JavaScript is inline in a single HTML file.
+
+### Limitations
+
+| Limitation | Details |
+|---|---|
+| Response body decoding | Response bodies are decoded as UTF-8 text. Binary content (images, compressed payloads) will appear garbled in the viewer. Gzip/Brotli-compressed bodies are shown in their compressed form — Fiddler typically stores them decompressed, but if not, the raw bytes are displayed. |
+| Very large traces | Traces with 5,000+ sessions may take a few seconds to parse. The tool processes everything in-memory in the browser tab. |
+| Chunked encoding | Chunked transfer encoding markers are shown as-is in the response body. The tool does not reassemble chunked responses. |
+| CONNECT sessions | CONNECT tunnel sessions (method = CONNECT) show the tunnel negotiation, not the encrypted payload inside. This is a Fiddler limitation — the actual HTTPS content is in separate sessions. |
+| No timeline chart | Request timing is available in the metadata tab but there is no graphical waterfall view (planned for a future release). |
+| JSZip CDN | The tool loads JSZip from a CDN on first open. After that, the browser caches it. For fully offline use, download JSZip and embed it in the HTML file. |
+
+### Use cases
+
+**For support engineers:**
+- Load a customer's SAZ file → check Issues tab → immediately identify auth failures, server errors, or blocked connections
+- Search `401` or `login.microsoftonline.com` in URL Investigator → trace the full authentication flow
+- Export issues as JSON → attach to the case notes before escalation
+
+**For technical advisors:**
+- Quick-review an engineer's trace without opening Fiddler → summary banner shows the health score and top issue
+- Compare successful vs. failed requests side-by-side → spot the missing `Authorization` header or changed cookie
+
+**For escalation engineers:**
+- Drill into specific sessions with full header and body inspection
+- Identify redirect loops and CONNECT failures that point to proxy/firewall misconfiguration
+- Use the repeated-failures detection to confirm a service-wide outage vs. a single-user issue
 
 ---
 
