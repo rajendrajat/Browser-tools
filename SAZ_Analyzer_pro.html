@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SAZ Analyzer Pro v2.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+
+:root,[data-theme="dark"]{
+--bg1:#1a1b2e;--bg2:#242540;--bg3:#2e2f4a;--bg4:#383960;
+--tx1:#e8e8f0;--tx2:#a0a0c0;--tx3:#6a6a90;
+--acc:#7c8dff;--acc2:#9aa4ff;
+--ok:#4caf50;--warn:#ff9800;--err:#f44336;--info:#29b6f6;
+--bdr:#3a3a58;--shd:rgba(0,0,0,.4);
+--mono:'Consolas','Courier New',monospace;--font:'Segoe UI',Tahoma,sans-serif;--r:8px;
+}
+[data-theme="light"]{
+--bg1:#f0f2f5;--bg2:#ffffff;--bg3:#e8eaf0;--bg4:#d8dbe5;
+--tx1:#1a1a2e;--tx2:#4a4a6a;--tx3:#8888a0;
+--acc:#4a5acd;--acc2:#6270e0;
+--ok:#2e7d32;--warn:#e65100;--err:#c62828;--info:#0277bd;
+--bdr:#c8cad0;--shd:rgba(0,0,0,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg1);color:var(--tx1);height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .3s,color .3s}
+
+/* Header */
+.hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:8px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hdr h1{font-size:17px;color:var(--acc);display:flex;align-items:center;gap:6px}
+.hdr-acts{display:flex;gap:6px;align-items:center}
+.btn{padding:5px 12px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg3);color:var(--tx1);cursor:pointer;font-size:11px;transition:.2s;display:inline-flex;align-items:center;gap:4px}
+.btn:hover{background:var(--bg4);border-color:var(--acc)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.badge{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}
+.badge-saz{background:rgba(124,141,255,.15);color:var(--acc)}
+.badge-har{background:rgba(76,175,80,.15);color:var(--ok)}
+
+/* Theme toggle */
+.theme-tog{width:36px;height:20px;border-radius:10px;background:var(--bg4);border:1px solid var(--bdr);cursor:pointer;position:relative;transition:.3s}
+.theme-tog::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--acc);transition:.3s}
+[data-theme="light"] .theme-tog::after{left:18px}
+
+/* Drop overlay */
+.drop-ov{position:fixed;inset:0;z-index:100;background:var(--bg1);display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .3s}
+.drop-ov.hide{opacity:0;pointer-events:none}
+.drop-z{border:2px dashed var(--acc);border-radius:16px;padding:40px 60px;text-align:center;cursor:pointer;transition:.3s;max-width:520px}
+.drop-z:hover{background:rgba(124,141,255,.05);transform:scale(1.01)}
+.drop-z h2{margin-bottom:6px;font-size:19px}
+.drop-z p{color:var(--tx2);font-size:12px;margin-bottom:12px}
+.drop-z input{display:none}
+.drop-z .br-btn{display:inline-block;padding:7px 16px;background:var(--acc);color:#fff;border-radius:var(--r);cursor:pointer;font-size:12px}
+.file-types{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.file-type-tag{padding:3px 10px;border:1px solid var(--bdr);border-radius:12px;font-size:10px;color:var(--tx2)}
+
+/* Spinner */
+.spin-ov{position:fixed;inset:0;z-index:200;background:rgba(26,27,46,.92);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.spin-ov.hide{display:none}
+.spin{width:40px;height:40px;border:3px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Main / Summary */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.summary{padding:8px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
+.health{padding:4px 14px;border-radius:16px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.health-good{background:rgba(76,175,80,.12);color:var(--ok);border:1px solid rgba(76,175,80,.25)}
+.health-warn{background:rgba(255,152,0,.12);color:var(--warn);border:1px solid rgba(255,152,0,.25)}
+.health-crit{background:rgba(244,67,54,.12);color:var(--err);border:1px solid rgba(244,67,54,.25)}
+.sum-stat{font-size:12px;color:var(--tx2);display:flex;gap:14px;flex-wrap:wrap;flex:1}
+.sum-stat span{display:flex;align-items:center;gap:3px}
+.sum-stat b{color:var(--tx1)}
+
+/* View tabs */
+.vtabs{display:flex;border-bottom:2px solid var(--bdr);background:var(--bg2);flex-shrink:0;padding:0 12px;overflow-x:auto;gap:0}
+.vtab{padding:8px 14px;font-size:11px;font-weight:600;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.2s;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.vtab:hover{color:var(--tx1)}
+.vtab.act{color:var(--acc);border-bottom-color:var(--acc)}
+.vtab .tab-badge{background:var(--err);color:#fff;border-radius:8px;padding:1px 5px;font-size:9px;font-weight:700}
+
+.view{flex:1;overflow:hidden;display:none}
+.view.act{display:flex;flex-direction:column}
+
+/* Issues */
+.iss-toolbar{padding:6px 16px;display:flex;gap:6px;align-items:center;flex-shrink:0;border-bottom:1px solid var(--bdr);flex-wrap:wrap}
+.fbtn{padding:3px 9px;font-size:10px;border:1px solid var(--bdr);border-radius:12px;background:var(--bg3);color:var(--tx2);cursor:pointer;transition:.2s}
+.fbtn:hover{border-color:var(--acc);color:var(--tx1)}
+.fbtn.act{background:var(--acc);color:#fff;border-color:var(--acc)}
+.iss-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.iss-card{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 14px;border-left:4px solid var(--bdr);cursor:pointer;transition:.2s}
+.iss-card:hover{background:var(--bg4);transform:translateX(2px)}
+.iss-card.sev-critical{border-left-color:var(--err)}
+.iss-card.sev-warning{border-left-color:var(--warn)}
+.iss-card.sev-info{border-left-color:var(--info)}
+.iss-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sev-badge{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase}
+.sev-critical .sev-badge{background:rgba(244,67,54,.12);color:var(--err)}
+.sev-warning .sev-badge{background:rgba(255,152,0,.12);color:var(--warn)}
+.sev-info .sev-badge{background:rgba(41,182,246,.12);color:var(--info)}
+.iss-cat{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px}
+.iss-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.iss-desc{font-size:11px;color:var(--tx2);margin-bottom:5px;line-height:1.3}
+.iss-url{font-size:10px;color:var(--info);word-break:break-all;margin-bottom:5px;padding:3px 6px;background:var(--bg1);border-radius:3px}
+.iss-fix{font-size:10px;color:var(--ok);padding:3px 6px;background:rgba(76,175,80,.06);border-radius:3px;border-left:2px solid var(--ok)}
+.iss-sessions{font-size:9px;color:var(--tx3);margin-top:4px}
+
+/* Sessions */
+.sess-view{flex-direction:row !important}
+.sess-list{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--bdr)}
+.sess-tb-wrap{flex:1;overflow-y:auto}
+.stb{width:100%;border-collapse:collapse;font-size:11px}
+.stb th{position:sticky;top:0;background:var(--bg3);padding:6px 8px;text-align:left;font-weight:600;color:var(--tx2);text-transform:uppercase;font-size:9px;border-bottom:2px solid var(--bdr);z-index:2;cursor:pointer;user-select:none}
+.stb th:hover{color:var(--acc)}
+.stb td{padding:5px 8px;border-bottom:1px solid rgba(58,58,88,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:350px}
+.stb tr{cursor:pointer;transition:.12s}
+.stb tbody tr:hover{background:var(--bg4)}
+.stb tbody tr.sel{background:rgba(124,141,255,.1);border-left:3px solid var(--acc)}
+.m-badge{padding:1px 5px;border-radius:3px;font-weight:600;font-size:9px}
+.m-GET{background:rgba(76,175,80,.12);color:#4caf50}
+.m-POST{background:rgba(33,150,243,.12);color:#2196f3}
+.m-PUT{background:rgba(255,152,0,.12);color:#ff9800}
+.m-DELETE{background:rgba(244,67,54,.12);color:#f44336}
+.m-CONNECT{background:rgba(255,235,59,.08);color:#fdd835}
+.m-OPTIONS{background:rgba(158,158,158,.12);color:#9e9e9e}
+.m-HEAD{background:rgba(0,188,212,.12);color:#00bcd4}
+.m-PATCH{background:rgba(156,39,176,.12);color:#ce93d8}
+.s-badge{padding:1px 5px;border-radius:3px;font-weight:600;font-size:10px}
+.s-2{background:rgba(76,175,80,.1);color:#4caf50}
+.s-3{background:rgba(255,152,0,.1);color:#ff9800}
+.s-4{background:rgba(244,67,54,.1);color:#f44336}
+.s-5{background:rgba(211,47,47,.12);color:#ef5350}
+.s-0{background:rgba(158,158,158,.1);color:#9e9e9e}
+.sess-foot{padding:5px 14px;font-size:10px;color:var(--tx3);border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
+.sess-toolbar{padding:6px 14px;display:flex;gap:6px;align-items:center;flex-shrink:0;border-bottom:1px solid var(--bdr);flex-wrap:wrap}
+.sbox{flex:1;min-width:160px;padding:5px 10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);color:var(--tx1);font-size:11px;outline:none}
+.sbox:focus{border-color:var(--acc)}
+.sbox::placeholder{color:var(--tx3)}
+
+/* Detail panel */
+.det-pan{width:42%;max-width:580px;min-width:260px;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2)}
+.det-pan.hide{display:none}
+.det-tabs{display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0;overflow-x:auto}
+.dt{padding:7px 12px;font-size:11px;font-weight:600;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap}
+.dt:hover{color:var(--tx1)}
+.dt.act{color:var(--acc);border-bottom-color:var(--acc)}
+.det-body{flex:1;overflow-y:auto;padding:12px}
+.ds{margin-bottom:12px}
+.ds h3{font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+.ds h3 .cp-btn{font-size:9px;color:var(--tx3);cursor:pointer;text-transform:none;letter-spacing:0;padding:2px 6px;border:1px solid var(--bdr);border-radius:3px}
+.ds h3 .cp-btn:hover{color:var(--acc);border-color:var(--acc)}
+.d-url{word-break:break-all;font-size:11px;color:var(--info);margin-bottom:8px;padding:6px;background:var(--bg3);border-radius:var(--r)}
+.htb{width:100%;font-size:10px;border-collapse:collapse}
+.htb td{padding:2px 6px;border-bottom:1px solid rgba(58,58,88,.15);vertical-align:top}
+.htb td:first-child{color:var(--acc);font-weight:600;white-space:nowrap;width:35%}
+.htb td:last-child{color:var(--tx2);word-break:break-all}
+.bdy{background:var(--bg1);border:1px solid var(--bdr);border-radius:var(--r);padding:8px;font-family:var(--mono);font-size:10px;line-height:1.4;color:var(--tx2);white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto}
+
+/* JWT Decoder */
+.jwt-section{background:var(--bg1);border:1px solid var(--bdr);border-radius:var(--r);padding:10px;margin-top:6px}
+.jwt-part{margin-bottom:8px}
+.jwt-part-label{font-size:9px;font-weight:700;text-transform:uppercase;color:var(--acc);margin-bottom:3px}
+.jwt-claims{font-family:var(--mono);font-size:10px;line-height:1.4;color:var(--tx2);white-space:pre-wrap;word-break:break-all}
+.jwt-expiry{padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;display:inline-block;margin-top:4px}
+.jwt-expired{background:rgba(244,67,54,.1);color:var(--err)}
+.jwt-valid{background:rgba(76,175,80,.1);color:var(--ok)}
+
+/* URL Investigator */
+.inv-search{padding:12px 16px;display:flex;gap:8px;align-items:center;flex-shrink:0;border-bottom:1px solid var(--bdr)}
+.inv-input{flex:1;padding:8px 14px;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);color:var(--tx1);font-size:13px;outline:none}
+.inv-input:focus{border-color:var(--acc);box-shadow:0 0 0 2px rgba(124,141,255,.12)}
+.inv-input::placeholder{color:var(--tx3)}
+.inv-results{flex:1;overflow-y:auto;padding:12px 16px}
+.inv-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3);font-size:13px;flex-direction:column;gap:6px}
+.inv-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.inv-stat{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px 14px;flex:1;min-width:100px}
+.inv-stat .lbl{font-size:9px;color:var(--tx3);text-transform:uppercase;margin-bottom:2px}
+.inv-stat .val{font-size:18px;font-weight:700}
+.inv-timeline h3,.inv-errors h3{font-size:11px;color:var(--acc);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.tl-item{display:flex;align-items:center;gap:8px;padding:4px 8px;border-left:2px solid var(--bdr);margin-left:6px;font-size:11px;cursor:pointer;transition:.12s}
+.tl-item:hover{background:var(--bg4);border-left-color:var(--acc)}
+.tl-item .tl-id{color:var(--tx3);min-width:28px}
+.tl-item .tl-url{flex:1;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Waterfall */
+.wf-container{flex:1;overflow-y:auto;padding:12px 16px}
+.wf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;padding:6px 16px;border-bottom:1px solid var(--bdr)}
+.wf-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10px;cursor:pointer;transition:.1s}
+.wf-row:hover{background:var(--bg4);border-radius:3px}
+.wf-id{min-width:30px;color:var(--tx3);text-align:right}
+.wf-method{min-width:50px}
+.wf-url-col{min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.wf-bar-area{flex:1;height:16px;position:relative;background:rgba(58,58,88,.15);border-radius:2px}
+.wf-bar{height:100%;border-radius:2px;position:absolute;top:0;min-width:2px;transition:width .3s}
+.wf-bar.c2{background:rgba(76,175,80,.6)}
+.wf-bar.c3{background:rgba(255,152,0,.6)}
+.wf-bar.c4{background:rgba(244,67,54,.6)}
+.wf-bar.c5{background:rgba(211,47,47,.7)}
+.wf-bar.c0{background:rgba(158,158,158,.5)}
+.wf-time{min-width:50px;text-align:right;color:var(--tx3);font-size:9px}
+.wf-legend{display:flex;gap:12px;font-size:9px;color:var(--tx3);padding:6px 16px;border-bottom:1px solid var(--bdr)}
+.wf-legend span{display:flex;align-items:center;gap:3px}
+.wf-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+
+/* Auth Flow */
+.af-container{flex:1;overflow-y:auto;padding:16px 20px}
+.af-flow{display:flex;flex-direction:column;gap:0}
+.af-node{display:flex;align-items:stretch;gap:0}
+.af-line{width:30px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.af-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--acc);background:var(--bg2);flex-shrink:0;z-index:1}
+.af-dot.dot-ok{border-color:var(--ok);background:rgba(76,175,80,.15)}
+.af-dot.dot-err{border-color:var(--err);background:rgba(244,67,54,.15)}
+.af-dot.dot-redir{border-color:var(--warn);background:rgba(255,152,0,.15)}
+.af-connector{flex:1;width:2px;background:var(--bdr)}
+.af-card{flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;margin:3px 0;cursor:pointer;transition:.2s}
+.af-card:hover{background:var(--bg4);border-color:var(--acc)}
+.af-card-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.af-card-url{font-size:10px;color:var(--tx2);word-break:break-all}
+.af-card-detail{font-size:9px;color:var(--tx3);margin-top:3px}
+.af-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3);font-size:13px}
+
+/* Cookies */
+.ck-container{flex:1;overflow-y:auto;padding:12px 16px}
+.ck-toolbar{padding:6px 16px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.ck-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ck-card{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px 12px;flex:1;min-width:100px}
+.ck-table{width:100%;border-collapse:collapse;font-size:10px}
+.ck-table th{position:sticky;top:0;background:var(--bg3);padding:6px 8px;text-align:left;font-weight:600;color:var(--tx2);text-transform:uppercase;font-size:9px;border-bottom:2px solid var(--bdr)}
+.ck-table td{padding:4px 8px;border-bottom:1px solid rgba(58,58,88,.15);vertical-align:top}
+.ck-set{color:var(--ok);font-size:9px}
+.ck-mod{color:var(--warn);font-size:9px}
+.ck-miss{color:var(--err);font-size:9px}
+.ck-attr{font-size:9px;color:var(--tx3)}
+
+/* Response Time */
+.rt-container{flex:1;overflow-y:auto;padding:12px 16px}
+.rt-chart{margin-bottom:16px}
+.rt-bar-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:10px}
+.rt-label{min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.rt-bar-bg{flex:1;height:14px;background:rgba(58,58,88,.15);border-radius:2px;position:relative}
+.rt-bar-fill{height:100%;border-radius:2px;transition:width .3s}
+.rt-val{min-width:50px;text-align:right;color:var(--tx3);font-size:9px}
+.rt-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rt-stat{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px 14px;flex:1;min-width:100px}
+.rt-stat .lbl{font-size:9px;color:var(--tx3);text-transform:uppercase;margin-bottom:2px}
+.rt-stat .val{font-size:18px;font-weight:700}
+.rt-dist{margin-bottom:14px}
+.rt-dist-bar{display:flex;height:24px;border-radius:4px;overflow:hidden;margin-top:6px}
+.rt-dist-seg{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;transition:width .3s}
+
+/* Custom Rules */
+.cr-container{flex:1;overflow-y:auto;padding:12px 16px}
+.cr-form{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;margin-bottom:14px}
+.cr-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.cr-row label{font-size:10px;color:var(--tx2);min-width:60px}
+.cr-row select,.cr-row input{padding:4px 8px;background:var(--bg1);border:1px solid var(--bdr);border-radius:4px;color:var(--tx1);font-size:11px;outline:none}
+.cr-row select:focus,.cr-row input:focus{border-color:var(--acc)}
+.cr-row input{flex:1;min-width:120px}
+.cr-rules{display:flex;flex-direction:column;gap:6px}
+.cr-rule{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+.cr-rule-info{flex:1}
+.cr-rule-name{font-size:12px;font-weight:600;margin-bottom:2px}
+.cr-rule-desc{font-size:10px;color:var(--tx2)}
+.cr-rule-count{font-size:12px;font-weight:700;margin-right:10px}
+.cr-del{background:none;border:none;color:var(--err);cursor:pointer;font-size:14px;padding:2px 6px}
+
+/* Compare */
+.cmp-container{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.cmp-header{padding:10px 16px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap}
+.cmp-panels{flex:1;display:flex;overflow:hidden}
+.cmp-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--bdr)}
+.cmp-panel:last-child{border-right:none}
+.cmp-panel-hdr{padding:6px 12px;background:var(--bg3);border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;color:var(--tx2);display:flex;align-items:center;justify-content:space-between}
+.cmp-panel-body{flex:1;overflow-y:auto;padding:8px}
+.cmp-diff{background:rgba(244,67,54,.06);border-left:2px solid var(--err);padding:2px 4px;margin:1px 0}
+.cmp-match{padding:2px 4px;margin:1px 0}
+.cmp-stat-row{display:flex;gap:8px;margin-bottom:6px}
+.cmp-stat{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:6px 10px;flex:1;text-align:center}
+.cmp-stat .lbl{font-size:9px;color:var(--tx3)}
+.cmp-stat .val{font-size:16px;font-weight:700}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--tx3)}
+
+@media(max-width:768px){
+.sess-view{flex-direction:column !important}
+.sess-list{border-right:none;border-bottom:1px solid var(--bdr)}
+.det-pan{width:100% !important;max-width:100%}
+.cmp-panels{flex-direction:column}
+.vtabs{padding:0 4px}
+.vtab{padding:6px 8px;font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<div class="drop-ov" id="dropOv">
+  <div class="drop-z" id="dropZ">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.5" style="margin-bottom:10px">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <h2>SAZ Analyzer Pro v2.0</h2>
+    <p>Drop your trace file here or click to browse</p>
+    <label class="br-btn" for="fInput">Browse Files</label>
+    <input type="file" id="fInput" accept=".saz,.zip,.har,.json">
+    <div class="file-types">
+      <span class="file-type-tag">SAZ (Fiddler)</span>
+      <span class="file-type-tag">HAR (Browser)</span>
+    </div>
+    <p style="margin-top:10px;font-size:9px;color:var(--tx3)">100% client-side &bull; No data uploaded &bull; Works offline</p>
+  </div>
+</div>
+<div class="spin-ov hide" id="spinOv"><div class="spin"></div><div style="color:var(--tx2);font-size:12px" id="spinTxt">Processing...</div></div>
+
+<div class="hdr">
+  <h1>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    SAZ Analyzer Pro
+    <span class="badge" id="fTypeBadge" style="display:none"></span>
+  </h1>
+  <div class="hdr-acts">
+    <span id="fName" style="font-size:10px;color:var(--tx2)"></span>
+    <div class="theme-tog" id="themeTog" title="Toggle theme" onclick="toggleTheme()"></div>
+    <button class="btn btn-sm" id="btnNew" style="display:none" onclick="resetApp()">Load New</button>
+    <button class="btn btn-sm" id="btnExpIss" style="display:none" onclick="exportIssues()">Export Issues</button>
+    <button class="btn btn-sm" id="btnExpPdf" style="display:none" onclick="exportPDF()">Export PDF</button>
+  </div>
+</div>
+
+<div class="main" id="mainC" style="display:none">
+  <div class="summary" id="summaryBar"></div>
+  <div class="vtabs" id="viewTabs">
+    <div class="vtab act" data-v="issues" onclick="switchView('issues',this)">&#9888; Issues <span class="tab-badge" id="issBadge" style="display:none"></span></div>
+    <div class="vtab" data-v="sessions" onclick="switchView('sessions',this)">&#9776; Sessions</div>
+    <div class="vtab" data-v="investigator" onclick="switchView('investigator',this)">&#128269; Investigate</div>
+    <div class="vtab" data-v="waterfall" onclick="switchView('waterfall',this)">&#9636; Waterfall</div>
+    <div class="vtab" data-v="authflow" onclick="switchView('authflow',this)">&#128274; Auth Flow</div>
+    <div class="vtab" data-v="cookies" onclick="switchView('cookies',this)">&#127850; Cookies</div>
+    <div class="vtab" data-v="resptime" onclick="switchView('resptime',this)">&#128200; Timing</div>
+    <div class="vtab" data-v="rules" onclick="switchView('rules',this)">&#127991; Rules</div>
+    <div class="vtab" data-v="compare" onclick="switchView('compare',this)">&#128230; Compare</div>
+  </div>
+
+  <div class="view act" id="v-issues">
+    <div class="iss-toolbar">
+      <button class="fbtn act" onclick="filterIss('all',this)">All</button>
+      <button class="fbtn" onclick="filterIss('critical',this)">Critical</button>
+      <button class="fbtn" onclick="filterIss('warning',this)">Warning</button>
+      <button class="fbtn" onclick="filterIss('info',this)">Info</button>
+    </div>
+    <div class="iss-list" id="issList"></div>
+  </div>
+
+  <div class="view sess-view" id="v-sessions">
+    <div class="sess-list">
+      <div class="sess-toolbar">
+        <input type="text" class="sbox" id="sessSearch" placeholder="Filter by URL, status, method...">
+        <div style="display:flex;gap:3px;flex-wrap:wrap">
+          <button class="fbtn act" onclick="sessFilter('all',this)">All</button>
+          <button class="fbtn" onclick="sessFilter('errors',this)">4xx/5xx</button>
+          <button class="fbtn" onclick="sessFilter('images',this)">Images</button>
+          <button class="fbtn" onclick="sessFilter('scripts',this)">Scripts</button>
+          <button class="fbtn" onclick="sessFilter('xhr',this)">XHR</button>
+          <button class="fbtn" onclick="sessFilter('html',this)">HTML</button>
+          <button class="fbtn" onclick="sessFilter('redirects',this)">3xx</button>
+        </div>
+      </div>
+      <div class="sess-tb-wrap">
+        <table class="stb">
+          <thead><tr>
+            <th style="width:35px" onclick="sortBy('id')">#</th>
+            <th style="width:55px" onclick="sortBy('method')">Method</th>
+            <th onclick="sortBy('url')">URL</th>
+            <th style="width:50px" onclick="sortBy('status')">Status</th>
+            <th style="width:100px" onclick="sortBy('ct')">Type</th>
+            <th style="width:55px" onclick="sortBy('size')">Size</th>
+          </tr></thead>
+          <tbody id="sessBody"></tbody>
+        </table>
+      </div>
+      <div class="sess-foot" id="sessFoot">No sessions</div>
+    </div>
+    <div class="det-pan hide" id="detPan">
+      <div class="det-tabs">
+        <div class="dt act" onclick="detTab('overview',this)">Overview</div>
+        <div class="dt" onclick="detTab('request',this)">Request</div>
+        <div class="dt" onclick="detTab('response',this)">Response</div>
+        <div class="dt" onclick="detTab('jwt',this)">JWT</div>
+      </div>
+      <div class="det-body" id="detBody"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3)">Select a session</div></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-investigator">
+    <div class="inv-search">
+      <input type="text" class="inv-input" id="invInput" placeholder="Enter URL, domain, or keyword to investigate...">
+      <button class="btn" onclick="investigate()">Investigate</button>
+    </div>
+    <div class="inv-results" id="invResults">
+      <div class="inv-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><div>Enter a URL or domain to investigate</div></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-waterfall">
+    <div class="wf-header">
+      <span style="font-size:12px;font-weight:600">Request Waterfall Timeline</span>
+      <span style="font-size:10px;color:var(--tx3)" id="wfInfo"></span>
+    </div>
+    <div class="wf-legend">
+      <span><i style="background:rgba(76,175,80,.6)"></i> 2xx</span>
+      <span><i style="background:rgba(255,152,0,.6)"></i> 3xx</span>
+      <span><i style="background:rgba(244,67,54,.6)"></i> 4xx</span>
+      <span><i style="background:rgba(211,47,47,.7)"></i> 5xx</span>
+      <span><i style="background:rgba(158,158,158,.5)"></i> Other</span>
+    </div>
+    <div class="wf-container" id="wfContainer"></div>
+  </div>
+
+  <div class="view" id="v-authflow">
+    <div style="padding:8px 16px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+      <span>OAuth / SAML Authentication Flow</span>
+      <span style="font-size:9px;color:var(--tx3)" id="afInfo"></span>
+    </div>
+    <div class="af-container" id="afContainer"></div>
+  </div>
+
+  <div class="view" id="v-cookies">
+    <div class="ck-toolbar">
+      <input type="text" class="sbox" id="ckSearch" placeholder="Filter cookies by name or domain..." oninput="renderCookies()">
+    </div>
+    <div class="ck-container" id="ckContainer"></div>
+  </div>
+
+  <div class="view" id="v-resptime">
+    <div style="padding:8px 16px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;flex-shrink:0">Response Time Analysis</div>
+    <div class="rt-container" id="rtContainer"></div>
+  </div>
+
+  <div class="view" id="v-rules">
+    <div style="padding:8px 16px;border-bottom:1px solid var(--bdr);font-size:11px;font-weight:600;flex-shrink:0">Custom Detection Rules</div>
+    <div class="cr-container" id="crContainer">
+      <div class="cr-form">
+        <div class="cr-row"><label>Name</label><input id="crName" placeholder="Rule name"></div>
+        <div class="cr-row"><label>Check</label>
+          <select id="crField"><option value="url">URL contains</option><option value="status">Status equals</option><option value="method">Method equals</option><option value="ct">Content-Type contains</option><option value="reqHeader">Request header missing</option><option value="resHeader">Response header missing</option><option value="resBodyContains">Response body contains</option><option value="sizeGt">Size greater than (bytes)</option></select>
+        </div>
+        <div class="cr-row"><label>Value</label><input id="crValue" placeholder="Value to match"></div>
+        <div class="cr-row"><label>Severity</label>
+          <select id="crSev"><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option></select>
+        </div>
+        <div class="cr-row"><label></label><button class="btn" onclick="addRule()">Add Rule</button><button class="btn" style="margin-left:4px" onclick="runRules()">Run All Rules</button></div>
+      </div>
+      <div class="cr-rules" id="crRules"></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-compare">
+    <div class="cmp-container">
+      <div class="cmp-header">
+        <span style="font-size:12px;font-weight:600">Multi-File Comparison</span>
+        <label class="btn btn-sm"><input type="file" id="cmpFile1" accept=".saz,.zip,.har,.json" style="display:none" onchange="loadCmpFile(1,this)"> Load File A</label>
+        <label class="btn btn-sm"><input type="file" id="cmpFile2" accept=".saz,.zip,.har,.json" style="display:none" onchange="loadCmpFile(2,this)"> Load File B</label>
+        <button class="btn btn-sm" onclick="runCompare()">Compare</button>
+      </div>
+      <div class="cmp-panels" id="cmpPanels">
+        <div class="cmp-panel"><div class="cmp-panel-hdr"><span id="cmpName1">File A — not loaded</span></div><div class="cmp-panel-body" id="cmpBody1"><div class="inv-empty">Load File A to begin comparison</div></div></div>
+        <div class="cmp-panel"><div class="cmp-panel-hdr"><span id="cmpName2">File B — not loaded</span></div><div class="cmp-panel-body" id="cmpBody2"><div class="inv-empty">Load File B to begin comparison</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+var allS=[],filtS=[],issues=[],cookies_data=[],customRules=[],cmpData={a:null,b:null};
+var selId=null,sortCol='id',sortAsc=true,curSF='all',curIF='all',curDT='overview';
+var fileType='saz';
+var dropOv=document.getElementById('dropOv'),dropZ=document.getElementById('dropZ');
+var fInput=document.getElementById('fInput'),spinOv=document.getElementById('spinOv');
+
+// Theme toggle
+function toggleTheme(){
+  var h=document.documentElement;
+  h.setAttribute('data-theme',h.getAttribute('data-theme')==='dark'?'light':'dark');
+}
+
+// File handling
+document.addEventListener('dragover',function(e){e.preventDefault();});
+document.addEventListener('drop',function(e){e.preventDefault();if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);});
+dropZ.addEventListener('click',function(){fInput.click();});
+fInput.addEventListener('change',function(e){if(e.target.files.length)handleFile(e.target.files[0]);});
+
+function handleFile(file){
+  var name=file.name.toLowerCase();
+  if(!name.match(/\.(saz|zip|har|json)$/)){alert('Please select a .saz or .har file');return;}
+  spinOv.classList.remove('hide');
+  document.getElementById('spinTxt').textContent='Parsing '+file.name+'...';
+  if(name.endsWith('.har')||name.endsWith('.json')){
+    fileType='har';
+    file.text().then(function(txt){return parseHAR(txt);}).then(finishLoad.bind(null,file.name)).catch(errLoad);
+  }else{
+    fileType='saz';
+    JSZip.loadAsync(file).then(function(zip){return parseSAZ(zip);}).then(finishLoad.bind(null,file.name)).catch(errLoad);
+  }
+}
+
+function finishLoad(fname){
+  document.getElementById('fName').textContent=fname;
+  var tb=document.getElementById('fTypeBadge');
+  tb.style.display='';tb.textContent=fileType.toUpperCase();
+  tb.className='badge badge-'+fileType;
+  document.getElementById('btnNew').style.display='';
+  document.getElementById('btnExpIss').style.display='';
+  document.getElementById('btnExpPdf').style.display='';
+  dropOv.classList.add('hide');
+  document.getElementById('mainC').style.display='';
+  extractCookies();
+  analyzeIssues();
+  renderSummary();renderIssues();applySessFilters();
+  renderWaterfall();renderAuthFlow();renderCookies();renderRespTime();renderRulesUI();
+  spinOv.classList.add('hide');
+}
+function errLoad(err){alert('Error: '+err.message);spinOv.classList.add('hide');}
+
+// SAZ Parsing
+function parseSAZ(zip){
+  allS=[];
+  var rawF={};
+  zip.forEach(function(p,e){
+    var lo=p.toLowerCase();
+    if(lo.indexOf('raw/')>-1||lo.indexOf('raw\\')>-1){var fn=p.split(/[\/\\]/).pop();rawF[fn.toLowerCase()]=e;}
+  });
+  var nums=new Set();
+  Object.keys(rawF).forEach(function(fn){var m=fn.match(/^(\d+)_[csm]\./);if(m)nums.add(m[1]);});
+  var sorted=Array.from(nums).sort(function(a,b){return parseInt(a)-parseInt(b);});
+  var promises=sorted.map(function(num){
+    var sess={id:parseInt(num),method:'',url:'',httpVer:'',reqH:{},reqHRaw:'',reqBody:'',status:0,statusTxt:'',resH:{},resHRaw:'',resBody:'',ct:'',size:0,timings:{},startTime:0,duration:0};
+    var p1=rawF[num+'_c.txt']?rawF[num+'_c.txt'].async('string').then(function(d){parseReq(d,sess);}).catch(function(){}):(Promise.resolve());
+    var p2=rawF[num+'_s.txt']?rawF[num+'_s.txt'].async('uint8array').then(function(d){parseRes(d,sess);}).catch(function(){}):(Promise.resolve());
+    var p3=rawF[num+'_m.xml']?rawF[num+'_m.xml'].async('string').then(function(d){parseMeta(d,sess);}).catch(function(){}):(Promise.resolve());
+    return Promise.all([p1,p2,p3]).then(function(){allS.push(sess);});
+  });
+  return Promise.all(promises).then(function(){allS.sort(function(a,b){return a.id-b.id;});});
+}
+
+function parseReq(raw,s){
+  s.reqHRaw=raw;
+  var hi=raw.indexOf('\r\n\r\n');
+  var hp=hi>-1?raw.substring(0,hi):raw;
+  var bp=hi>-1?raw.substring(hi+4):'';
+  var lines=hp.split('\r\n');
+  if(lines.length>0){var p=lines[0].split(' ');s.method=p[0]||'';s.url=p[1]||'';s.httpVer=p[2]||'';}
+  var h={};
+  for(var i=1;i<lines.length;i++){var ci=lines[i].indexOf(':');if(ci>0)h[lines[i].substring(0,ci).trim()]=lines[i].substring(ci+1).trim();}
+  s.reqH=h;s.reqBody=bp;
+  if(s.url&&!s.url.startsWith('http')&&h['Host']){
+    var sc=(h['Host']||'').indexOf(':443')>-1?'https':'http';
+    s.url=sc+'://'+h['Host']+s.url;
+  }
+}
+
+function parseRes(buf,s){
+  var hi=-1;
+  for(var i=0;i<buf.length-3;i++){if(buf[i]===13&&buf[i+1]===10&&buf[i+2]===13&&buf[i+3]===10){hi=i;break;}}
+  var hb=hi>-1?buf.slice(0,hi):buf;
+  var bb=hi>-1?buf.slice(hi+4):new Uint8Array(0);
+  var hs=new TextDecoder('utf-8',{fatal:false}).decode(hb);
+  s.resHRaw=hs;
+  var lines=hs.split('\r\n');
+  if(lines.length>0){var m=lines[0].match(/^HTTP\/[\d.]+ (\d+)\s*(.*)/);if(m){s.status=parseInt(m[1]);s.statusTxt=m[2]||'';}}
+  var h={};
+  for(var i=1;i<lines.length;i++){var ci=lines[i].indexOf(':');if(ci>0)h[lines[i].substring(0,ci).trim().toLowerCase()]=lines[i].substring(ci+1).trim();}
+  s.resH=h;s.ct=(h['content-type']||'').split(';')[0].trim();s.size=bb.length;
+  try{s.resBody=new TextDecoder('utf-8',{fatal:false}).decode(bb);}catch(e){s.resBody='[Binary '+bb.length+' bytes]';}
+}
+
+function parseMeta(xml,s){
+  try{
+    var doc=new DOMParser().parseFromString(xml,'text/xml');
+    var flags=doc.querySelectorAll('SessionFlag');
+    var t={};flags.forEach(function(f){var n=f.getAttribute('N'),v=f.getAttribute('V');if(n&&v)t[n]=v;});
+    s.timings=t;
+    // Extract timing
+    var cs=t['x-clientport']||'';
+    var req=t['x-timestamp']||t['ui-timestamp']||'';
+    if(req){try{s.startTime=new Date(req).getTime();}catch(e){}}
+    var gt=t['x-serversocket']||'';
+    // Calculate duration from available flags
+    var dt=t['x-egressport']||t['x-timestamp'];
+    if(t['x-clientport']&&t['x-serversocket']){
+      // use session IDs as relative timing if no timestamps
+    }
+    // Try ServerGotRequest and ServerDoneResponse
+    var sgr=t['x-timestamp'];
+    if(t['ServerDoneResponse']&&t['ClientBeginRequest']){
+      try{s.duration=new Date(t['ServerDoneResponse']).getTime()-new Date(t['ClientBeginRequest']).getTime();}catch(e){}
+    }else if(t['x-egressport']){
+      s.duration=parseInt(t['x-egressport'])||0;
+    }
+  }catch(e){}
+}
+
+// HAR Parsing
+function parseHAR(txt){
+  var data=JSON.parse(txt);
+  var entries=data.log&&data.log.entries?data.log.entries:[];
+  allS=[];
+  var baseTime=0;
+  entries.forEach(function(entry,idx){
+    var req=entry.request||{};
+    var res=entry.response||{};
+    var sess={id:idx+1,method:req.method||'',url:req.url||'',httpVer:req.httpVersion||'',reqH:{},reqHRaw:'',reqBody:'',status:res.status||0,statusTxt:res.statusText||'',resH:{},resHRaw:'',resBody:'',ct:'',size:0,timings:{},startTime:0,duration:0};
+    // Request headers
+    var rh={};
+    (req.headers||[]).forEach(function(h){rh[h.name]=h.value;sess.reqHRaw+=h.name+': '+h.value+'\r\n';});
+    sess.reqH=rh;
+    if(req.postData)sess.reqBody=req.postData.text||'';
+    // Response headers
+    var rsh={};
+    (res.headers||[]).forEach(function(h){rsh[h.name.toLowerCase()]=h.value;sess.resHRaw+=h.name+': '+h.value+'\r\n';});
+    sess.resH=rsh;
+    sess.ct=(rsh['content-type']||'').split(';')[0].trim();
+    if(res.content){sess.resBody=res.content.text||'';sess.size=res.content.size||sess.resBody.length;}
+    // Timing
+    if(entry.startedDateTime){try{sess.startTime=new Date(entry.startedDateTime).getTime();if(!baseTime)baseTime=sess.startTime;}catch(e){}}
+    if(entry.time)sess.duration=entry.time;
+    else if(entry.timings){var ti=entry.timings;sess.duration=(ti.blocked||0)+(ti.dns||0)+(ti.connect||0)+(ti.send||0)+(ti.wait||0)+(ti.receive||0);}
+    // Store raw timings
+    if(entry.timings)sess.timings=entry.timings;
+    allS.push(sess);
+  });
+  return Promise.resolve();
+}
+
+// JWT Decoder
+function decodeJWT(token){
+  try{
+    if(!token)return null;
+    token=token.replace(/^Bearer\s+/i,'');
+    var parts=token.split('.');
+    if(parts.length!==3)return null;
+    var header=JSON.parse(atob(parts[0].replace(/-/g,'+').replace(/_/g,'/')));
+    var payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    var exp=payload.exp?new Date(payload.exp*1000):null;
+    var iat=payload.iat?new Date(payload.iat*1000):null;
+    var nbf=payload.nbf?new Date(payload.nbf*1000):null;
+    var isExpired=exp?exp.getTime()<Date.now():false;
+    return {header:header,payload:payload,exp:exp,iat:iat,nbf:nbf,isExpired:isExpired,raw:token};
+  }catch(e){return null;}
+}
+
+function renderJWTDetail(s){
+  var tokens=[];
+  // Check Authorization header
+  Object.keys(s.reqH).forEach(function(k){
+    if(k.toLowerCase()==='authorization'&&s.reqH[k].toLowerCase().indexOf('bearer')>-1){
+      tokens.push({source:'Request: Authorization',token:s.reqH[k]});
+    }
+  });
+  // Check response body for tokens
+  if(s.resBody){
+    try{
+      var body=JSON.parse(s.resBody);
+      ['access_token','id_token','token','accessToken','idToken'].forEach(function(key){
+        if(body[key]&&typeof body[key]==='string'&&body[key].split('.').length===3){
+          tokens.push({source:'Response Body: '+key,token:body[key]});
+        }
+      });
+    }catch(e){}
+  }
+  // Check Set-Cookie for tokens
+  var sc=s.resH['set-cookie']||'';
+  if(sc){
+    var m=sc.match(/(?:token|jwt|auth)[^=]*=([^;]+)/i);
+    if(m&&m[1]&&m[1].split('.').length===3)tokens.push({source:'Set-Cookie',token:m[1]});
+  }
+  if(tokens.length===0)return '<div style="color:var(--tx3);padding:20px;text-align:center">No JWT tokens found in this session</div>';
+  var html='';
+  tokens.forEach(function(t){
+    var jwt=decodeJWT(t.token);
+    if(!jwt){html+='<div class="ds"><h3>'+esc(t.source)+'</h3><div style="color:var(--tx3)">Could not decode token</div></div>';return;}
+    html+='<div class="ds"><h3>'+esc(t.source)+'</h3>';
+    html+='<div class="jwt-section">';
+    html+='<div class="jwt-part"><div class="jwt-part-label">Header</div><div class="jwt-claims">'+esc(JSON.stringify(jwt.header,null,2))+'</div></div>';
+    html+='<div class="jwt-part"><div class="jwt-part-label">Payload (Claims)</div><div class="jwt-claims">'+esc(JSON.stringify(jwt.payload,null,2))+'</div></div>';
+    if(jwt.exp){
+      html+='<div class="jwt-part"><div class="jwt-part-label">Token Expiry</div>';
+      html+='<span class="jwt-expiry '+(jwt.isExpired?'jwt-expired':'jwt-valid')+'">'+(jwt.isExpired?'EXPIRED':'VALID')+' — '+jwt.exp.toISOString()+'</span>';
+      html+='</div>';
+    }
+    if(jwt.payload.sub)html+='<div style="font-size:10px;color:var(--tx2);margin-top:4px">Subject: '+esc(jwt.payload.sub)+'</div>';
+    if(jwt.payload.aud)html+='<div style="font-size:10px;color:var(--tx2)">Audience: '+esc(String(jwt.payload.aud))+'</div>';
+    if(jwt.payload.iss)html+='<div style="font-size:10px;color:var(--tx2)">Issuer: '+esc(jwt.payload.iss)+'</div>';
+    html+='</div></div>';
+  });
+  return html;
+}
+
+// Cookie extraction
+function extractCookies(){
+  cookies_data=[];
+  var cookieMap={};
+  allS.forEach(function(s){
+    // Set-Cookie from responses
+    var sc=s.resH['set-cookie']||'';
+    if(sc){
+      sc.split(/,(?=[^ ]+=)/).forEach(function(raw){
+        var parts=raw.split(';');
+        var nv=parts[0].trim().split('=');
+        var name=nv[0]||'';
+        var value=nv.slice(1).join('=')||'';
+        if(!name)return;
+        var attrs={};
+        parts.slice(1).forEach(function(p){var kv=p.trim().split('=');attrs[kv[0].trim().toLowerCase()]=kv[1]?kv[1].trim():'';});
+        var domain=attrs.domain||'';
+        var key=name+'@'+domain;
+        if(!cookieMap[key])cookieMap[key]={name:name,domain:domain,events:[],attrs:attrs,secure:!!attrs.secure,httpOnly:!!attrs.httponly,sameSite:attrs.samesite||'',path:attrs.path||'/'};
+        var prev=cookieMap[key].events.length>0?cookieMap[key].events[cookieMap[key].events.length-1]:null;
+        var action=prev?'modified':'set';
+        if(prev&&prev.value===value)action='unchanged';
+        cookieMap[key].events.push({session:s.id,action:action,value:value,url:s.url});
+      });
+    }
+    // Cookie header from requests
+    var ch=s.reqH['Cookie']||s.reqH['cookie']||'';
+    if(ch){
+      ch.split(';').forEach(function(pair){
+        var kv=pair.trim().split('=');
+        var name=kv[0]||'';
+        if(!name)return;
+        var key=name+'@';
+        // Track sent cookies
+        Object.keys(cookieMap).forEach(function(k){
+          if(k.startsWith(name+'@')){
+            cookieMap[k].events.push({session:s.id,action:'sent',value:kv.slice(1).join('='),url:s.url});
+          }
+        });
+      });
+    }
+  });
+  cookies_data=Object.values(cookieMap);
+}
+
+// Issue Detection
+function analyzeIssues(){
+  issues=[];
+  var iid=0;
+  var hostFails={};
+
+  allS.forEach(function(s){
+    if(s.status>=500){
+      issues.push({id:++iid,severity:'critical',category:'Server Error',title:'HTTP '+s.status+' '+esc(s.statusTxt),
+        desc:'Server returned '+s.status+' error.',url:s.url,sessions:[s.id],
+        fix:'Check server logs. Verify backend is running. If 502/503, check load balancer and upstream services.'});
+    }
+    if(s.status===401){
+      issues.push({id:++iid,severity:'critical',category:'Authentication',title:'401 Unauthorized',
+        desc:'Authentication failed. Missing or expired credentials.',url:s.url,sessions:[s.id],
+        fix:'Check auth token/cookie in request headers. Verify token expiry. Check JWT tab for decoded token details. Try re-authenticating.'});
+    }
+    if(s.status===403){
+      issues.push({id:++iid,severity:'critical',category:'Authorization',title:'403 Forbidden',
+        desc:'Access denied. User lacks permission.',url:s.url,sessions:[s.id],
+        fix:'Verify user permissions/RBAC. Check Conditional Access policies. Review Azure AD group memberships.'});
+    }
+    if(s.status===404){
+      issues.push({id:++iid,severity:'warning',category:'Client Error',title:'404 Not Found',
+        desc:'Resource not found.',url:s.url,sessions:[s.id],
+        fix:'Verify URL. Check if resource moved or deleted.'});
+    }
+    if(s.status>=400&&s.status<500&&s.status!==401&&s.status!==403&&s.status!==404){
+      issues.push({id:++iid,severity:'warning',category:'Client Error',title:'HTTP '+s.status+' '+esc(s.statusTxt),
+        desc:'Client error response.',url:s.url,sessions:[s.id],
+        fix:'Review request headers and body. Check API docs for required parameters.'});
+    }
+    if(s.method==='CONNECT'&&s.status!==200&&s.status!==0){
+      issues.push({id:++iid,severity:'critical',category:'Connection / SSL',title:'CONNECT Tunnel Failed ('+s.status+')',
+        desc:'SSL/TLS tunnel failed. Proxy, firewall, or cert issue likely.',url:s.url,sessions:[s.id],
+        fix:'Check proxy settings. Verify SSL cert. Check if destination port is blocked. Review SSL inspection policies.'});
+    }
+    if(s.status===0&&s.method!==''){
+      issues.push({id:++iid,severity:'critical',category:'Connection',title:'Connection Failed / No Response',
+        desc:'No response received. Connection refused, timeout, or blocked.',url:s.url,sessions:[s.id],
+        fix:'Check network connectivity. Verify DNS. Check firewall/proxy rules. Try ping/nslookup to host.'});
+    }
+    if(s.size>5*1024*1024){
+      issues.push({id:++iid,severity:'info',category:'Performance',title:'Large Response ('+formatSz(s.size)+')',
+        desc:'Response exceeds 5 MB.',url:s.url,sessions:[s.id],
+        fix:'Enable compression (gzip/brotli). Paginate data. Optimize payload.'});
+    }
+    if(s.status>=400){
+      try{var h=new URL(s.url).hostname;}catch(e){var h=s.url.split('/')[2]||s.url;}
+      if(h){if(!hostFails[h])hostFails[h]=[];hostFails[h].push(s.id);}
+    }
+    // JWT expiry check
+    var authH=s.reqH['Authorization']||s.reqH['authorization']||'';
+    if(authH.toLowerCase().indexOf('bearer')>-1){
+      var jwt=decodeJWT(authH);
+      if(jwt&&jwt.isExpired){
+        issues.push({id:++iid,severity:'critical',category:'Authentication',title:'Expired JWT Token',
+          desc:'The Bearer token in the Authorization header expired at '+jwt.exp.toISOString()+'.',url:s.url,sessions:[s.id],
+          fix:'Token has expired. Check token refresh flow. Verify the auth endpoint is issuing new tokens. Click JWT tab in session detail to see full claims.'});
+      }
+    }
+  });
+
+  // Repeated host failures
+  Object.keys(hostFails).forEach(function(host){
+    if(hostFails[host].length>=3){
+      issues.push({id:++iid,severity:'warning',category:'Repeated Failures',title:'Multiple failures to '+host+' ('+hostFails[host].length+')',
+        desc:hostFails[host].length+' requests to '+host+' returned errors.',url:host,sessions:hostFails[host],
+        fix:'Check if '+host+' is reachable. Verify DNS. Check service health.'});
+    }
+  });
+
+  // Redirect loops
+  var redirMap={};
+  allS.forEach(function(s){
+    if(s.status>=300&&s.status<400){
+      var loc=s.resH['location']||'';
+      if(loc){var key=s.url+'->'+loc;if(!redirMap[key])redirMap[key]=[];redirMap[key].push(s.id);}
+    }
+  });
+  Object.keys(redirMap).forEach(function(k){
+    if(redirMap[k].length>=2){
+      issues.push({id:++iid,severity:'warning',category:'Redirect',title:'Possible Redirect Loop',
+        desc:'Same redirect occurred '+redirMap[k].length+' times: '+k,url:k.split('->')[0],sessions:redirMap[k],
+        fix:'Check redirect config. Verify cookies set correctly after redirect. Review SSO/CA config.'});
+    }
+  });
+
+  // Mixed content
+  var httpsC=allS.filter(function(s){return s.url.startsWith('https');}).length;
+  if(httpsC>allS.length*0.5){
+    var httpS=allS.filter(function(s){return s.url.startsWith('http://')&&s.method!=='CONNECT';});
+    if(httpS.length>0&&httpS.length<=30){
+      issues.push({id:++iid,severity:'info',category:'Security',title:'Mixed Content ('+httpS.length+' HTTP requests)',
+        desc:'HTTP requests found in predominantly HTTPS trace.',url:'Multiple',sessions:httpS.map(function(s){return s.id;}),
+        fix:'Update all resource URLs to HTTPS.'});
+    }
+  }
+
+  var sevO={critical:0,warning:1,info:2};
+  issues.sort(function(a,b){return (sevO[a.severity]||9)-(sevO[b.severity]||9);});
+}
+
+// Render Summary
+function renderSummary(){
+  var cr=issues.filter(function(i){return i.severity==='critical';}).length;
+  var wr=issues.filter(function(i){return i.severity==='warning';}).length;
+  var inf=issues.filter(function(i){return i.severity==='info';}).length;
+  var hlth=cr>0?'crit':wr>0?'warn':'good';
+  var hlthTxt=cr>0?'Critical':wr>0?'Warning':'Good';
+  var topIss=issues.length>0?issues[0].title:'No issues detected';
+  var ib=document.getElementById('issBadge');
+  if(cr+wr>0){ib.style.display='';ib.textContent=cr+wr;}else{ib.style.display='none';}
+  document.getElementById('summaryBar').innerHTML=
+    '<div class="health health-'+hlth+'">'+hlthTxt+'</div>'+
+    '<div class="sum-stat">'+
+      '<span><b>'+allS.length+'</b> sessions</span>'+
+      '<span style="color:var(--err)"><b>'+cr+'</b> critical</span>'+
+      '<span style="color:var(--warn)"><b>'+wr+'</b> warnings</span>'+
+      '<span style="color:var(--info)"><b>'+inf+'</b> info</span>'+
+      '<span>Top: <b>'+esc(topIss)+'</b></span>'+
+    '</div>';
+}
+
+// Render Issues
+function renderIssues(){
+  var el=document.getElementById('issList');
+  var fi=curIF==='all'?issues:issues.filter(function(i){return i.severity===curIF;});
+  if(fi.length===0){el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3);font-size:13px">'+(issues.length===0?'No issues detected. Trace looks healthy.':'No issues match this filter.')+'</div>';return;}
+  var html='';
+  fi.forEach(function(iss){
+    html+='<div class="iss-card sev-'+iss.severity+'" onclick="jumpToSession('+iss.sessions[0]+')">';
+    html+='<div class="iss-top"><span class="sev-badge">'+iss.severity+'</span><span class="iss-cat">'+esc(iss.category)+'</span></div>';
+    html+='<div class="iss-title">'+esc(iss.title)+'</div>';
+    html+='<div class="iss-desc">'+esc(iss.desc)+'</div>';
+    html+='<div class="iss-url">'+esc(iss.url)+'</div>';
+    html+='<div class="iss-fix">'+esc(iss.fix)+'</div>';
+    html+='<div class="iss-sessions">Session(s): #'+iss.sessions.join(', #')+'</div>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+function filterIss(f,btn){curIF=f;document.querySelectorAll('#v-issues .fbtn').forEach(function(b){b.classList.remove('act');});btn.classList.add('act');renderIssues();}
+function jumpToSession(id){switchView('sessions',document.querySelector('[data-v="sessions"]'));selId=id;document.getElementById('detPan').classList.remove('hide');renderSessList();renderDet();setTimeout(function(){var r=document.querySelector('.stb tbody tr.sel');if(r)r.scrollIntoView({block:'center',behavior:'smooth'});},100);}
+
+// Sessions
+document.getElementById('sessSearch').addEventListener('input',function(){applySessFilters();});
+function sessFilter(f,btn){curSF=f;document.querySelectorAll('#v-sessions .sess-toolbar .fbtn').forEach(function(b){b.classList.remove('act');});btn.classList.add('act');applySessFilters();}
+function applySessFilters(){
+  var q=(document.getElementById('sessSearch').value||'').toLowerCase();
+  filtS=allS.filter(function(s){
+    if(q){var hay=(s.method+' '+s.url+' '+s.status+' '+s.ct).toLowerCase();if(hay.indexOf(q)<0)return false;}
+    switch(curSF){
+      case 'errors':return s.status>=400;case 'images':return s.ct.indexOf('image')>-1;
+      case 'scripts':return s.ct.indexOf('javascript')>-1||s.url.indexOf('.js')>-1;
+      case 'xhr':return s.ct.indexOf('json')>-1||s.ct.indexOf('xml')>-1||s.url.indexOf('/api/')>-1;
+      case 'html':return s.ct.indexOf('html')>-1;case 'redirects':return s.status>=300&&s.status<400;
+      default:return true;
+    }
+  });
+  doSort();renderSessList();
+}
+function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}doSort();renderSessList();}
+function doSort(){filtS.sort(function(a,b){var va=a[sortCol],vb=b[sortCol];if(typeof va==='string'){va=va.toLowerCase();vb=(vb||'').toLowerCase();}if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
+function renderSessList(){
+  var tb=document.getElementById('sessBody');var html='';
+  filtS.forEach(function(s){
+    var sc=s.status>=500?'s-5':s.status>=400?'s-4':s.status>=300?'s-3':s.status>=200?'s-2':'s-0';
+    html+='<tr class="'+(s.id===selId?'sel':'')+'" onclick="selectSess('+s.id+')">';
+    html+='<td>'+s.id+'</td><td><span class="m-badge m-'+s.method+'">'+s.method+'</span></td>';
+    html+='<td title="'+esc(s.url)+'">'+esc(trunc(s.url,70))+'</td>';
+    html+='<td><span class="s-badge '+sc+'">'+(s.status||'\u2014')+'</span></td>';
+    html+='<td title="'+esc(s.ct)+'">'+esc(s.ct||'\u2014')+'</td><td>'+formatSz(s.size)+'</td></tr>';
+  });
+  tb.innerHTML=html;
+  document.getElementById('sessFoot').textContent='Showing '+filtS.length+' of '+allS.length+' sessions';
+}
+function selectSess(id){selId=id;document.getElementById('detPan').classList.remove('hide');renderSessList();renderDet();}
+function detTab(t,el){curDT=t;document.querySelectorAll('.det-tabs .dt').forEach(function(d){d.classList.remove('act');});el.classList.add('act');renderDet();}
+
+function renderDet(){
+  var s=allS.find(function(x){return x.id===selId;});
+  if(!s)return;
+  var c=document.getElementById('detBody');
+  if(curDT==='jwt'){c.innerHTML=renderJWTDetail(s);return;}
+  if(curDT==='overview'){
+    var ti=Object.entries(s.timings);
+    var tr2=ti.length?ti.map(function(e){return '<tr><td>'+esc(String(e[0]))+'</td><td>'+esc(String(e[1]))+'</td></tr>';}).join(''):'<tr><td colspan="2" style="color:var(--tx3)">No timing data</td></tr>';
+    c.innerHTML='<div class="ds"><h3>Request</h3><div class="d-url">'+esc(s.method)+' '+esc(s.url)+'</div></div>'+
+      '<div class="ds"><h3>Response</h3><table class="htb"><tr><td>Status</td><td><span class="s-badge '+(s.status>=400?'s-4':s.status>=300?'s-3':'s-2')+'">'+s.status+' '+esc(s.statusTxt)+'</span></td></tr><tr><td>Content-Type</td><td>'+esc(s.ct||'\u2014')+'</td></tr><tr><td>Size</td><td>'+formatSz(s.size)+'</td></tr>'+(s.duration?'<tr><td>Duration</td><td>'+s.duration.toFixed(0)+' ms</td></tr>':'')+'</table></div>'+
+      '<div class="ds"><h3>Session Flags / Timings</h3><table class="htb">'+tr2+'</table></div>';
+  }else if(curDT==='request'){
+    var hr=Object.entries(s.reqH).map(function(e){return '<tr><td>'+esc(e[0])+'</td><td>'+esc(e[1])+'</td></tr>';}).join('');
+    c.innerHTML='<div class="ds"><h3>URL</h3><div class="d-url">'+esc(s.url)+'</div></div>'+
+      '<div class="ds"><h3>Headers <span class="cp-btn" onclick="event.stopPropagation();copyH('+s.id+',\'req\')">Copy</span></h3><table class="htb">'+(hr||'<tr><td colspan="2" style="color:var(--tx3)">No headers</td></tr>')+'</table></div>'+
+      '<div class="ds"><h3>Body</h3><div class="bdy">'+(s.reqBody?esc(fmtBody(s.reqBody)):'<span style="color:var(--tx3)">No body</span>')+'</div></div>';
+  }else if(curDT==='response'){
+    var hr2=Object.entries(s.resH).map(function(e){return '<tr><td>'+esc(e[0])+'</td><td>'+esc(e[1])+'</td></tr>';}).join('');
+    var bp=s.resBody.length>80000?s.resBody.substring(0,80000)+'\n--- Truncated ---':s.resBody;
+    c.innerHTML='<div class="ds"><h3>Status</h3><div class="d-url">'+s.status+' '+esc(s.statusTxt)+'</div></div>'+
+      '<div class="ds"><h3>Headers <span class="cp-btn" onclick="event.stopPropagation();copyH('+s.id+',\'res\')">Copy</span></h3><table class="htb">'+(hr2||'<tr><td colspan="2" style="color:var(--tx3)">No headers</td></tr>')+'</table></div>'+
+      '<div class="ds"><h3>Body ('+formatSz(s.size)+')</h3><div class="bdy">'+(bp?esc(fmtBody(bp)):'<span style="color:var(--tx3)">No body</span>')+'</div></div>';
+  }
+}
+function copyH(id,type){
+  var s=allS.find(function(x){return x.id===id;});
+  if(!s)return;
+  var txt=type==='req'?Object.entries(s.reqH).map(function(e){return e[0]+': '+e[1];}).join('\n'):Object.entries(s.resH).map(function(e){return e[0]+': '+e[1];}).join('\n');
+  navigator.clipboard.writeText(txt).catch(function(){});
+}
+
+// URL Investigator
+document.getElementById('invInput').addEventListener('keydown',function(e){if(e.key==='Enter')investigate();});
+function investigate(){
+  var q=(document.getElementById('invInput').value||'').toLowerCase().trim();
+  var el=document.getElementById('invResults');
+  if(!q){el.innerHTML='<div class="inv-empty"><div>Enter a URL or domain to investigate</div></div>';return;}
+  var matches=allS.filter(function(s){return (s.url+' '+s.method+' '+s.status+' '+s.ct).toLowerCase().indexOf(q)>-1;});
+  if(matches.length===0){el.innerHTML='<div class="inv-empty"><div>No sessions found for: <b>'+esc(q)+'</b></div></div>';return;}
+  var ok=matches.filter(function(s){return s.status>=200&&s.status<300;}).length;
+  var errs=matches.filter(function(s){return s.status>=400;}).length;
+  var redir=matches.filter(function(s){return s.status>=300&&s.status<400;}).length;
+  var totalSz=matches.reduce(function(a,s){return a+s.size;},0);
+  var html='<div class="inv-stats">';
+  html+='<div class="inv-stat"><div class="lbl">Matching</div><div class="val">'+matches.length+'</div></div>';
+  html+='<div class="inv-stat"><div class="lbl">Success</div><div class="val" style="color:var(--ok)">'+ok+'</div></div>';
+  html+='<div class="inv-stat"><div class="lbl">Errors</div><div class="val" style="color:var(--err)">'+errs+'</div></div>';
+  html+='<div class="inv-stat"><div class="lbl">Redirects</div><div class="val" style="color:var(--warn)">'+redir+'</div></div>';
+  html+='<div class="inv-stat"><div class="lbl">Size</div><div class="val" style="font-size:15px">'+formatSz(totalSz)+'</div></div></div>';
+  html+='<div class="inv-timeline"><h3>Request Timeline</h3>';
+  matches.forEach(function(s){
+    var sc=s.status>=500?'s-5':s.status>=400?'s-4':s.status>=300?'s-3':s.status>=200?'s-2':'s-0';
+    html+='<div class="tl-item" onclick="jumpToSession('+s.id+')"><span class="tl-id">#'+s.id+'</span><span class="m-badge m-'+s.method+'">'+s.method+'</span><span class="s-badge '+sc+'">'+s.status+'</span><span class="tl-url" title="'+esc(s.url)+'">'+esc(trunc(s.url,55))+'</span><span style="color:var(--tx3);font-size:9px">'+formatSz(s.size)+'</span></div>';
+  });
+  html+='</div>';
+  var errS=matches.filter(function(s){return s.status>=400;});
+  if(errS.length>0){
+    html+='<div class="inv-errors"><h3>Errors ('+errS.length+')</h3>';
+    errS.forEach(function(s){
+      html+='<div class="iss-card sev-'+(s.status>=500?'critical':'warning')+'" onclick="jumpToSession('+s.id+')" style="margin-bottom:6px"><div class="iss-top"><span class="sev-badge">'+(s.status>=500?'critical':'warning')+'</span><span class="iss-cat">HTTP '+s.status+'</span></div><div class="iss-title">'+s.status+' '+esc(s.statusTxt)+'</div><div class="iss-url">'+esc(s.url)+'</div><div class="iss-sessions">Session #'+s.id+'</div></div>';
+    });
+    html+='</div>';
+  }
+  // Comparison
+  if(ok>0&&errs>0){
+    var okS=matches.find(function(s){return s.status>=200&&s.status<300;});
+    var errSs=matches.find(function(s){return s.status>=400;});
+    if(okS&&errSs){
+      html+='<div style="margin-top:14px"><h3 style="font-size:11px;color:var(--acc);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;border-bottom:1px solid var(--bdr);padding-bottom:3px">Success vs Failed Comparison</h3>';
+      html+='<table class="htb"><tr><td style="width:25%"></td><td style="color:var(--ok);font-weight:600">OK #'+okS.id+'</td><td style="color:var(--err);font-weight:600">Fail #'+errSs.id+'</td></tr>';
+      html+='<tr><td>Status</td><td>'+okS.status+'</td><td>'+errSs.status+'</td></tr>';
+      html+='<tr><td>Method</td><td>'+okS.method+'</td><td>'+errSs.method+'</td></tr>';
+      html+='<tr><td>Size</td><td>'+formatSz(okS.size)+'</td><td>'+formatSz(errSs.size)+'</td></tr>';
+      var keyH=['authorization','cookie','content-type','user-agent','x-requested-with','accept','host','origin','referer'];
+      keyH.forEach(function(hk){
+        var v1='',v2='';
+        Object.keys(okS.reqH).forEach(function(k){if(k.toLowerCase()===hk)v1=okS.reqH[k];});
+        Object.keys(errSs.reqH).forEach(function(k){if(k.toLowerCase()===hk)v2=errSs.reqH[k];});
+        if(v1||v2){
+          var diff=v1!==v2?' class="cmp-diff"':'';
+          html+='<tr'+diff+'><td>'+hk+'</td><td style="word-break:break-all;max-width:180px">'+esc(trunc(v1||'(missing)',55))+'</td><td style="word-break:break-all;max-width:180px">'+esc(trunc(v2||'(missing)',55))+'</td></tr>';
+        }
+      });
+      html+='</table></div>';
+    }
+  }
+  el.innerHTML=html;
+}
+
+// Waterfall
+function renderWaterfall(){
+  var el=document.getElementById('wfContainer');
+  if(allS.length===0){el.innerHTML='<div class="inv-empty">No sessions to display</div>';return;}
+  // Calculate timing - use startTime if available, else use session index
+  var hasTime=allS.some(function(s){return s.startTime>0;});
+  var minT=Infinity,maxT=0;
+  if(hasTime){
+    allS.forEach(function(s){if(s.startTime>0){if(s.startTime<minT)minT=s.startTime;var endT=s.startTime+(s.duration||1);if(endT>maxT)maxT=endT;}});
+  }else{
+    minT=0;maxT=allS.length;
+  }
+  var totalSpan=maxT-minT||1;
+  document.getElementById('wfInfo').textContent=allS.length+' sessions'+(hasTime?' | '+totalSpan.toFixed(0)+' ms total':'');
+  var html='';
+  allS.forEach(function(s){
+    var left=0,width=0;
+    if(hasTime&&s.startTime>0){
+      left=((s.startTime-minT)/totalSpan)*100;
+      width=((s.duration||50)/totalSpan)*100;
+    }else{
+      left=((s.id-1)/allS.length)*100;
+      width=Math.max(0.5,(1/allS.length)*100);
+    }
+    if(width<0.3)width=0.3;
+    if(left+width>100)width=100-left;
+    var cc=s.status>=500?'c5':s.status>=400?'c4':s.status>=300?'c3':s.status>=200?'c2':'c0';
+    html+='<div class="wf-row" onclick="jumpToSession('+s.id+')">';
+    html+='<span class="wf-id">#'+s.id+'</span>';
+    html+='<span class="m-badge m-'+s.method+'" style="min-width:40px;text-align:center">'+s.method+'</span>';
+    html+='<span class="wf-url-col" title="'+esc(s.url)+'">'+esc(trunc(s.url,30))+'</span>';
+    html+='<span class="s-badge '+(s.status>=500?'s-5':s.status>=400?'s-4':s.status>=300?'s-3':s.status>=200?'s-2':'s-0')+'">'+s.status+'</span>';
+    html+='<div class="wf-bar-area"><div class="wf-bar '+cc+'" style="left:'+left.toFixed(2)+'%;width:'+width.toFixed(2)+'%"></div></div>';
+    html+='<span class="wf-time">'+(s.duration?s.duration.toFixed(0)+' ms':'')+'</span>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+// Auth Flow
+function renderAuthFlow(){
+  var el=document.getElementById('afContainer');
+  var authPatterns=['login.microsoftonline.com','login.live.com','login.windows.net','adfs','oauth','authorize','token','saml','federation','openid','auth','sts.windows.net','accounts.google.com','cognito','okta','ping','identityserver','.auth0.com','device.login'];
+  var authSessions=allS.filter(function(s){
+    var u=s.url.toLowerCase();
+    return authPatterns.some(function(p){return u.indexOf(p)>-1;});
+  });
+  document.getElementById('afInfo').textContent=authSessions.length+' auth-related sessions detected';
+  if(authSessions.length===0){el.innerHTML='<div class="af-empty">No authentication flow detected in this trace</div>';return;}
+  var html='<div class="af-flow">';
+  authSessions.forEach(function(s,idx){
+    var dotClass=s.status>=400?'dot-err':s.status>=300?'dot-redir':'dot-ok';
+    var sc=s.status>=500?'s-5':s.status>=400?'s-4':s.status>=300?'s-3':s.status>=200?'s-2':'s-0';
+    // Detect flow step type
+    var stepType='Request';
+    var ul=s.url.toLowerCase();
+    if(ul.indexOf('/authorize')>-1||ul.indexOf('/oauth2')>-1)stepType='Authorization';
+    if(ul.indexOf('/token')>-1)stepType='Token Request';
+    if(ul.indexOf('/saml')>-1)stepType='SAML';
+    if(ul.indexOf('/federation')>-1||ul.indexOf('/adfs')>-1)stepType='Federation';
+    if(ul.indexOf('/device')>-1)stepType='Device Auth';
+    if(ul.indexOf('/logout')>-1||ul.indexOf('/signout')>-1)stepType='Logout';
+    if(s.status>=300&&s.status<400)stepType='Redirect';
+    // Check for JWT in response
+    var hasJWT=false;
+    try{var b=JSON.parse(s.resBody);if(b.access_token||b.id_token)hasJWT=true;}catch(e){}
+
+    html+='<div class="af-node">';
+    html+='<div class="af-line"><div class="af-dot '+dotClass+'"></div>'+(idx<authSessions.length-1?'<div class="af-connector"></div>':'')+'</div>';
+    html+='<div class="af-card" onclick="jumpToSession('+s.id+')">';
+    html+='<div class="af-card-top"><span class="m-badge m-'+s.method+'">'+s.method+'</span><span class="s-badge '+sc+'">'+s.status+'</span><span style="font-size:10px;font-weight:600;color:var(--acc)">'+stepType+'</span>';
+    if(hasJWT)html+='<span style="font-size:9px;color:var(--ok);font-weight:600">TOKEN ISSUED</span>';
+    html+='<span style="font-size:9px;color:var(--tx3)">#'+s.id+'</span></div>';
+    html+='<div class="af-card-url">'+esc(s.url)+'</div>';
+    var redir=s.resH['location']||'';
+    if(redir)html+='<div class="af-card-detail" style="color:var(--warn)">Redirects to: '+esc(trunc(redir,80))+'</div>';
+    html+='</div></div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// Cookies
+function renderCookies(){
+  var el=document.getElementById('ckContainer');
+  var q=(document.getElementById('ckSearch').value||'').toLowerCase();
+  var data=cookies_data.filter(function(c){return !q||(c.name+' '+c.domain).toLowerCase().indexOf(q)>-1;});
+  if(data.length===0){el.innerHTML='<div class="inv-empty" style="padding:40px">'+(cookies_data.length===0?'No cookies found in this trace':'No cookies match filter')+'</div>';return;}
+  var html='<div class="ck-summary">';
+  html+='<div class="ck-card"><div class="lbl" style="font-size:9px;color:var(--tx3)">Total Cookies</div><div style="font-size:20px;font-weight:700">'+cookies_data.length+'</div></div>';
+  var secure=cookies_data.filter(function(c){return c.secure;}).length;
+  var httpOnly=cookies_data.filter(function(c){return c.httpOnly;}).length;
+  var noSS=cookies_data.filter(function(c){return !c.sameSite;}).length;
+  html+='<div class="ck-card"><div class="lbl" style="font-size:9px;color:var(--tx3)">Secure</div><div style="font-size:20px;font-weight:700;color:var(--ok)">'+secure+'</div></div>';
+  html+='<div class="ck-card"><div class="lbl" style="font-size:9px;color:var(--tx3)">HttpOnly</div><div style="font-size:20px;font-weight:700;color:var(--info)">'+httpOnly+'</div></div>';
+  html+='<div class="ck-card"><div class="lbl" style="font-size:9px;color:var(--tx3)">No SameSite</div><div style="font-size:20px;font-weight:700;color:var(--warn)">'+noSS+'</div></div>';
+  html+='</div>';
+  html+='<table class="ck-table"><thead><tr><th>Name</th><th>Domain</th><th>Events</th><th>Secure</th><th>HttpOnly</th><th>SameSite</th><th>Path</th></tr></thead><tbody>';
+  data.forEach(function(c){
+    var evHtml=c.events.map(function(ev){
+      var cls=ev.action==='set'?'ck-set':ev.action==='modified'?'ck-mod':ev.action==='sent'?'ck-set':'';
+      return '<span class="'+cls+'" title="Session #'+ev.session+'">'+ev.action+'(#'+ev.session+')</span>';
+    }).join(' ');
+    html+='<tr><td style="font-weight:600;color:var(--acc)">'+esc(c.name)+'</td>';
+    html+='<td>'+esc(c.domain||'\u2014')+'</td>';
+    html+='<td style="font-size:9px">'+evHtml+'</td>';
+    html+='<td>'+(c.secure?'<span style="color:var(--ok)">Yes</span>':'<span style="color:var(--tx3)">No</span>')+'</td>';
+    html+='<td>'+(c.httpOnly?'<span style="color:var(--ok)">Yes</span>':'<span style="color:var(--tx3)">No</span>')+'</td>';
+    html+='<td>'+(c.sameSite?esc(c.sameSite):'<span style="color:var(--warn)">None</span>')+'</td>';
+    html+='<td style="color:var(--tx3)">'+esc(c.path)+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+// Response Time
+function renderRespTime(){
+  var el=document.getElementById('rtContainer');
+  var timed=allS.filter(function(s){return s.duration>0;});
+  if(timed.length===0){el.innerHTML='<div class="inv-empty" style="padding:40px">No timing data available. For SAZ files, timing data comes from Fiddler metadata. For HAR files, timing is usually included.</div>';return;}
+  var durations=timed.map(function(s){return s.duration;}).sort(function(a,b){return a-b;});
+  var avg=durations.reduce(function(a,b){return a+b;},0)/durations.length;
+  var min=durations[0];
+  var max=durations[durations.length-1];
+  var p95=durations[Math.floor(durations.length*0.95)]||max;
+  var html='<div class="rt-stats">';
+  html+='<div class="rt-stat"><div class="lbl">Average</div><div class="val">'+avg.toFixed(0)+'<span style="font-size:10px;color:var(--tx3)"> ms</span></div></div>';
+  html+='<div class="rt-stat"><div class="lbl">Min</div><div class="val" style="color:var(--ok)">'+min.toFixed(0)+'<span style="font-size:10px;color:var(--tx3)"> ms</span></div></div>';
+  html+='<div class="rt-stat"><div class="lbl">Max</div><div class="val" style="color:var(--err)">'+max.toFixed(0)+'<span style="font-size:10px;color:var(--tx3)"> ms</span></div></div>';
+  html+='<div class="rt-stat"><div class="lbl">P95</div><div class="val" style="color:var(--warn)">'+p95.toFixed(0)+'<span style="font-size:10px;color:var(--tx3)"> ms</span></div></div>';
+  html+='<div class="rt-stat"><div class="lbl">Sessions with Timing</div><div class="val">'+timed.length+'</div></div></div>';
+  // Distribution
+  var fast=timed.filter(function(s){return s.duration<100;}).length;
+  var med=timed.filter(function(s){return s.duration>=100&&s.duration<500;}).length;
+  var slow=timed.filter(function(s){return s.duration>=500&&s.duration<2000;}).length;
+  var vslow=timed.filter(function(s){return s.duration>=2000;}).length;
+  var total=timed.length;
+  html+='<div class="rt-dist"><h3 style="font-size:11px;color:var(--acc);margin-bottom:6px">Response Time Distribution</h3>';
+  html+='<div class="rt-dist-bar">';
+  if(fast)html+='<div class="rt-dist-seg" style="width:'+(fast/total*100).toFixed(1)+'%;background:var(--ok)">'+fast+' <100ms</div>';
+  if(med)html+='<div class="rt-dist-seg" style="width:'+(med/total*100).toFixed(1)+'%;background:var(--info)">'+med+' <500ms</div>';
+  if(slow)html+='<div class="rt-dist-seg" style="width:'+(slow/total*100).toFixed(1)+'%;background:var(--warn)">'+slow+' <2s</div>';
+  if(vslow)html+='<div class="rt-dist-seg" style="width:'+(vslow/total*100).toFixed(1)+'%;background:var(--err)">'+vslow+' 2s+</div>';
+  html+='</div></div>';
+  // Top 20 slowest
+  var slowest=timed.sort(function(a,b){return b.duration-a.duration;}).slice(0,20);
+  var maxDur=slowest[0]?slowest[0].duration:1;
+  html+='<div class="rt-chart"><h3 style="font-size:11px;color:var(--acc);margin-bottom:6px">Top 20 Slowest Requests</h3>';
+  slowest.forEach(function(s){
+    var pct=(s.duration/maxDur)*100;
+    var color=s.duration>=2000?'var(--err)':s.duration>=500?'var(--warn)':'var(--info)';
+    html+='<div class="rt-bar-row" onclick="jumpToSession('+s.id+')" style="cursor:pointer">';
+    html+='<span class="rt-label" title="'+esc(s.url)+'">#'+s.id+' '+esc(trunc(s.url,35))+'</span>';
+    html+='<div class="rt-bar-bg"><div class="rt-bar-fill" style="width:'+pct.toFixed(1)+'%;background:'+color+'"></div></div>';
+    html+='<span class="rt-val">'+s.duration.toFixed(0)+' ms</span></div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// Custom Rules
+function addRule(){
+  var name=document.getElementById('crName').value.trim();
+  var field=document.getElementById('crField').value;
+  var value=document.getElementById('crValue').value.trim();
+  var sev=document.getElementById('crSev').value;
+  if(!name||!value){alert('Please enter rule name and value');return;}
+  customRules.push({name:name,field:field,value:value,severity:sev,matches:[]});
+  document.getElementById('crName').value='';document.getElementById('crValue').value='';
+  runRules();
+}
+function deleteRule(idx){customRules.splice(idx,1);renderRulesUI();}
+function runRules(){
+  customRules.forEach(function(rule){
+    rule.matches=[];
+    allS.forEach(function(s){
+      var matched=false;
+      switch(rule.field){
+        case 'url':matched=s.url.toLowerCase().indexOf(rule.value.toLowerCase())>-1;break;
+        case 'status':matched=String(s.status)===rule.value;break;
+        case 'method':matched=s.method.toUpperCase()===rule.value.toUpperCase();break;
+        case 'ct':matched=s.ct.toLowerCase().indexOf(rule.value.toLowerCase())>-1;break;
+        case 'reqHeader':var found=false;Object.keys(s.reqH).forEach(function(k){if(k.toLowerCase()===rule.value.toLowerCase())found=true;});matched=!found;break;
+        case 'resHeader':var found2=false;Object.keys(s.resH).forEach(function(k){if(k===rule.value.toLowerCase())found2=true;});matched=!found2;break;
+        case 'resBodyContains':matched=s.resBody.toLowerCase().indexOf(rule.value.toLowerCase())>-1;break;
+        case 'sizeGt':matched=s.size>parseInt(rule.value);break;
+      }
+      if(matched)rule.matches.push(s.id);
+    });
+  });
+  renderRulesUI();
+}
+function renderRulesUI(){
+  var el=document.getElementById('crRules');
+  if(customRules.length===0){el.innerHTML='<div style="color:var(--tx3);font-size:12px;padding:10px">No custom rules defined. Add a rule above to flag sessions matching your criteria.</div>';return;}
+  var html='';
+  customRules.forEach(function(r,idx){
+    html+='<div class="cr-rule"><div class="cr-rule-info"><div class="cr-rule-name">'+esc(r.name)+'</div><div class="cr-rule-desc">'+esc(r.field)+' '+esc(r.field==='reqHeader'||r.field==='resHeader'?'missing:':'matches:')+' '+esc(r.value)+' | Severity: '+r.severity+'</div></div>';
+    html+='<div class="cr-rule-count" style="color:'+(r.matches.length>0?'var(--err)':'var(--ok)')+'">'+r.matches.length+' hits</div>';
+    html+='<button class="cr-del" onclick="deleteRule('+idx+')">&times;</button></div>';
+  });
+  el.innerHTML=html;
+}
+
+// Compare
+function loadCmpFile(idx,input){
+  var file=input.files[0];
+  if(!file)return;
+  spinOv.classList.remove('hide');
+  document.getElementById('spinTxt').textContent='Loading '+file.name+'...';
+  var name=file.name.toLowerCase();
+  var isHar=name.endsWith('.har')||name.endsWith('.json');
+  var promise;
+  if(isHar){
+    promise=file.text().then(function(txt){
+      var data=JSON.parse(txt);
+      var entries=data.log&&data.log.entries?data.log.entries:[];
+      var sessions=entries.map(function(e,i){
+        var req=e.request||{};var res=e.response||{};
+        return {id:i+1,method:req.method||'',url:req.url||'',status:res.status||0,statusTxt:res.statusText||'',ct:((res.headers||[]).find(function(h){return h.name.toLowerCase()==='content-type';})||{}).value||'',size:res.content?res.content.size||0:0,duration:e.time||0};
+      });
+      return {name:file.name,sessions:sessions,type:'har'};
+    });
+  }else{
+    promise=JSZip.loadAsync(file).then(function(zip){
+      var rawF={};
+      zip.forEach(function(p,e){var lo=p.toLowerCase();if(lo.indexOf('raw/')>-1){var fn=p.split(/[\/\\]/).pop();rawF[fn.toLowerCase()]=e;}});
+      var nums=new Set();
+      Object.keys(rawF).forEach(function(fn){var m=fn.match(/^(\d+)_[csm]\./);if(m)nums.add(m[1]);});
+      var sorted=Array.from(nums).sort(function(a,b){return parseInt(a)-parseInt(b);});
+      var promises=sorted.map(function(num){
+        var sess={id:parseInt(num),method:'',url:'',status:0,statusTxt:'',ct:'',size:0,duration:0};
+        var p1=rawF[num+'_c.txt']?rawF[num+'_c.txt'].async('string').then(function(d){var lines=d.split('\r\n');if(lines.length>0){var parts=lines[0].split(' ');sess.method=parts[0]||'';sess.url=parts[1]||'';}}).catch(function(){}):(Promise.resolve());
+        var p2=rawF[num+'_s.txt']?rawF[num+'_s.txt'].async('string').then(function(d){var lines=d.split('\r\n');if(lines.length>0){var m=lines[0].match(/^HTTP\/[\d.]+ (\d+)\s*(.*)/);if(m){sess.status=parseInt(m[1]);sess.statusTxt=m[2]||'';}}}).catch(function(){}):(Promise.resolve());
+        return Promise.all([p1,p2]).then(function(){return sess;});
+      });
+      return Promise.all(promises).then(function(sessions){return {name:file.name,sessions:sessions,type:'saz'};});
+    });
+  }
+  promise.then(function(result){
+    if(idx===1){cmpData.a=result;document.getElementById('cmpName1').textContent='File A: '+result.name+' ('+result.sessions.length+' sessions)';}
+    else{cmpData.b=result;document.getElementById('cmpName2').textContent='File B: '+result.name+' ('+result.sessions.length+' sessions)';}
+    spinOv.classList.add('hide');
+  }).catch(function(err){alert('Error loading file: '+err.message);spinOv.classList.add('hide');});
+}
+function runCompare(){
+  if(!cmpData.a||!cmpData.b){alert('Please load both files first');return;}
+  var a=cmpData.a,b=cmpData.b;
+  // Stats comparison
+  var aErrs=a.sessions.filter(function(s){return s.status>=400;}).length;
+  var bErrs=b.sessions.filter(function(s){return s.status>=400;}).length;
+  var a2xx=a.sessions.filter(function(s){return s.status>=200&&s.status<300;}).length;
+  var b2xx=b.sessions.filter(function(s){return s.status>=200&&s.status<300;}).length;
+
+  var statsHtml='<div class="cmp-stat-row">';
+  statsHtml+='<div class="cmp-stat"><div class="lbl">Sessions</div><div class="val">'+a.sessions.length+'</div></div>';
+  statsHtml+='<div class="cmp-stat"><div class="lbl">Success</div><div class="val" style="color:var(--ok)">'+a2xx+'</div></div>';
+  statsHtml+='<div class="cmp-stat"><div class="lbl">Errors</div><div class="val" style="color:var(--err)">'+aErrs+'</div></div></div>';
+  document.getElementById('cmpBody1').innerHTML=statsHtml+buildCmpList(a.sessions);
+
+  var statsHtml2='<div class="cmp-stat-row">';
+  statsHtml2+='<div class="cmp-stat"><div class="lbl">Sessions</div><div class="val">'+b.sessions.length+'</div></div>';
+  statsHtml2+='<div class="cmp-stat"><div class="lbl">Success</div><div class="val" style="color:var(--ok)">'+b2xx+'</div></div>';
+  statsHtml2+='<div class="cmp-stat"><div class="lbl">Errors</div><div class="val" style="color:var(--err)">'+bErrs+'</div></div></div>';
+  document.getElementById('cmpBody2').innerHTML=statsHtml2+buildCmpList(b.sessions);
+
+  // Find URLs unique to each or with different status
+  var aUrls={};a.sessions.forEach(function(s){aUrls[s.url]=s.status;});
+  var bUrls={};b.sessions.forEach(function(s){bUrls[s.url]=s.status;});
+  var diffs=[];
+  Object.keys(aUrls).forEach(function(u){if(bUrls[u]!==undefined&&bUrls[u]!==aUrls[u])diffs.push({url:u,statusA:aUrls[u],statusB:bUrls[u]});});
+  if(diffs.length>0){
+    var diffHtml='<div style="margin-top:10px"><b style="font-size:11px;color:var(--warn)">Status Code Differences ('+diffs.length+')</b>';
+    diffHtml+='<table class="htb" style="margin-top:4px"><tr><td style="font-weight:600">URL</td><td>File A</td><td>File B</td></tr>';
+    diffs.slice(0,50).forEach(function(d){diffHtml+='<tr class="cmp-diff"><td style="word-break:break-all;max-width:250px">'+esc(trunc(d.url,60))+'</td><td>'+d.statusA+'</td><td>'+d.statusB+'</td></tr>';});
+    diffHtml+='</table></div>';
+    document.getElementById('cmpBody1').innerHTML+=diffHtml;
+  }
+}
+function buildCmpList(sessions){
+  var html='<div style="margin-top:8px;max-height:300px;overflow-y:auto"><table class="stb"><thead><tr><th>#</th><th>Method</th><th>URL</th><th>Status</th></tr></thead><tbody>';
+  sessions.slice(0,200).forEach(function(s){
+    var sc=s.status>=500?'s-5':s.status>=400?'s-4':s.status>=300?'s-3':s.status>=200?'s-2':'s-0';
+    html+='<tr><td>'+s.id+'</td><td><span class="m-badge m-'+s.method+'">'+s.method+'</span></td><td title="'+esc(s.url)+'">'+esc(trunc(s.url,40))+'</td><td><span class="s-badge '+sc+'">'+s.status+'</span></td></tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+// View switching
+function switchView(v,el){
+  document.querySelectorAll('.vtab').forEach(function(t){t.classList.remove('act');});
+  el.classList.add('act');
+  document.querySelectorAll('.view').forEach(function(vw){vw.classList.remove('act');});
+  document.getElementById('v-'+v).classList.add('act');
+}
+
+// Utilities
+function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function trunc(s,n){if(!s)return '';return s.length<=n?s:s.substring(0,n)+'\u2026';}
+function formatSz(b){if(!b)return '0 B';var u=['B','KB','MB','GB'];var i=0;var s=b;while(s>=1024&&i<u.length-1){s/=1024;i++;}return s.toFixed(i>0?1:0)+' '+u[i];}
+function fmtBody(b){if(!b||!b.trim())return b;var t=b.trim();if((t[0]==='{'||t[0]==='[')&&(t[t.length-1]==='}'||t[t.length-1]===']')){try{return JSON.stringify(JSON.parse(t),null,2);}catch(e){}}return b;}
+
+// Export Issues JSON
+function exportIssues(){
+  var data=issues.map(function(i){return {severity:i.severity,category:i.category,title:i.title,description:i.desc,url:i.url,sessions:i.sessions,suggestedAction:i.fix};});
+  if(customRules.length>0){
+    customRules.forEach(function(r){
+      if(r.matches.length>0)data.push({severity:r.severity,category:'Custom Rule',title:r.name,description:r.field+' '+r.value,url:'',sessions:r.matches,suggestedAction:'Custom rule match'});
+    });
+  }
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='saz_issues_report.json';a.click();URL.revokeObjectURL(a.href);
+}
+
+// Export PDF - opens printable report in new window
+function exportPDF(){
+  var w=window.open('','_blank');
+  var theme=document.documentElement.getAttribute('data-theme');
+  var bg=theme==='light'?'#fff':'#1a1b2e';
+  var fg=theme==='light'?'#1a1a2e':'#e8e8f0';
+  var acc=theme==='light'?'#4a5acd':'#7c8dff';
+  var h='<html><head><title>SAZ Analyzer Pro - Report</title><style>';
+  h+='body{font-family:Segoe UI,Tahoma,sans-serif;padding:30px;max-width:900px;margin:0 auto;background:'+bg+';color:'+fg+'}';
+  h+='h1{color:'+acc+';border-bottom:2px solid '+acc+';padding-bottom:8px;font-size:20px}';
+  h+='h2{color:'+acc+';margin-top:20px;font-size:16px}';
+  h+='table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}';
+  h+='th{background:'+acc+';color:#fff;padding:6px 10px;text-align:left;font-size:11px}';
+  h+='td{padding:5px 10px;border-bottom:1px solid #ddd}';
+  h+='.sev{padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}';
+  h+='.sev-critical{background:#ffebee;color:#f44336}.sev-warning{background:#fff3e0;color:#ff9800}.sev-info{background:#e3f2fd;color:#29b6f6}';
+  h+='.stat{display:inline-block;margin:0 10px;text-align:center}.stat b{font-size:20px;display:block}';
+  h+='@media print{body{background:#fff;color:#000}h1,h2{color:#333}th{background:#333;color:#fff}}';
+  h+='</style></head><body>';
+  h+='<h1>SAZ Analyzer Pro - Issue Report</h1>';
+  h+='<p>File: <b>'+esc(document.getElementById('fName').textContent)+'</b> | Generated: '+new Date().toLocaleString()+'</p>';
+  h+='<div style="margin:15px 0"><span class="stat"><b>'+allS.length+'</b>Sessions</span>';
+  var cr=issues.filter(function(i){return i.severity==='critical';}).length;
+  var wr=issues.filter(function(i){return i.severity==='warning';}).length;
+  var inf=issues.filter(function(i){return i.severity==='info';}).length;
+  h+='<span class="stat"><b style="color:#f44336">'+cr+'</b>Critical</span>';
+  h+='<span class="stat"><b style="color:#ff9800">'+wr+'</b>Warnings</span>';
+  h+='<span class="stat"><b style="color:#29b6f6">'+inf+'</b>Info</span></div>';
+  h+='<h2>Detected Issues ('+issues.length+')</h2>';
+  h+='<table><tr><th>Severity</th><th>Category</th><th>Issue</th><th>URL</th><th>Sessions</th><th>Suggested Action</th></tr>';
+  issues.forEach(function(iss){
+    h+='<tr><td><span class="sev sev-'+iss.severity+'">'+iss.severity.toUpperCase()+'</span></td><td>'+esc(iss.category)+'</td><td>'+esc(iss.title)+'</td><td style="word-break:break-all;max-width:200px;font-size:10px">'+esc(trunc(iss.url,60))+'</td><td>#'+iss.sessions.join(', #')+'</td><td style="font-size:10px">'+esc(iss.fix)+'</td></tr>';
+  });
+  h+='</table>';
+  // Custom rules results
+  var activeRules=customRules.filter(function(r){return r.matches.length>0;});
+  if(activeRules.length>0){
+    h+='<h2>Custom Rule Results</h2><table><tr><th>Rule</th><th>Severity</th><th>Matches</th><th>Sessions</th></tr>';
+    activeRules.forEach(function(r){h+='<tr><td>'+esc(r.name)+'</td><td>'+r.severity+'</td><td>'+r.matches.length+'</td><td>#'+r.matches.slice(0,20).join(', #')+(r.matches.length>20?' ...':'')+'</td></tr>';});
+    h+='</table>';
+  }
+  h+='<h2>Session Summary</h2><table><tr><th>#</th><th>Method</th><th>URL</th><th>Status</th><th>Size</th></tr>';
+  allS.forEach(function(s){h+='<tr><td>'+s.id+'</td><td>'+s.method+'</td><td style="word-break:break-all;max-width:300px;font-size:10px">'+esc(trunc(s.url,80))+'</td><td>'+s.status+'</td><td>'+formatSz(s.size)+'</td></tr>';});
+  h+='</table></body></html>';
+  w.document.write(h);w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
+// Reset
+function resetApp(){
+  allS=[];filtS=[];issues=[];cookies_data=[];selId=null;curSF='all';curIF='all';
+  document.getElementById('mainC').style.display='none';
+  document.getElementById('btnNew').style.display='none';
+  document.getElementById('btnExpIss').style.display='none';
+  document.getElementById('btnExpPdf').style.display='none';
+  document.getElementById('fTypeBadge').style.display='none';
+  document.getElementById('detPan').classList.add('hide');
+  dropOv.classList.remove('hide');
+  fInput.value='';
+  document.getElementById('sessSearch').value='';
+  document.getElementById('invInput').value='';
+  document.getElementById('ckSearch').value='';
+}
+</script>
+</body>
+</html>
