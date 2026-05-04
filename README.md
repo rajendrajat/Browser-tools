@@ -14,6 +14,7 @@ No installation. No backend. No data leaves your browser. Every tool is a single
 | Plain Text Converter | Strip bullets, markdown, and formatting from emails and documents to get clean plain text | `plain_text_converter.html` |
 | NetLog Analyzer | Parse and triage Edge/Chrome `net-export.json` logs — surfaces blocked endpoints, proxy issues, cert errors, DNS failures, and HTTP/2/QUIC session details without manual event-by-event inspection | `netlog-analyzer.html` |
 | SAZ Analyzer Pro | Parse and analyze Fiddler `.saz` trace files — auto-detects HTTP errors, auth failures, redirect loops, connection issues, and provides URL investigation with request history, success/fail comparison, and suggested fixes | `SAZ_Analyzer.html` |
+| MIPLog Analyzer | Parse and analyze `.miplog` files from Microsoft Edge — auto-detects MIP protection failures, profile sync issues, permission errors, certificate store problems, and generates copy-paste ready case notes | `MIPLog_Analyzer.html` |
 
 ---
 
@@ -520,6 +521,275 @@ Contributions are welcome! Here's how you can help:
 
 ---
 
+# 🛡️ MIPLog Analyzer
+
+**Edge MIP & Profile Sync Log Analyzer — From Raw Logs to Root Cause in Seconds**
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Browser-orange)
+![No Server](https://img.shields.io/badge/server-Not%20Required-brightgreen)
+![Privacy](https://img.shields.io/badge/privacy-100%25%20Client--Side-purple)
+
+---
+
+## 📖 Overview
+
+**MIPLog Analyzer** is a single-page web application that parses and analyzes `.miplog` files collected from Microsoft Edge. It automatically detects Microsoft Information Protection (MIP) failures, Edge profile sync issues, permission errors, and certificate problems — then generates actionable case notes ready to paste into your CRM or ICM.
+
+> **One file. Zero installation. Zero data uploaded. Just drag, drop, and diagnose.**
+
+---
+
+## ❓ The Problem
+
+When customers report issues with MIP-protected content in Microsoft Edge — files that won't open, "Access Denied" errors, profile sync failures — the support workflow typically involves:
+
+1. Collecting `.miplog` files from the customer's machine
+2. Opening them in a text editor
+3. Manually scrolling through **thousands of tab-separated log lines**
+4. Searching for `Error` entries and trying to interpret MIP SDK error messages
+5. Cross-referencing function names, thread IDs, and timestamps to piece together the failure chain
+6. Writing up findings for the case
+
+**This process is slow, inconsistent, and easy to get wrong.** A single `.miplog` can contain thousands of trace-level entries, and the actual root cause is often buried in a chain of cascading failures.
+
+---
+
+## ✅ The Solution
+
+MIPLog Analyzer **automates the entire analysis**. It:
+
+- **Parses** the `.miplog` file instantly in the browser
+- **Detects** 13 known issue patterns specific to Edge MIP and profile sync
+- **Classifies** each issue by severity with root cause explanations
+- **Provides** step-by-step troubleshooting guidance tailored for Edge support engineers
+- **Generates** a copy-paste ready analysis report in bullet-point format for CRM/ICM case notes
+
+**Result: What used to take 20–40 minutes of manual log reading now takes seconds.**
+
+---
+
+## 🚀 Key Features
+
+### 1. 📊 Dashboard
+
+The landing view after loading a `.miplog` file. At-a-glance summary of the entire log.
+
+- **Summary cards**: Total entries, Errors, Warnings, Info, Trace, Unique Threads
+- **Error & Warning Timeline**: Visual bar chart showing the distribution of errors and warnings over time
+  - Hover over any bar to see the exact timestamp and count breakdown
+  - Color-coded: Red = errors present, Orange = warnings only, Blue = info only
+
+### 2. 🛑 Detected Issues (Pattern Engine)
+
+The core intelligence of the tool. Automatically scans every log entry against **13 known issue patterns** and surfaces what matters.
+
+Each detected issue shows:
+- 🏷️ **Severity badge**: `Critical` | `High` | `Medium` | `Low`
+- 📊 **Occurrence count**
+- 🔍 **Root cause explanation** — written in plain English, not SDK jargon
+- 🛠️ **Recommended troubleshooting steps** — specific, actionable, ordered by likelihood
+- 🕐 **Affected timestamps** — when the issue occurred (up to 20 shown)
+
+Issues are **sorted by severity** — critical items always appear first.
+
+### 3. 📋 Log Explorer
+
+Full log table for manual deep-dive when you need to see the raw data.
+
+- **Color-coded rows** by log level:
+  - 🔴 Error — red background highlight, bold level text
+  - 🟠 Warning — orange level text
+  - 🔵 Info — blue level text
+  - ⚪ Trace — gray level text
+- **Search** — free-text search across message, function name, source file, and timestamp
+- **Filter by log level** — checkboxes to toggle Error, Warning, Info, Trace visibility
+- **Filter by Thread ID** — dropdown to isolate a specific thread's activity
+- **Click to expand** — click any message cell to expand the full message text (messages are truncated by default for readability)
+- **Performance** — handles up to 2,000 rows in the display with a count of total filtered results
+
+### 4. 📝 Analysis Report
+
+Generates a structured, copy-paste ready case note in bullet-point format.
+
+- **Log summary**: Total entries, error/warning/info/trace counts, time range, unique threads
+- **Detected issues**: Each issue listed with severity, name, occurrence count, root cause, recommended steps, and first-seen timestamp
+- **One-click copy** to clipboard
+- **Export as `.txt`** file for attachment to tickets
+
+---
+
+## 🔎 Supported Issue Detection
+
+| # | Pattern | Severity | What It Detects |
+|---|---|---|---|
+| 1 | **NoPermissionsError / Access Denied** | 🔴 Critical | User does not have rights to consume MIP-protected content — `AccessDenied`, `NoPermissionsError` |
+| 2 | **Protection Handler Creation Failed** | 🔴 Critical | MIP SDK failed to create a protection handler for content consumption — usually a symptom of upstream failures |
+| 3 | **Authentication / Token Failure** | 🔴 Critical | Auth token expired, OAuth errors, HTTP 401 Unauthorized from identity endpoints |
+| 4 | **Profile Sync Failure** | 🔴 Critical | Edge profile sync errors — favorites, passwords, settings sync failures |
+| 5 | **License Validation Failure** | 🟠 High | Local license store is empty or has no matching license for the content — `LicenseStore` lookup returned no rows |
+| 6 | **User Certificate Store Issue** | 🟠 High | No user certificate found in the local cert store — needed for offline decryption or RMS client auth |
+| 7 | **Service Discovery / DNS Failure** | 🟠 High | Cannot resolve RMS service endpoints — DNS lookup failures, missing redirect URLs |
+| 8 | **Network Connectivity Issue** | 🟠 High | Timeouts, connection refused, connection reset — network path to cloud services is broken |
+| 9 | **Generic API Call Failure** | 🟠 High | Any MIP SDK API call that failed (excluding protection handler, which has its own pattern) |
+| 10 | **Offline Access Issue** | 🟡 Medium | Content's offline access policy is blocking access while the device is disconnected |
+| 11 | **Template / Label Resolution Failure** | 🟡 Medium | Sensitivity label or RMS template could not be resolved — misconfiguration or ad-hoc protection |
+| 12 | **Content ID / Encryption Issue** | 🟡 Medium | Errors with content encryption metadata, cipher mode, or the decryption process |
+| 13 | **SQLite Storage Error** | 🟡 Medium | Local MIP database errors — locked, corrupt, or inaccessible SQLite storage |
+
+---
+
+## 📦 How to Use
+
+### Step 1: Collect the logs
+On the customer's machine, navigate to the MIP log directory:
+```
+%localappdata%\Microsoft\Edge\User Data\Default\MIP\Logs\
+```
+Collect the `.miplog` files from this folder.
+
+### Step 2: Open the tool
+Open `MIPLog_Analyzer.html` in any modern browser (Edge, Chrome, Firefox, etc.).
+
+> **No installation, no server, no dependencies.**
+
+### Step 3: Load the log
+Drag and drop the `.miplog` file onto the upload area — or click **Browse File** to select it.
+
+### Step 4: Review the dashboard
+- Check the **summary cards** for error/warning counts
+- Look at the **timeline** to see when issues occurred
+- Switch to the **Detected Issues** tab for the auto-analysis
+
+### Step 5: Investigate
+- Review each detected pattern's **root cause** and **recommended steps**
+- Use the **Log Explorer** to drill into specific entries or threads
+- Search for specific keywords, function names, or error strings
+
+### Step 6: Report
+- Switch to the **Analysis Report** tab
+- Click **📋 Copy Report** to copy the structured case note to your clipboard
+- Or click **💾 Export as .txt** to download the report as a text file
+- Paste directly into your CRM, ICM, or case notes
+
+---
+
+## 📂 MIPLog File Format
+
+A `.miplog` file is a **tab-separated text file** with the following columns:
+
+| Column | Description | Example |
+|---|---|---|
+| LogLevel | Severity level of the entry | `Error`, `Warning`, `Info`, `Trace` |
+| Timestamp | Date and time of the event | `2026-01-22 11:11:41.057` |
+| SourceFile | C++ source file and line number | `protection_engine_impl.cpp:1407` |
+| ProcessInfo | Process name and PID | `msedge (20240)` |
+| Message | Quoted log message content | `"Failed API call: ..."` |
+| FunctionName | Fully qualified function name | `mipns::ProtectionEngineImpl::CreateProtectionHandlerForConsumption` |
+| ThreadID | Thread identifier | `27136` |
+
+---
+
+## 🔬 Troubleshooting Scenarios
+
+The MIPLog Analyzer is designed for scenarios like:
+
+| Scenario | What You'll See |
+|---|---|
+| **"Access Denied" when opening a protected file** | `NoPermissionsError` detected — shows the content owner, recommends verifying permissions with the owner |
+| **Protected content won't open offline** | `Offline Access Issue` and `License Validation Failure` — recommends clearing MIP cache and re-authenticating while online |
+| **Edge profile sync not working** | `Profile Sync Failure` — recommends checking `edge://sync-internals`, toggling sync, and checking policies |
+| **RMS-protected emails won't render** | `Protection Handler Creation Failed` with upstream `NoPermissionsError` or `UserCertStore` issue — shows the chain of failures |
+| **Intermittent MIP failures** | Timeline shows error clusters — correlate with network events, VPN reconnects, or token expiry |
+| **New device setup issues** | `UserCertStore` and `LicenseStore` empty — expected on first use, needs online authentication |
+
+---
+
+## 🔧 Technical Details
+
+### Architecture
+- **100% client-side** — runs entirely in the browser
+- **No server required** — just open the HTML file
+- **No network calls** — your data never leaves your machine
+- **No external dependencies** — pure HTML, CSS, and JavaScript in a single file
+- **Dark theme** — VS Code-inspired design with Microsoft Edge blue accent (`#0078D4`)
+
+### How the Pattern Engine Works
+1. Each log entry is tested against **13 regex-based pattern definitions**
+2. Patterns are ordered by severity — `Critical` → `High` → `Medium` → `Low`
+3. A single log entry can match **multiple patterns** (e.g., an API failure that is also a permissions error)
+4. For each match, the tool aggregates:
+   - Total occurrence count
+   - All affected timestamps (capped at 20 for display)
+   - Pre-written root cause explanation
+   - Pre-written troubleshooting steps specific to Edge browser support
+
+### Performance
+- Parses logs with **thousands of entries** in under a second
+- Log Explorer displays up to **2,000 rows** with filter counts for the full dataset
+- Timeline chart auto-samples to **200 bars** for very large logs to maintain responsiveness
+
+---
+
+## 🌐 Browser Compatibility
+
+| Browser | Supported |
+|---|---|
+| Microsoft Edge | ✅ |
+| Google Chrome | ✅ |
+| Mozilla Firefox | ✅ |
+| Safari | ✅ |
+| Opera | ✅ |
+
+> Requires a modern browser with ES6+ support.
+
+---
+
+## 🔒 Privacy & Security
+
+- **No data is uploaded** — all processing happens locally in your browser
+- **No telemetry** — no analytics, no tracking, no cookies
+- **No server** — no backend, no API calls, no external services
+- **No network access needed** — works completely offline
+- **Your logs stay on your machine** — safe for handling sensitive customer data and internal traces
+
+---
+
+## 💡 Use Cases
+
+### For Support Engineers
+- **First response triage**: Load the miplog, check Detected Issues, and immediately identify the root cause
+- **Permission issues**: `NoPermissionsError` detected with the content owner's email — escalate to the right person instantly
+- **Network troubleshooting**: DNS and connectivity patterns flagged — share with the customer's network team
+- **Case documentation**: Export the analysis report and paste directly into your case notes
+
+### For Technical Advisors
+- **Quick review**: Review an engineer's miplog findings without opening the raw file
+- **Pattern recognition**: The tool surfaces recurring issues that manual review might miss
+- **Guidance validation**: Verify that the recommended steps align with the specific failure chain
+
+### For Escalation Engineers
+- **Root cause chain analysis**: Protection Handler failures trace back to upstream cert, license, or permission issues
+- **Thread isolation**: Filter by Thread ID to follow a single operation's execution path
+- **Timestamp correlation**: Cross-reference miplog timestamps with NetLog or Fiddler traces from the same session
+
+---
+
+## 🗺️ Roadmap
+
+| Feature | Description | Priority |
+|---|---|---|
+| 📊 Thread Flow Visualizer | Visual diagram showing the sequence of operations per thread | High |
+| 🔗 Cross-log Correlation | Load miplog + netlog together and correlate by timestamp | High |
+| 🔐 Content ID Lookup | Extract ContentId values for backend RMS audit log queries | Medium |
+| 📋 PDF Report Export | Generate a formatted PDF report for case attachments | Medium |
+| 🏷️ Custom Pattern Rules | Let engineers define custom regex patterns for detection | Medium |
+| 📦 Multi-file Support | Load and analyze multiple `.miplog` files from different dates | Low |
+| 🌙 Light Theme Toggle | Switch between dark and light themes | Low |
+
+---
+
 ## 📄 License
 
 This project is licensed under the **MIT License**.
@@ -552,12 +822,13 @@ SOFTWARE.
 
 ## 🙏 Acknowledgments
 
-- [JSZip](https://stuk.github.io/jszip/) — for client-side ZIP parsing
+- [JSZip](https://stuk.github.io/jszip/) — for client-side ZIP parsing (used in SAZ Analyzer Pro)
 - [Fiddler](https://www.telerik.com/fiddler) by Telerik — for the SAZ file format
-- Built with ❤️ for support engineers who spend too much time in Fiddler traces
+- [Microsoft MIP SDK](https://learn.microsoft.com/en-us/information-protection/develop/) — for the log format and error patterns
+- Built with ❤️ for support engineers who spend too much time reading raw logs
 
 ---
 
 <p align="center">
-  <strong>SAZ Analyzer Pro</strong> — Because your time is better spent solving problems, not searching for them.
+  <strong>browser-tools</strong> — Because your time is better spent solving problems, not searching for them.
 </p>
