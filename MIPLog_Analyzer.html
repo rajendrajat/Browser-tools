@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIPLog Analyzer – Edge Profile Sync & MIP Issue Detector</title>
+<style>
+:root {
+  --bg: #1e1e1e; --surface: #252526; --surface2: #2d2d2d; --surface3: #333333;
+  --text: #cccccc; --text-muted: #888888; --accent: #0078D4; --accent-light: #1a8cff;
+  --error: #f44747; --warning: #cca700; --info: #3794ff; --trace: #6a9955;
+  --border: #3c3c3c; --scrollbar: #424242; --font-mono: 'Consolas','Courier New',monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; font-size:14px; line-height:1.5; }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--scrollbar); border-radius:4px; }
+a { color:var(--accent-light); text-decoration:none; }
+
+/* Header */
+.header { background:var(--surface); border-bottom:2px solid var(--accent); padding:12px 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:100; }
+.header .logo { width:28px; height:28px; background:var(--accent); border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:16px; color:#fff; }
+.header h1 { font-size:18px; font-weight:600; color:#fff; }
+.header .subtitle { font-size:12px; color:var(--text-muted); margin-left:auto; }
+
+/* Container */
+.container { max-width:1400px; margin:0 auto; padding:16px 24px; }
+
+/* Upload Zone */
+.upload-zone { border:2px dashed var(--border); border-radius:8px; padding:48px 24px; text-align:center; transition:all .2s; cursor:pointer; background:var(--surface); margin-bottom:20px; }
+.upload-zone:hover, .upload-zone.dragover { border-color:var(--accent); background:rgba(0,120,212,0.08); }
+.upload-zone .icon { font-size:48px; margin-bottom:12px; }
+.upload-zone h3 { color:#fff; margin-bottom:4px; }
+.upload-zone p { color:var(--text-muted); font-size:13px; }
+.upload-zone input { display:none; }
+.upload-zone .browse-btn { display:inline-block; margin-top:12px; background:var(--accent); color:#fff; padding:8px 20px; border-radius:4px; cursor:pointer; font-size:13px; }
+
+/* Tabs */
+.tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.tab { padding:10px 20px; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; transition:all .2s; font-size:13px; font-weight:500; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent-light); border-bottom-color:var(--accent); }
+
+/* Tab Content */
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* Dashboard Cards */
+.cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px; text-align:center; }
+.card .val { font-size:28px; font-weight:700; color:#fff; }
+.card .label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+.card.error .val { color:var(--error); }
+.card.warning .val { color:var(--warning); }
+.card.info .val { color:var(--info); }
+.card.trace .val { color:var(--trace); }
+
+/* Timeline */
+.timeline-section { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px; margin-bottom:20px; }
+.timeline-section h3 { font-size:14px; color:#fff; margin-bottom:12px; }
+.timeline-chart { display:flex; align-items:flex-end; gap:2px; height:100px; overflow-x:auto; padding-bottom:20px; position:relative; }
+.timeline-bar { min-width:6px; flex:1; border-radius:2px 2px 0 0; transition:all .2s; position:relative; cursor:pointer; }
+.timeline-bar:hover { opacity:0.8; }
+.timeline-bar .tip { display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:#000; color:#fff; padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap; z-index:10; }
+.timeline-bar:hover .tip { display:block; }
+.timeline-labels { display:flex; gap:2px; font-size:9px; color:var(--text-muted); margin-top:4px; overflow-x:auto; }
+.timeline-labels span { min-width:6px; flex:1; text-align:center; white-space:nowrap; }
+
+/* Issue Patterns */
+.pattern-list { display:flex; flex-direction:column; gap:12px; }
+.pattern-card { background:var(--surface); border-left:4px solid var(--accent); border-radius:0 6px 6px 0; padding:16px; }
+.pattern-card.critical { border-left-color:var(--error); }
+.pattern-card.high { border-left-color:#e06c00; }
+.pattern-card.medium { border-left-color:var(--warning); }
+.pattern-card.low { border-left-color:var(--trace); }
+.pattern-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+.pattern-header h4 { color:#fff; font-size:14px; }
+.badge { padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; text-transform:uppercase; }
+.badge.critical { background:rgba(244,71,71,0.2); color:var(--error); }
+.badge.high { background:rgba(224,108,0,0.2); color:#e06c00; }
+.badge.medium { background:rgba(204,167,0,0.2); color:var(--warning); }
+.badge.low { background:rgba(106,153,85,0.2); color:var(--trace); }
+.badge.count { background:rgba(0,120,212,0.2); color:var(--accent-light); }
+.pattern-body p { font-size:13px; color:var(--text); margin-bottom:6px; }
+.pattern-body .cause { color:var(--warning); }
+.pattern-body .steps { color:var(--trace); }
+.pattern-body .timestamps { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); max-height:60px; overflow-y:auto; margin-top:4px; background:var(--bg); padding:6px 8px; border-radius:4px; }
+
+/* Log Table */
+.log-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+.log-controls input[type=text] { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:4px; font-size:13px; flex:1; min-width:200px; }
+.log-controls input[type=text]:focus { outline:none; border-color:var(--accent); }
+.log-controls label { font-size:12px; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:3px; }
+.log-controls select { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:5px 8px; border-radius:4px; font-size:12px; }
+.log-table-wrap { overflow:auto; max-height:600px; border:1px solid var(--border); border-radius:6px; }
+table { width:100%; border-collapse:collapse; font-size:12px; font-family:var(--font-mono); }
+thead { position:sticky; top:0; z-index:5; }
+th { background:var(--surface3); color:var(--accent-light); padding:8px 10px; text-align:left; white-space:nowrap; border-bottom:1px solid var(--border); }
+td { padding:6px 10px; border-bottom:1px solid var(--border); vertical-align:top; max-width:500px; }
+tr { background:var(--surface); }
+tr:hover { background:var(--surface2); }
+tr.level-Error { background:rgba(244,71,71,0.08); }
+tr.level-Error td:first-child { color:var(--error); font-weight:700; }
+tr.level-Warning td:first-child { color:var(--warning); font-weight:700; }
+tr.level-Info td:first-child { color:var(--info); }
+tr.level-Trace td:first-child { color:var(--trace); }
+td.msg-cell { cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+td.msg-cell.expanded { white-space:pre-wrap; word-break:break-all; }
+.row-count { font-size:12px; color:var(--text-muted); margin-top:6px; }
+
+/* Report */
+.report-box { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px; font-family:var(--font-mono); font-size:13px; white-space:pre-wrap; max-height:500px; overflow:auto; line-height:1.7; }
+.btn { display:inline-block; background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; margin-top:12px; margin-right:8px; }
+.btn:hover { background:var(--accent-light); }
+.btn.secondary { background:var(--surface3); }
+
+/* Empty state */
+.empty { text-align:center; padding:48px; color:var(--text-muted); }
+.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">M</div>
+  <h1>MIPLog Analyzer</h1>
+  <span class="subtitle">Edge Profile Sync & MIP Issue Detector</span>
+</div>
+
+<div class="container">
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="icon">📂</div>
+    <h3>Drop your .miplog file here</h3>
+    <p>or click below to browse</p>
+    <label class="browse-btn">Browse File<input type="file" id="fileInput" accept=".miplog,.log,.txt"></label>
+  </div>
+
+  <!-- Main Content (hidden until file loaded) -->
+  <div id="mainContent" class="hidden">
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="patterns">Detected Issues</div>
+      <div class="tab" data-tab="logs">Log Explorer</div>
+      <div class="tab" data-tab="report">Analysis Report</div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="cards" id="dashCards"></div>
+      <div class="timeline-section">
+        <h3>Error & Warning Timeline</h3>
+        <div class="timeline-chart" id="timelineChart"></div>
+        <div class="timeline-labels" id="timelineLabels"></div>
+      </div>
+    </div>
+
+    <!-- Patterns -->
+    <div class="tab-content" id="tab-patterns">
+      <div class="pattern-list" id="patternList"></div>
+    </div>
+
+    <!-- Logs -->
+    <div class="tab-content" id="tab-logs">
+      <div class="log-controls" id="logControls">
+        <input type="text" id="logSearch" placeholder="Search logs…">
+        <label><input type="checkbox" class="lvl-filter" value="Error" checked> Error</label>
+        <label><input type="checkbox" class="lvl-filter" value="Warning" checked> Warning</label>
+        <label><input type="checkbox" class="lvl-filter" value="Info" checked> Info</label>
+        <label><input type="checkbox" class="lvl-filter" value="Trace" checked> Trace</label>
+        <select id="threadFilter"><option value="">All Threads</option></select>
+      </div>
+      <div class="log-table-wrap">
+        <table><thead><tr><th>Level</th><th>Timestamp</th><th>Source</th><th>Message</th><th>Function</th><th>Thread</th></tr></thead><tbody id="logBody"></tbody></table>
+      </div>
+      <div class="row-count" id="rowCount"></div>
+    </div>
+
+    <!-- Report -->
+    <div class="tab-content" id="tab-report">
+      <div class="report-box" id="reportBox"></div>
+      <button class="btn" id="copyReport">📋 Copy Report</button>
+      <button class="btn secondary" id="exportReport">💾 Export as .txt</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== GLOBALS ======
+let logEntries = [];
+let patterns = [];
+
+// ====== PATTERN DEFINITIONS ======
+const PATTERN_DEFS = [
+  {
+    id:'no_permissions', name:'NoPermissionsError / Access Denied',
+    severity:'critical',
+    regex:/NoPermissionsError|AccessDenied|Access\s*Denied|does not have rights to consume/i,
+    cause:'The signed-in user does not have the required permissions or rights to access the MIP-protected content. The content owner has not granted access to this user\'s identity.',
+    steps:'1. Confirm the user\'s sign-in identity in Edge (edge://settings/profiles)\n2. Verify with the content owner (shown in Owner field) that the user should have access\n3. Ask the owner to re-share with correct permissions or update the RMS template\n4. If it\'s a tenant-level issue, check Azure RMS configuration in Microsoft 365 compliance center\n5. Try signing out and signing back into Edge with the correct work/school account'
+  },
+  {
+    id:'license_fail', name:'License Validation Failure',
+    severity:'high',
+    regex:/LicenseStore.*no matching|LicenseStore.*Found no|license.*fail|License.*error/i,
+    cause:'The local license store does not contain a valid cached license for this protected content. The client must fetch a new license from the RMS service but may be unable to reach it.',
+    steps:'1. Ensure the device has internet connectivity\n2. Clear the MIP cache: delete files under %localappdata%\\Microsoft\\Edge\\User Data\\Default\\MIP\n3. Sign out and back into the Edge profile\n4. Check if the license has expired or been revoked\n5. Verify RMS service endpoints are reachable (*.aadrm.com, *.protection.outlook.com)'
+  },
+  {
+    id:'usercert_fail', name:'User Certificate Store Issue',
+    severity:'high',
+    regex:/UserCertStore.*no matching|UserCertStore.*Found no|UserCert.*fail|UserCert.*error/i,
+    cause:'No user certificate was found in the local certificate store. This is needed for decrypting MIP-protected content offline or for client authentication to the RMS service.',
+    steps:'1. Clear the MIP cache and restart Edge\n2. Ensure the user has successfully authenticated to Azure AD at least once with network connectivity\n3. Check Windows certificate store (certmgr.msc) for any expired or corrupt certs\n4. Re-sign into the Edge profile\n5. If persistent, collect a network trace (Fiddler/NetMon) during repro'
+  },
+  {
+    id:'protection_handler_fail', name:'Protection Handler Creation Failed',
+    severity:'critical',
+    regex:/protection_engine_create_consuming_protection_handler.*Failed|CreateProtectionHandlerForConsumption.*fail|Failed.*protection_engine_create/i,
+    cause:'The MIP SDK failed to create a protection handler needed to decrypt/consume protected content. This is typically caused by an upstream issue (permissions, certificates, or network).',
+    steps:'1. Review other detected issues first — this is usually a symptom, not root cause\n2. The upstream error (NoPermissions, CertStore, etc.) must be resolved first\n3. Clear MIP cache and re-authenticate\n4. If no upstream error, update Edge to the latest version\n5. Collect edge://net-export logs and miplog together for escalation'
+  },
+  {
+    id:'service_discovery_fail', name:'Service Discovery / DNS Failure',
+    severity:'high',
+    regex:/DNS.*fail|service.*discovery.*fail|No redirected url|DNS.*error|ServiceDiscovery.*error/i,
+    cause:'The client could not resolve the RMS service endpoint via DNS. This could be due to network restrictions, DNS misconfiguration, or the tenant not being properly configured for Azure RMS.',
+    steps:'1. Verify DNS resolution: nslookup _rmsredir._http._tcp.<tenant-domain>\n2. Check network/proxy settings — ensure *.aadrm.com is not blocked\n3. Confirm Azure RMS is activated for the tenant (Get-AipServiceConfiguration in PowerShell)\n4. If behind a proxy/firewall, whitelist required RMS endpoints\n5. Test from a different network to isolate the issue'
+  },
+  {
+    id:'auth_fail', name:'Authentication / Token Failure',
+    severity:'critical',
+    regex:/auth.*fail|token.*expir|token.*fail|authentication.*error|OAuth.*error|401|Unauthorized/i,
+    cause:'Authentication or token acquisition failed. The user\'s session may have expired, conditional access policies may be blocking, or there\'s an Azure AD configuration issue.',
+    steps:'1. Sign out and sign back into the Edge profile\n2. Clear browser cookies and cache for login.microsoftonline.com\n3. Check for Conditional Access policies that might block the device/user\n4. Verify the user can authenticate at portal.azure.com successfully\n5. Check Azure AD sign-in logs for failed attempts and error codes'
+  },
+  {
+    id:'sync_fail', name:'Profile Sync Failure',
+    severity:'critical',
+    regex:/sync.*fail|sync.*error|profile.*sync|favorites.*sync|SyncService.*error|data.*sync.*fail/i,
+    cause:'Edge profile sync encountered an error. This can affect favorites, passwords, settings, and other synced data.',
+    steps:'1. Check edge://sync-internals for detailed sync status\n2. Toggle sync off/on in edge://settings/profiles/sync\n3. Sign out, clear browsing data, and sign back in\n4. Check if the issue affects other devices under the same account\n5. Verify no org policies are restricting sync (SyncDisabled, SyncTypesListDisabled)\n6. Reset sync at edge://settings/profiles/sync → "Reset sync"'
+  },
+  {
+    id:'network_fail', name:'Network Connectivity Issue',
+    severity:'high',
+    regex:/timeout|connection.*refused|connection.*reset|network.*error|ETIMEDOUT|ECONNREFUSED|socket.*error/i,
+    cause:'A network connectivity issue prevented the MIP client from reaching the required cloud services.',
+    steps:'1. Verify internet connectivity and DNS resolution\n2. Check proxy/firewall logs for blocked connections\n3. Test connectivity to *.aadrm.com and login.microsoftonline.com\n4. Collect a network trace (edge://net-export) during repro\n5. Try bypassing VPN/proxy temporarily to isolate'
+  },
+  {
+    id:'offline_issue', name:'Offline Access Issue',
+    severity:'medium',
+    regex:/offline.*access|AllowOfflineAccess.*0|offline.*fail/i,
+    cause:'The content\'s offline access policy may be restricting access when the device cannot reach the RMS service.',
+    steps:'1. Ensure the device has network connectivity\n2. If the content must work offline, the owner should re-protect with offline access enabled\n3. Previously consumed content with offline licenses should still work — clear MIP cache if not\n4. Check if the offline license has expired (LicenseValidUntil field in the log)'
+  },
+  {
+    id:'template_label_fail', name:'Template / Label Resolution Failure',
+    severity:'medium',
+    regex:/template.*fail|template.*error|label.*fail|label.*error|TemplateId.*00000000-0000-0000-0000-000000000000.*FromTemplate.*0/i,
+    cause:'The MIP template or sensitivity label could not be resolved. This could indicate a custom protection (no template) or a misconfiguration.',
+    steps:'1. Check if the content uses a sensitivity label or custom permissions\n2. If label-based, ensure the user\'s tenant has the correct labels published\n3. Verify in Microsoft 365 compliance center that labels are configured\n4. A TemplateId of all zeros with FromTemplate=0 indicates ad-hoc protection — this may be expected\n5. If unexpected, ask the content owner what protection method was applied'
+  },
+  {
+    id:'content_encrypt_fail', name:'Content ID / Encryption Issue',
+    severity:'medium',
+    regex:/ContentId.*error|cipher.*fail|encrypt.*error|decrypt.*fail|CipherMode.*error/i,
+    cause:'There was an issue with the content\'s encryption metadata, content ID resolution, or the decryption process itself.',
+    steps:'1. Verify the file is not corrupted (try opening on another device)\n2. Clear MIP cache and retry\n3. If the ContentId is known, check RMS audit logs to see if the content was revoked\n4. Ensure the Edge version supports the cipher mode used\n5. Escalate with the ContentId for backend investigation if persistent'
+  },
+  {
+    id:'sqlite_fail', name:'SQLite Storage Error',
+    severity:'medium',
+    regex:/sqlite.*error|SQLite.*fail|database.*locked|database.*corrupt|storage.*error/i,
+    cause:'The local SQLite database used by MIP for caching licenses, certificates, and DNS info encountered an error.',
+    steps:'1. Close all Edge instances\n2. Delete the MIP database files under %localappdata%\\Microsoft\\Edge\\User Data\\Default\\MIP\n3. Restart Edge — the databases will be recreated\n4. If the issue recurs, check disk space and permissions on the profile folder\n5. Run chkdsk if disk corruption is suspected'
+  },
+  {
+    id:'api_fail', name:'Generic API Call Failure',
+    severity:'high',
+    regex:/Failed API call:(?!.*protection_engine_create_consuming_protection_handler)/i,
+    cause:'A MIP SDK API call failed. The specific API and inner error details should be examined for root cause.',
+    steps:'1. Check the error message for the specific API name and inner error\n2. Correlate with other detected patterns — this may be a secondary symptom\n3. Look up the CorrelationId in Azure AD sign-in logs or RMS audit logs\n4. Ensure Edge and OS are fully updated\n5. Clear MIP cache and re-authenticate if no specific fix found'
+  }
+];
+
+// ====== PARSE ======
+function parseLog(text) {
+  const lines = text.split(/\r?\n/);
+  const entries = [];
+  const lineRegex = /^(Error|Warning|Info|Trace)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t"(.+?)"\t([^\t]+)\t(\d+)$/;
+  for (const line of lines) {
+    const m = line.match(lineRegex);
+    if (m) {
+      entries.push({ level:m[1], timestamp:m[2].trim(), source:m[3].trim(), process:m[4].trim(), message:m[5], func:m[6].trim(), thread:m[7].trim() });
+    }
+  }
+  return entries;
+}
+
+// ====== DETECT PATTERNS ======
+function detectPatterns(entries) {
+  const results = [];
+  for (const def of PATTERN_DEFS) {
+    const matches = entries.filter(e => def.regex.test(e.message));
+    if (matches.length > 0) {
+      results.push({
+        ...def,
+        count: matches.length,
+        entries: matches,
+        timestamps: [...new Set(matches.map(m=>m.timestamp))].slice(0,20)
+      });
+    }
+  }
+  results.sort((a,b) => {
+    const sev = {critical:0,high:1,medium:2,low:3};
+    return (sev[a.severity]||9) - (sev[b.severity]||9);
+  });
+  return results;
+}
+
+// ====== RENDER DASHBOARD ======
+function renderDashboard(entries) {
+  const counts = {Error:0,Warning:0,Info:0,Trace:0};
+  const threads = new Set();
+  entries.forEach(e => { counts[e.level] = (counts[e.level]||0)+1; threads.add(e.thread); });
+  const tRange = entries.length ? entries[0].timestamp + ' → ' + entries[entries.length-1].timestamp : 'N/A';
+  const html = `
+    <div class="card"><div class="val">${entries.length}</div><div class="label">Total Entries</div></div>
+    <div class="card error"><div class="val">${counts.Error}</div><div class="label">Errors</div></div>
+    <div class="card warning"><div class="val">${counts.Warning}</div><div class="label">Warnings</div></div>
+    <div class="card info"><div class="val">${counts.Info}</div><div class="label">Info</div></div>
+    <div class="card trace"><div class="val">${counts.Trace}</div><div class="label">Trace</div></div>
+    <div class="card"><div class="val">${threads.size}</div><div class="label">Threads</div></div>
+  `;
+  document.getElementById('dashCards').innerHTML = html;
+  renderTimeline(entries);
+}
+
+// ====== TIMELINE ======
+function renderTimeline(entries) {
+  // Group by second
+  const buckets = {};
+  entries.forEach(e => {
+    const key = e.timestamp.substring(0,19);
+    if (!buckets[key]) buckets[key] = {errors:0,warnings:0,info:0,trace:0};
+    if (e.level==='Error') buckets[key].errors++;
+    else if (e.level==='Warning') buckets[key].warnings++;
+    else if (e.level==='Info') buckets[key].info++;
+    else buckets[key].trace++;
+  });
+  const keys = Object.keys(buckets).sort();
+  if (keys.length === 0) { document.getElementById('timelineChart').innerHTML='<div class="empty">No data</div>'; return; }
+  const maxVal = Math.max(...keys.map(k => buckets[k].errors + buckets[k].warnings));
+  const maxAll = Math.max(maxVal, 1);
+  let barsHtml = '', labelsHtml = '';
+  // If too many keys, sample
+  let displayKeys = keys;
+  if (keys.length > 200) {
+    const step = Math.ceil(keys.length / 200);
+    displayKeys = keys.filter((_,i) => i % step === 0);
+  }
+  displayKeys.forEach(k => {
+    const b = buckets[k];
+    const h = Math.max(2, ((b.errors + b.warnings) / maxAll) * 100);
+    const color = b.errors > 0 ? 'var(--error)' : b.warnings > 0 ? 'var(--warning)' : 'var(--info)';
+    barsHtml += `<div class="timeline-bar" style="height:${h}%;background:${color}"><span class="tip">${k}<br>E:${b.errors} W:${b.warnings} I:${b.info} T:${b.trace}</span></div>`;
+  });
+  // Show a few time labels
+  const labelStep = Math.max(1, Math.floor(displayKeys.length / 6));
+  displayKeys.forEach((k,i) => {
+    labelsHtml += `<span>${i % labelStep === 0 ? k.substring(11,19) : ''}</span>`;
+  });
+  document.getElementById('timelineChart').innerHTML = barsHtml;
+  document.getElementById('timelineLabels').innerHTML = labelsHtml;
+}
+
+// ====== RENDER PATTERNS ======
+function renderPatterns(pats) {
+  if (pats.length === 0) {
+    document.getElementById('patternList').innerHTML = '<div class="empty">✅ No known issue patterns detected in this log file.</div>';
+    return;
+  }
+  let html = '';
+  pats.forEach(p => {
+    html += `
+    <div class="pattern-card ${p.severity}">
+      <div class="pattern-header">
+        <h4>${esc(p.name)}</h4>
+        <span class="badge ${p.severity}">${p.severity}</span>
+        <span class="badge count">${p.count} occurrence${p.count>1?'s':''}</span>
+      </div>
+      <div class="pattern-body">
+        <p><strong>Root Cause:</strong> <span class="cause">${esc(p.cause)}</span></p>
+        <p><strong>Recommended Steps:</strong></p>
+        <p class="steps">${esc(p.steps)}</p>
+        <p><strong>Timestamps:</strong></p>
+        <div class="timestamps">${p.timestamps.map(esc).join('\n')}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('patternList').innerHTML = html;
+}
+
+// ====== RENDER LOG TABLE ======
+function renderLogs(entries) {
+  // Populate thread filter
+  const threads = [...new Set(entries.map(e=>e.thread))].sort();
+  const sel = document.getElementById('threadFilter');
+  sel.innerHTML = '<option value="">All Threads</option>' + threads.map(t=>`<option value="${t}">${t}</option>`).join('');
+  applyLogFilter();
+}
+
+function applyLogFilter() {
+  const search = document.getElementById('logSearch').value.toLowerCase();
+  const levels = [...document.querySelectorAll('.lvl-filter:checked')].map(c=>c.value);
+  const thread = document.getElementById('threadFilter').value;
+  const filtered = logEntries.filter(e => {
+    if (!levels.includes(e.level)) return false;
+    if (thread && e.thread !== thread) return false;
+    if (search && !(e.message.toLowerCase().includes(search) || e.func.toLowerCase().includes(search) || e.source.toLowerCase().includes(search) || e.timestamp.toLowerCase().includes(search))) return false;
+    return true;
+  });
+  const MAX = 2000;
+  const show = filtered.slice(0, MAX);
+  let html = '';
+  show.forEach(e => {
+    html += `<tr class="level-${e.level}"><td>${esc(e.level)}</td><td style="white-space:nowrap">${esc(e.timestamp)}</td><td>${esc(e.source)}</td><td class="msg-cell" onclick="this.classList.toggle('expanded')">${esc(e.message)}</td><td>${esc(e.func)}</td><td>${esc(e.thread)}</td></tr>`;
+  });
+  document.getElementById('logBody').innerHTML = html;
+  document.getElementById('rowCount').textContent = `Showing ${show.length} of ${filtered.length} entries` + (filtered.length > MAX ? ` (limited to ${MAX})` : '');
+}
+
+// ====== REPORT ======
+function generateReport(entries, pats) {
+  const counts = {Error:0,Warning:0,Info:0,Trace:0};
+  entries.forEach(e => counts[e.level]=(counts[e.level]||0)+1);
+  const tRange = entries.length ? entries[0].timestamp + ' to ' + entries[entries.length-1].timestamp : 'N/A';
+  let r = `MIPLog Analysis Report\n${'='.repeat(50)}\nGenerated: ${new Date().toISOString()}\n\n`;
+  r += `LOG SUMMARY\n`;
+  r += `• Total log entries: ${entries.length}\n`;
+  r += `• Errors: ${counts.Error} | Warnings: ${counts.Warning} | Info: ${counts.Info} | Trace: ${counts.Trace}\n`;
+  r += `• Time range: ${tRange}\n`;
+  r += `• Unique threads: ${new Set(entries.map(e=>e.thread)).size}\n\n`;
+  if (pats.length === 0) {
+    r += `DETECTED ISSUES\n• No known issue patterns detected.\n\n`;
+  } else {
+    r += `DETECTED ISSUES (${pats.length} pattern${pats.length>1?'s':''})\n`;
+    pats.forEach((p,i) => {
+      r += `\n${i+1}. [${p.severity.toUpperCase()}] ${p.name} — ${p.count} occurrence(s)\n`;
+      r += `   Root Cause: ${p.cause}\n`;
+      r += `   Recommended Steps:\n`;
+      p.steps.split('\n').forEach(s => { r += `   ${s}\n`; });
+      r += `   First seen: ${p.timestamps[0] || 'N/A'}\n`;
+    });
+  }
+  r += `\n${'='.repeat(50)}\nEnd of Report\n`;
+  return r;
+}
+
+// ====== UTILITY ======
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ====== EVENT WIRING ======
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragover'); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if(fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    logEntries = parseLog(e.target.result);
+    if (logEntries.length === 0) { alert('No valid log entries found. Ensure the file is a tab-separated .miplog file.'); return; }
+    patterns = detectPatterns(logEntries);
+    document.getElementById('mainContent').classList.remove('hidden');
+    uploadZone.innerHTML = `<div class="icon">✅</div><h3>${esc(file.name)}</h3><p>${logEntries.length} entries loaded</p><label class="browse-btn">Load Another File<input type="file" id="fileInput2" accept=".miplog,.log,.txt"></label>`;
+    document.getElementById('fileInput2').addEventListener('change', function(){ if(this.files[0]) loadFile(this.files[0]); });
+    renderDashboard(logEntries);
+    renderPatterns(patterns);
+    renderLogs(logEntries);
+    const report = generateReport(logEntries, patterns);
+    document.getElementById('reportBox').textContent = report;
+  };
+  reader.readAsText(file);
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Log filters
+document.getElementById('logSearch').addEventListener('input', applyLogFilter);
+document.querySelectorAll('.lvl-filter').forEach(c => c.addEventListener('change', applyLogFilter));
+document.getElementById('threadFilter').addEventListener('change', applyLogFilter);
+
+// Report buttons
+document.getElementById('copyReport').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('reportBox').textContent).then(()=>{ document.getElementById('copyReport').textContent='✅ Copied!'; setTimeout(()=>document.getElementById('copyReport').textContent='📋 Copy Report',2000); });
+});
+document.getElementById('exportReport').addEventListener('click', () => {
+  const blob = new Blob([document.getElementById('reportBox').textContent], {type:'text/plain'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='miplog_analysis_report.txt'; a.click();
+});
+</script>
+</body>
+</html>
