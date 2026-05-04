@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>Edge Support Toolkit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#0f1117;--bg2:#1a1d27;--bg3:#242836;--tx:#e2e4ea;--tx2:#8b90a0;--tx3:#5a5f72;--acc:#6c8cff;--ok:#34d399;--warn:#fbbf24;--err:#f87171;--info:#38bdf8;--bdr:#2e3344;--ie:#f59e0b;--edge:#3b82f6;--java:#a855f7;--r:6px;--f:'Segoe UI',sans-serif;--m:Consolas,monospace}
+[data-theme=light]{--bg:#f4f5f7;--bg2:#fff;--bg3:#e9ebf0;--tx:#1a1d27;--tx2:#5a5f72;--tx3:#8b90a0;--acc:#4a6cf7;--ok:#059669;--warn:#d97706;--err:#dc2626;--info:#0284c7;--bdr:#d5d8e0;--ie:#d97706;--edge:#2563eb;--java:#7c3aed}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--f);background:var(--bg);color:var(--tx);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.hdr{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:6px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hdr h1{font-size:14px;color:var(--acc)}.hdr-r{display:flex;gap:5px;align-items:center}
+.btn{padding:4px 10px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg3);color:var(--tx);cursor:pointer;font-size:10px}.btn:hover{border-color:var(--acc)}
+.ttog{width:30px;height:16px;border-radius:8px;background:var(--bg3);border:1px solid var(--bdr);cursor:pointer;position:relative}.ttog::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--acc);transition:.3s}[data-theme=light] .ttog::after{left:16px}
+.drop{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center}.drop.hide{opacity:0;pointer-events:none;transition:opacity .3s}
+.dz{border:2px dashed var(--acc);border-radius:12px;padding:30px 50px;text-align:center;max-width:480px}.dz h2{font-size:16px;margin-bottom:4px}.dz p{color:var(--tx2);font-size:11px;margin-bottom:8px}.dz input{display:none}.dz .br{display:inline-block;padding:6px 14px;background:var(--acc);color:#fff;border-radius:var(--r);cursor:pointer;font-size:11px}
+.spin{position:fixed;inset:0;z-index:200;background:rgba(15,17,23,.9);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}.spin.hide{display:none}.sp{width:30px;height:30px;border:3px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:r .6s linear infinite}@keyframes r{to{transform:rotate(360deg)}}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.sum{padding:5px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--bdr);background:var(--bg2);flex-shrink:0;font-size:11px}
+.hlth{padding:2px 8px;border-radius:10px;font-weight:700;font-size:9px;text-transform:uppercase}.hg{background:rgba(52,211,153,.1);color:var(--ok)}.hw{background:rgba(251,191,36,.1);color:var(--warn)}.hc{background:rgba(248,113,113,.1);color:var(--err)}
+.tabs{display:flex;border-bottom:2px solid var(--bdr);background:var(--bg2);flex-shrink:0;padding:0 8px;overflow-x:auto}
+.tab{padding:6px 12px;font-size:10px;font-weight:600;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}.tab:hover{color:var(--tx)}.tab.a{color:var(--acc);border-bottom-color:var(--acc)}.tab .cnt{background:var(--err);color:#fff;border-radius:6px;padding:0 4px;font-size:8px;margin-left:2px}
+.vw{flex:1;overflow:hidden;display:none;flex-direction:column}.vw.a{display:flex}
+.tb{padding:4px 10px;display:flex;gap:4px;align-items:center;flex-shrink:0;border-bottom:1px solid var(--bdr);flex-wrap:wrap}
+.fb{padding:2px 6px;font-size:9px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg3);color:var(--tx2);cursor:pointer}.fb:hover{border-color:var(--acc)}.fb.a{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sb{flex:1;min-width:100px;padding:3px 7px;background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);color:var(--tx);font-size:10px;outline:none}.sb:focus{border-color:var(--acc)}
+.il{flex:1;overflow-y:auto;padding:8px 12px}
+.ic{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px 10px;border-left:3px solid var(--bdr);margin-bottom:5px}.ic.sc{border-left-color:var(--err)}.ic.sw{border-left-color:var(--warn)}.ic.si{border-left-color:var(--info)}
+.ic .t{font-size:11px;font-weight:600;margin-bottom:2px}.ic .d{font-size:10px;color:var(--tx2);margin-bottom:2px}.ic .u{font-size:9px;color:var(--info);word-break:break-all;padding:2px 4px;background:var(--bg);border-radius:2px;margin-bottom:2px}.ic .f{font-size:9px;color:var(--ok);border-left:2px solid var(--ok);padding-left:4px}
+.sv{flex-direction:row!important}.sl{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--bdr)}
+.stw{flex:1;overflow-y:auto}table.st{width:100%;border-collapse:collapse;font-size:10px}.st th{position:sticky;top:0;background:var(--bg3);padding:4px 5px;text-align:left;font-weight:600;color:var(--tx2);font-size:8px;border-bottom:2px solid var(--bdr);cursor:pointer;user-select:none;text-transform:uppercase}.st th:hover{color:var(--acc)}
+.st td{padding:3px 5px;border-bottom:1px solid rgba(46,51,68,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}.st tbody tr{cursor:pointer}.st tbody tr:hover{background:var(--bg3)}.st tbody tr.sel{background:rgba(108,140,255,.08)}
+.mb{padding:1px 3px;border-radius:2px;font-weight:600;font-size:8px}.mG{background:rgba(52,211,153,.1);color:var(--ok)}.mP{background:rgba(59,130,246,.1);color:var(--edge)}.mC{background:rgba(251,191,36,.06);color:var(--warn)}
+.xb{padding:1px 3px;border-radius:2px;font-weight:600;font-size:9px}.x2{background:rgba(52,211,153,.08);color:var(--ok)}.x3{background:rgba(251,191,36,.08);color:var(--warn)}.x4{background:rgba(248,113,113,.08);color:var(--err)}.x5{background:rgba(220,38,38,.1);color:#ef5350}.x0{background:rgba(139,144,160,.08);color:var(--tx2)}
+.pb{padding:1px 4px;border-radius:2px;font-size:7px;font-weight:700;text-transform:uppercase}.pe{background:rgba(59,130,246,.1);color:var(--edge)}.pi{background:rgba(245,158,11,.1);color:var(--ie)}.pj{background:rgba(168,85,247,.1);color:var(--java)}.po{background:rgba(139,144,160,.08);color:var(--tx3)}
+.sf{padding:3px 10px;font-size:9px;color:var(--tx3);border-top:1px solid var(--bdr);background:var(--bg2);flex-shrink:0}
+.dp{width:40%;max-width:500px;min-width:200px;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2)}.dp.hide{display:none}
+.dts{display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0}.dt{padding:5px 8px;font-size:10px;font-weight:600;color:var(--tx2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}.dt:hover{color:var(--tx)}.dt.a{color:var(--acc);border-bottom-color:var(--acc)}
+.db{flex:1;overflow-y:auto;padding:8px}
+.ds{margin-bottom:8px}.ds h3{font-size:9px;color:var(--acc);text-transform:uppercase;margin-bottom:3px;border-bottom:1px solid var(--bdr);padding-bottom:2px}
+.du{word-break:break-all;font-size:10px;color:var(--info);padding:4px;background:var(--bg3);border-radius:var(--r);margin-bottom:5px}
+.ht{width:100%;font-size:9px;border-collapse:collapse}.ht td{padding:2px 4px;border-bottom:1px solid rgba(46,51,68,.12);vertical-align:top}.ht td:first-child{color:var(--acc);font-weight:600;white-space:nowrap;width:30%}.ht td:last-child{color:var(--tx2);word-break:break-all}
+.bd{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r);padding:5px;font-family:var(--m);font-size:9px;color:var(--tx2);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto}
+.hcf{padding:3px 5px;margin:2px 0;border-radius:var(--r);font-size:10px}.hcY{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.12);color:var(--err)}.hcN{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.12);color:var(--ok)}.hcW{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.12);color:var(--warn)}
+.ie-stats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.ie-st{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:6px 10px;flex:1;min-width:70px}.ie-st .l{font-size:8px;color:var(--tx3);text-transform:uppercase}.ie-st .v{font-size:15px;font-weight:700}
+.ie-sec{margin-bottom:10px}.ie-sec h4{font-size:10px;color:var(--acc);margin-bottom:4px;text-transform:uppercase;border-bottom:1px solid var(--bdr);padding-bottom:2px}
+.nta{width:100%;min-height:300px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--r);padding:8px;font-family:var(--m);font-size:9px;color:var(--tx2);resize:vertical;outline:none}
+.xl-e{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;margin-bottom:3px;font-size:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.xl-u{color:var(--info);word-break:break-all;flex:1;min-width:120px}.xl-t{padding:1px 4px;border-radius:2px;font-size:8px;font-weight:600}
+.xl-ie{background:rgba(245,158,11,.1);color:var(--ie)}.xl-no{background:rgba(108,140,255,.1);color:var(--acc)}.xl-nm{background:rgba(248,113,113,.1);color:var(--err)}.xl-ck{background:rgba(52,211,153,.1);color:var(--ok)}
+.pol-c{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:8px;margin-bottom:6px}.pol-c h4{font-size:10px;font-weight:700;margin-bottom:4px}
+.pol-r{display:flex;justify-content:space-between;padding:2px 0;font-size:10px;border-bottom:1px solid rgba(46,51,68,.1)}.pol-k{color:var(--tx2)}.pol-v{font-weight:600}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+@media(max-width:768px){.sv{flex-direction:column!important}.dp{width:100%!important;max-width:100%}}
+</style>
+</head>
+<body>
+
+<div class="drop" id="dO"><div class="dz" id="dZ">
+<div style="font-size:24px;margin-bottom:4px">&#128295;</div>
+<h2>Edge Support Toolkit</h2>
+<p>Drop SAZ, XML, or JSON files here — or click browse</p>
+<label class="br" for="fI">Browse Files</label>
+<input type="file" id="fI" accept=".saz,.zip,.har,.json,.xml" multiple>
+<div style="display:flex;gap:5px;justify-content:center;margin-top:6px"><span class="ftag" style="padding:2px 6px;border:1px solid var(--bdr);border-radius:8px;font-size:8px;color:var(--tx2)">SAZ</span><span class="ftag" style="padding:2px 6px;border:1px solid var(--bdr);border-radius:8px;font-size:8px;color:var(--tx2)">XML</span><span class="ftag" style="padding:2px 6px;border:1px solid var(--bdr);border-radius:8px;font-size:8px;color:var(--tx2)">JSON</span></div>
+</div></div>
+<div class="spin hide" id="spO"><div class="sp"></div><div style="color:var(--tx2);font-size:11px" id="spT">Processing...</div></div>
+<div class="hdr"><h1>&#128295; Edge Support Toolkit</h1><div class="hdr-r"><span id="fN" style="font-size:9px;color:var(--tx2)"></span><div class="ttog" onclick="tTh()"></div><button class="btn" id="bN" style="display:none" onclick="location.reload()">New</button></div></div>
+<div class="main" id="mainC" style="display:none">
+<div class="sum" id="sumBar"></div>
+<div class="tabs"><div class="tab a" onclick="sv('iss',this)">&#9888; Issues <span class="cnt" id="iCnt" style="display:none"></span></div><div class="tab" onclick="sv('ses',this)">Sessions</div><div class="tab" onclick="sv('iem',this)">IE Mode</div><div class="tab" onclick="sv('xl',this)">Site List</div><div class="tab" onclick="sv('pol',this)">Policy</div><div class="tab" onclick="sv('cn',this)">Notes</div></div>
+<div class="vw a" id="v-iss"><div class="tb"><button class="fb a" onclick="fi('all',this)">All</button><button class="fb" onclick="fi('critical',this)">Critical</button><button class="fb" onclick="fi('warning',this)">Warning</button><button class="fb" onclick="fi('info',this)">Info</button><button class="fb" onclick="fi('iemode',this)">IE Mode</button></div><div class="il" id="iL"></div></div>
+<div class="vw sv" id="v-ses"><div class="sl"><div class="tb"><input class="sb" id="sQ" placeholder="Filter..."><button class="fb a" onclick="sf('all',this)">All</button><button class="fb" onclick="sf('err',this)">4xx/5xx</button><button class="fb" onclick="sf('ie',this)">IE</button><button class="fb" onclick="sf('edge',this)">Edge</button><button class="fb" onclick="sf('java',this)">Java</button><button class="fb" onclick="sf('redir',this)">3xx</button></div><div class="stw"><table class="st"><thead><tr><th style="width:28px" onclick="srt('id')">#</th><th style="width:42px" onclick="srt('method')">Method</th><th onclick="srt('url')">URL</th><th style="width:36px" onclick="srt('status')">Status</th><th style="width:45px" onclick="srt('ptype')">Process</th><th style="width:42px" onclick="srt('size')">Size</th></tr></thead><tbody id="sB"></tbody></table></div><div class="sf" id="sFt">0 sessions</div></div><div class="dp hide" id="dP"><div class="dts"><div class="dt a" onclick="dtb('ov',this)">Overview</div><div class="dt" onclick="dtb('req',this)">Request</div><div class="dt" onclick="dtb('res',this)">Response</div><div class="dt" onclick="dtb('body',this)">Body</div><div class="dt" onclick="dtb('hc',this)">HTML Check</div></div><div class="db" id="dB"></div></div></div>
+<div class="vw" id="v-iem"><div style="flex:1;overflow-y:auto;padding:10px 12px" id="ieC"></div></div>
+<div class="vw" id="v-xl"><div class="tb"><input class="sb" id="xlQ" placeholder="Search..." oninput="rXL()"><label class="btn"><input type="file" accept=".xml" style="display:none" onchange="ldXML(this)">Load XML</label></div><div style="flex:1;overflow-y:auto;padding:10px 12px" id="xlC"><div style="text-align:center;color:var(--tx3);padding:30px">Load site list XML</div></div></div>
+<div class="vw" id="v-pol"><div class="tb"><label class="btn"><input type="file" accept=".json" style="display:none" onchange="ldPol(this)">Load JSON</label></div><div style="flex:1;overflow-y:auto;padding:10px 12px" id="polC"><div style="text-align:center;color:var(--tx3);padding:30px">Load edge://policy JSON</div></div></div>
+<div class="vw" id="v-cn"><div class="tb"><button class="btn" onclick="genNotes()">Generate</button><button class="btn" onclick="cpNotes()">Copy</button><button class="btn" onclick="dlNotes()">Download</button></div><div style="flex:1;overflow-y:auto;padding:10px 12px"><textarea class="nta" id="nA" placeholder="Click Generate to create case notes..."></textarea></div></div>
+</div>
+<script>
+let allS=[],issues=[],filtS=[],slData=[],polData=null,selIdx=-1,sortCol='id',sortDir=1,curSF='all',curIF='all',curDT='ov';
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function trunc(s,n){return s&&s.length>n?s.slice(0,n)+'...':s||''}
+function fmtSz(n){if(!n||n<0)return'-';if(n<1024)return n+'B';if(n<1048576)return(n/1024).toFixed(1)+'K';return(n/1048576).toFixed(1)+'M'}
+function tTh(){document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'}
+function sv(id,el){document.querySelectorAll('.vw').forEach(v=>v.classList.remove('a'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('a'));let v=document.getElementById('v-'+id);if(v)v.classList.add('a');if(el)el.classList.add('a')}
+function show(id){document.getElementById(id).classList.remove('hide')}
+function hide(id){document.getElementById(id).classList.add('hide')}
+
+// File handling
+let dO=document.getElementById('dO'),dZ=document.getElementById('dZ'),fI=document.getElementById('fI');
+dZ.addEventListener('click',()=>fI.click());
+document.body.addEventListener('dragover',e=>{e.preventDefault()});
+document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)handleFiles(e.dataTransfer.files)});
+fI.addEventListener('change',e=>{if(e.target.files.length)handleFiles(e.target.files)});
+
+async function handleFiles(files){
+ for(let f of files){
+  let ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='saz'||ext==='zip'){document.getElementById('spO').classList.remove('hide');document.getElementById('spT').textContent='Parsing SAZ...';await parseSAZ(f)}
+  else if(ext==='xml'){await loadXMLFile(f)}
+  else if(ext==='json'){await loadJSONFile(f)}
+ }
+ if(allS.length){analyze();renderAll();dO.classList.add('hide');document.getElementById('mainC').style.display='flex';document.getElementById('bN').style.display='';document.getElementById('fN').textContent=files[0].name}
+ document.getElementById('spO').classList.add('hide')
+}
+
+async function parseSAZ(file){
+ let zip=await JSZip.loadAsync(file);
+ let nums=new Set();
+ zip.forEach((path,entry)=>{let m=path.match(/raw\/(\d+)_c\.txt$/);if(m)nums.add(parseInt(m[1]))});
+ let sorted=[...nums].sort((a,b)=>a-b);
+ for(let n of sorted){
+  let cPath='raw/'+n+'_c.txt',sPath='raw/'+n+'_s.txt',mPath='raw/'+n+'_m.xml';
+  let cRaw='',sRaw='',mRaw='';
+  try{cRaw=await zip.file(cPath).async('string')}catch(e){}
+  try{sRaw=await zip.file(sPath).async('string')}catch(e){}
+  try{mRaw=await zip.file(mPath).async('string')}catch(e){}
+  let s=buildSession(n,cRaw,sRaw,mRaw);
+  allS.push(s);
+ }
+}
+
+function buildSession(id,cRaw,sRaw,mRaw){
+ let s={id:id,method:'',url:'',host:'',path:'',status:0,statusText:'',reqHeaders:{},resHeaders:{},reqBody:'',resBody:'',process:'',ptype:'other',ua:'',size:0,ct:'',cookies:[],setCookies:[]};
+ // Parse request
+ if(cRaw){
+  let lines=cRaw.split('\n');let first=lines[0]||'';let parts=first.trim().split(' ');
+  s.method=(parts[0]||'').toUpperCase();s.url=parts[1]||'';
+  let i=1,inBody=false;
+  for(;i<lines.length;i++){let ln=lines[i].trim();if(!ln){inBody=true;continue}
+   if(inBody){s.reqBody+=lines.slice(i).join('\n');break}
+   let ci=ln.indexOf(':');if(ci>0){let k=ln.slice(0,ci).trim(),v=ln.slice(ci+1).trim();s.reqHeaders[k]=v;
+    if(k.toLowerCase()==='host')s.host=v;
+    if(k.toLowerCase()==='user-agent')s.ua=v;
+    if(k.toLowerCase()==='cookie'){v.split(';').forEach(c=>{let p=c.trim().split('=');if(p[0])s.cookies.push({name:p[0].trim(),value:p.slice(1).join('=')})})}
+   }
+  }
+  try{let u=new URL(s.url);s.host=s.host||u.hostname;s.path=u.pathname+u.search}catch(e){s.path=s.url}
+ }
+ // Parse response
+ if(sRaw){
+  let lines=sRaw.split('\n');let first=lines[0]||'';let m=first.match(/(\d{3})/);
+  s.status=m?parseInt(m[1]):0;s.statusText=first.trim();
+  let i=1,inBody=false,bodyLines=[];
+  for(;i<lines.length;i++){let ln=lines[i].trim();if(!ln&&!inBody){inBody=true;continue}
+   if(inBody){bodyLines.push(lines[i])}
+   else{let ci=ln.indexOf(':');if(ci>0){let k=ln.slice(0,ci).trim(),v=ln.slice(ci+1).trim();s.resHeaders[k]=v;
+    if(k.toLowerCase()==='content-type')s.ct=v;
+    if(k.toLowerCase()==='content-length')s.size=parseInt(v)||0;
+    if(k.toLowerCase()==='set-cookie')s.setCookies.push(v);
+   }}
+  }
+  s.resBody=bodyLines.join('\n');if(!s.size)s.size=s.resBody.length;
+ }
+ // Parse metadata for process
+ if(mRaw){let m=mRaw.match(/x-processinfo["\'\s]*>([^<]*)</i);if(m)s.process=m[1].trim()}
+ s.ptype=getPType(s.ua,s.process);
+ return s;
+}
+
+function getPType(ua,proc){
+ ua=(ua||'').toLowerCase();proc=(proc||'').toLowerCase();
+ if(ua.includes('trident')||ua.includes('rv:11.0')||ua.includes('msie'))return'ie';
+ if(ua.includes('java/'))return'java';
+ if(ua.includes('edg/')||ua.includes('chrome/'))return'edge';
+ if(proc.includes('iexplore'))return'ie';
+ if(proc.includes('jp2launcher')||proc.includes('java'))return'java';
+ if(proc.includes('msedge')||proc.includes('edge'))return'edge';
+ return'other';
+}
+
+function analyze(){
+ issues=[];
+ let edgeCookies={},ieCookies={},javaCookies={};
+ let htmlSessions=[];
+ allS.forEach(s=>{
+  // Track cookies by process type
+  let bag=s.ptype==='edge'?edgeCookies:s.ptype==='ie'?ieCookies:s.ptype==='java'?javaCookies:{};
+  s.cookies.forEach(c=>{bag[c.name]=c.value});
+  // HTTP error detection
+  if(s.status>=500)issues.push({sev:'critical',cat:'HTTP',title:s.status+' Server Error',desc:'Server returned '+s.status+' for '+trunc(s.url,80),url:s.url,fix:'Check server logs for this endpoint',sess:[s.id]});
+  if(s.status===401)issues.push({sev:'warning',cat:'Auth',title:'401 Unauthorized',desc:'Authentication required for '+trunc(s.url,80),url:s.url,sess:[s.id]});
+  if(s.status===403)issues.push({sev:'warning',cat:'Auth',title:'403 Forbidden',desc:'Access denied to '+trunc(s.url,80),url:s.url,sess:[s.id]});
+  if(s.status===404){
+   let isJS=s.url.toLowerCase().endsWith('.js')||s.path.toLowerCase().endsWith('.js');
+   if(isJS)issues.push({sev:'critical',cat:'IE Mode',title:'Missing JavaScript File (404)',desc:'JS file not found: '+trunc(s.url,80)+'. If this is forms_ie.js or similar, it may break OBJECT tag creation in IE Mode.',url:s.url,fix:'Deploy the missing JS file on the web server. Check $ORACLE_HOME/forms/server/frmjscript/ for standard Oracle Forms JS files.',sess:[s.id]});
+   else issues.push({sev:'info',cat:'HTTP',title:'404 Not Found',desc:'Resource not found: '+trunc(s.url,80),url:s.url,sess:[s.id]});
+  }
+  // HTML pattern detection
+  if(s.ct&&s.ct.includes('html')&&s.resBody){
+   let body=s.resBody.toLowerCase();
+   if(body.includes('<noscript')&&body.includes('<object')){
+    htmlSessions.push(s);
+    if(body.includes('forms_ie.js'))issues.push({sev:'critical',cat:'IE Mode',title:'NOSCRIPT+OBJECT Pattern with forms_ie.js Reference',desc:'Session #'+s.id+' contains NOSCRIPT/OBJECT pattern referencing forms_ie.js. If this file returns 404, the OBJECT tag won\'t be created and MAYSCRIPT/JSObject bridge will break.',url:s.url,fix:'Deploy forms_ie.js on the server or update the HTML template.',sess:[s.id]});
+    if(body.includes('mayscript'))issues.push({sev:'info',cat:'IE Mode',title:'MAYSCRIPT Detected in HTML',desc:'Session #'+s.id+' uses MAYSCRIPT for Java-to-JavaScript bridge. This requires the applet to load via OBJECT tag (not EMBED) to function correctly.',url:s.url,sess:[s.id]});
+   }
+  }
+ });
+ // Cookie bridge check
+ let edgeNames=Object.keys(edgeCookies);
+ let ieNames=Object.keys(ieCookies);
+ let javaNames=Object.keys(javaCookies);
+ if(edgeNames.length&&ieNames.length){
+  let shared=edgeNames.filter(n=>ieNames.includes(n));
+  let missing=edgeNames.filter(n=>!ieNames.includes(n)&&n.toLowerCase().includes('login'));
+  if(shared.length)issues.push({sev:'info',cat:'IE Mode',title:'Cookie Bridge Working ('+shared.length+' cookies shared)',desc:'Cookies found in both Edge and IE Mode sessions: '+shared.join(', '),fix:'No action needed — cookie bridge is functioning correctly.'});
+  if(missing.length)issues.push({sev:'critical',cat:'IE Mode',title:'Cookie Bridge Failure — Login Cookie Missing in IE Mode',desc:'Login cookies found in Edge but missing in IE Mode: '+missing.join(', '),fix:'Check shared-cookie directive in the site list XML. Ensure the cookie domain and name match exactly.'});
+ }
+}
+
+function renderAll(){renderSum();renderIss();renderSess();renderIE();genNotes()}
+
+function renderSum(){
+ let errs=allS.filter(s=>s.status>=400).length;
+ let ie=allS.filter(s=>s.ptype==='ie').length;
+ let java=allS.filter(s=>s.ptype==='java').length;
+ let edge=allS.filter(s=>s.ptype==='edge').length;
+ let crits=issues.filter(i=>i.sev==='critical').length;
+ let hClass=crits>0?'hc':errs>3?'hw':'hg';
+ let hText=crits>0?'Critical':errs>3?'Warning':'Healthy';
+ document.getElementById('sumBar').innerHTML='<span class="hlth '+hClass+'">'+hText+'</span><span style="color:var(--tx2)"><b>'+allS.length+'</b> sessions</span><span style="color:var(--tx2)"><b style="color:var(--err)">'+errs+'</b> errors</span><span style="color:var(--tx2)"><b style="color:var(--ie)">'+ie+'</b> IE Mode</span><span style="color:var(--tx2)"><b style="color:var(--edge)">'+edge+'</b> Edge</span><span style="color:var(--tx2)"><b style="color:var(--java)">'+java+'</b> Java</span>';
+ let iCnt=document.getElementById('iCnt');if(issues.length){iCnt.textContent=issues.length;iCnt.style.display=''}else iCnt.style.display='none';
+}
+
+function renderIss(){
+ let el=document.getElementById('iL');
+ let list=curIF==='all'?issues:curIF==='iemode'?issues.filter(i=>i.cat==='IE Mode'):issues.filter(i=>i.sev===curIF);
+ if(!list.length){el.innerHTML='<div style="text-align:center;color:var(--tx3);padding:20px">'+(issues.length?'No issues matching filter':'No issues detected')+'</div>';return}
+ el.innerHTML=list.map(i=>{
+  let cls=i.sev==='critical'?'sc':i.sev==='warning'?'sw':'si';
+  return '<div class="ic '+cls+'"><div class="top"><span class="sev" style="padding:1px 4px;border-radius:2px;font-size:8px;font-weight:700;text-transform:uppercase">'+esc(i.sev)+'</span><span class="ict" style="font-size:8px;color:var(--tx3)">'+esc(i.cat)+'</span></div><div class="t">'+esc(i.title)+'</div><div class="d">'+esc(i.desc)+'</div>'+(i.url?'<div class="u">'+esc(i.url)+'</div>':'')+(i.fix?'<div class="f">'+esc(i.fix)+'</div>':'')+(i.sess?'<div style="font-size:8px;color:var(--tx3);margin-top:2px">Session(s): #'+i.sess.join(', #')+'</div>':'')+'</div>'
+ }).join('');
+}
+
+function fi(type,el){curIF=type;document.querySelectorAll('#v-iss .fb').forEach(b=>b.classList.remove('a'));el.classList.add('a');renderIss()}
+
+function renderSess(){
+ filtS=allS.slice();applyFilters();renderSessTable()
+}
+
+function applyFilters(){
+ let q=(document.getElementById('sQ').value||'').toLowerCase();
+ filtS=allS.filter(s=>{
+  if(curSF==='err'&&s.status<400)return false;
+  if(curSF==='ie'&&s.ptype!=='ie')return false;
+  if(curSF==='edge'&&s.ptype!=='edge')return false;
+  if(curSF==='java'&&s.ptype!=='java')return false;
+  if(curSF==='redir'&&(s.status<300||s.status>=400))return false;
+  if(q&&!s.url.toLowerCase().includes(q)&&!String(s.status).includes(q)&&!s.method.toLowerCase().includes(q)&&!(s.process||'').toLowerCase().includes(q))return false;
+  return true;
+ });
+ filtS.sort((a,b)=>{let av=a[sortCol],bv=b[sortCol];if(typeof av==='string')return sortDir*av.localeCompare(bv);return sortDir*((av||0)-(bv||0))});
+}
+
+function renderSessTable(){
+ let el=document.getElementById('sB');
+ el.innerHTML=filtS.map((s,i)=>{
+  let mc=s.method==='GET'?'mG':s.method==='POST'?'mP':'mC';
+  let sc=s.status>=500?'x5':s.status>=400?'x4':s.status>=300?'x3':s.status>=200?'x2':'x0';
+  let pc=s.ptype==='edge'?'pe':s.ptype==='ie'?'pi':s.ptype==='java'?'pj':'po';
+  let sel=selIdx===i?'sel':'';
+  return '<tr class="'+sel+'" onclick="selS('+i+')"><td>'+s.id+'</td><td><span class="mb '+mc+'">'+s.method+'</span></td><td title="'+esc(s.url)+'">'+esc(trunc(s.host+s.path,60))+'</td><td><span class="xb '+sc+'">'+s.status+'</span></td><td><span class="pb '+pc+'">'+s.ptype+'</span></td><td>'+fmtSz(s.size)+'</td></tr>'
+ }).join('');
+ document.getElementById('sFt').textContent=filtS.length+' of '+allS.length+' sessions';
+}
+
+function sf(type,el){curSF=type;document.querySelectorAll('#v-ses .fb').forEach(b=>b.classList.remove('a'));el.classList.add('a');applyFilters();renderSessTable()}
+document.getElementById('sQ').addEventListener('input',()=>{applyFilters();renderSessTable()});
+function srt(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1}applyFilters();renderSessTable()}
+
+function selS(i){selIdx=i;let s=filtS[i];document.getElementById('dP').classList.remove('hide');renderDet(s);renderSessTable()}
+
+function dtb(tab,el){curDT=tab;document.querySelectorAll('.dts .dt').forEach(t=>t.classList.remove('a'));el.classList.add('a');if(selIdx>=0)renderDet(filtS[selIdx])}
+
+function renderDet(s){
+ let el=document.getElementById('dB');
+ if(curDT==='ov'){
+  el.innerHTML='<div class="du">'+esc(s.url)+'</div><div class="ds"><h3>Overview</h3><table class="ht"><tr><td>Method</td><td>'+esc(s.method)+'</td></tr><tr><td>Status</td><td>'+s.status+' '+esc(s.statusText)+'</td></tr><tr><td>Host</td><td>'+esc(s.host)+'</td></tr><tr><td>Process</td><td>'+esc(s.process||'-')+' <span class="pb '+(s.ptype==='edge'?'pe':s.ptype==='ie'?'pi':s.ptype==='java'?'pj':'po')+'">'+s.ptype+'</span></td></tr><tr><td>Content-Type</td><td>'+esc(s.ct)+'</td></tr><tr><td>Size</td><td>'+fmtSz(s.size)+'</td></tr><tr><td>User-Agent</td><td style="font-size:8px">'+esc(s.ua)+'</td></tr></table></div>';
+  if(s.cookies.length)el.innerHTML+='<div class="ds"><h3>Cookies Sent ('+s.cookies.length+')</h3><table class="ht">'+s.cookies.map(c=>'<tr><td>'+esc(c.name)+'</td><td style="font-size:8px">'+esc(trunc(c.value,60))+'</td></tr>').join('')+'</table></div>';
+  if(s.setCookies.length)el.innerHTML+='<div class="ds"><h3>Set-Cookie ('+s.setCookies.length+')</h3>'+s.setCookies.map(c=>'<div style="font-size:9px;color:var(--tx2);margin-bottom:2px;word-break:break-all">'+esc(c)+'</div>').join('')+'</div>';
+ }
+ else if(curDT==='req'){
+  let h=Object.entries(s.reqHeaders).map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+esc(v)+'</td></tr>').join('');
+  el.innerHTML='<div class="ds"><h3>Request Headers</h3><table class="ht">'+h+'</table></div>'+(s.reqBody?'<div class="ds"><h3>Request Body</h3><div class="bd">'+esc(s.reqBody)+'</div></div>':'');
+ }
+ else if(curDT==='res'){
+  let h=Object.entries(s.resHeaders).map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+esc(v)+'</td></tr>').join('');
+  el.innerHTML='<div class="ds"><h3>Response Headers</h3><table class="ht">'+h+'</table></div>';
+ }
+ else if(curDT==='body'){
+  el.innerHTML='<div class="ds"><h3>Response Body ('+fmtSz(s.resBody.length)+')</h3><div class="bd">'+esc(trunc(s.resBody,5000))+'</div></div>';
+ }
+ else if(curDT==='hc'){
+  let body=(s.resBody||'').toLowerCase();
+  let checks=[
+   {name:'NOSCRIPT tag',found:body.includes('<noscript'),desc:'NOSCRIPT block wraps OBJECT tag for no-JS fallback'},
+   {name:'OBJECT tag (Java classid)',found:body.includes('clsid:8ad9c840'),desc:'ActiveX Java plugin OBJECT tag'},
+   {name:'EMBED tag',found:body.includes('<embed'),desc:'EMBED fallback for Java applet'},
+   {name:'MAYSCRIPT parameter',found:body.includes('mayscript'),desc:'Enables Java-to-JavaScript bridge (JSObject)'},
+   {name:'SCRIPT SRC for forms_ie.js',found:body.includes('forms_ie.js'),desc:'IE-specific script to create OBJECT tag dynamically'},
+   {name:'enableJavascriptEvent',found:body.includes('enablejavascriptevent'),desc:'Oracle Forms parameter for JS event handling'},
+   {name:'serverURL parameter',found:body.includes('serverurl'),desc:'Forms servlet URL for applet communication'},
+   {name:'obtenerCookie function',found:body.includes('obtenercookie'),desc:'Custom JS function to read cookies from document.cookie'},
+  ];
+  let hasNoscriptObject=body.includes('<noscript')&&body.includes('<object');
+  let hasFormsIeJs=body.includes('forms_ie.js');
+  el.innerHTML='<div class="ds"><h3>HTML Pattern Check</h3>';
+  el.innerHTML+=checks.map(c=>'<div class="hcf '+(c.found?'hcY':'hcN')+'">'+(c.found?'&#9888; FOUND':'&#10004; Not found')+': <b>'+esc(c.name)+'</b> — '+esc(c.desc)+'</div>').join('');
+  if(hasNoscriptObject&&hasFormsIeJs){
+   el.innerHTML+='<div class="hcf hcW" style="margin-top:6px"><b>&#9888; IE Mode Risk:</b> This page uses NOSCRIPT+OBJECT pattern with forms_ie.js. If forms_ie.js returns 404, Edge 144+ IE Mode will fail to create the OBJECT tag, breaking the MAYSCRIPT/JSObject bridge.</div>';
+  }
+  if(!body.includes('<')){el.innerHTML='<div style="color:var(--tx3);padding:10px">No HTML content in this response</div>'}
+  el.innerHTML+='</div>';
+ }
+}
+
+// IE Mode analysis
+function renderIE(){
+ let el=document.getElementById('ieC');
+ let ie=allS.filter(s=>s.ptype==='ie'),edge=allS.filter(s=>s.ptype==='edge'),java=allS.filter(s=>s.ptype==='java');
+ let eCk={},iCk={},jCk={};
+ edge.forEach(s=>s.cookies.forEach(c=>{eCk[c.name]=c.value}));
+ ie.forEach(s=>s.cookies.forEach(c=>{iCk[c.name]=c.value}));
+ java.forEach(s=>s.cookies.forEach(c=>{jCk[c.name]=c.value}));
+ let shared=Object.keys(eCk).filter(n=>n in iCk);
+ let eOnly=Object.keys(eCk).filter(n=>!(n in iCk));
+ let redirs=allS.filter(s=>s.status>=300&&s.status<400);
+ let js404=allS.filter(s=>s.status===404&&(s.url.endsWith('.js')||s.path.endsWith('.js')));
+ let html='<div class="ie-stats">';
+ html+='<div class="ie-st"><div class="l">Total</div><div class="v">'+allS.length+'</div></div>';
+ html+='<div class="ie-st"><div class="l" style="color:var(--edge)">Edge</div><div class="v" style="color:var(--edge)">'+edge.length+'</div></div>';
+ html+='<div class="ie-st"><div class="l" style="color:var(--ie)">IE Mode</div><div class="v" style="color:var(--ie)">'+ie.length+'</div></div>';
+ html+='<div class="ie-st"><div class="l" style="color:var(--java)">Java</div><div class="v" style="color:var(--java)">'+java.length+'</div></div>';
+ html+='</div>';
+ // Cookie bridge
+ html+='<div class="ie-sec"><h4>Cookie Bridge Analysis</h4>';
+ if(shared.length)html+='<div style="color:var(--ok);font-size:10px;margin-bottom:4px">&#10004; '+shared.length+' cookie(s) shared between Edge and IE Mode: '+shared.map(n=>'<b>'+esc(n)+'</b>').join(', ')+'</div>';
+ if(eOnly.length)html+='<div style="color:var(--warn);font-size:10px;margin-bottom:4px">&#9888; '+eOnly.length+' cookie(s) in Edge but not in IE Mode: '+eOnly.map(n=>'<b>'+esc(n)+'</b>').join(', ')+'</div>';
+ let jShared=Object.keys(iCk).filter(n=>n in jCk);
+ if(jShared.length)html+='<div style="color:var(--ok);font-size:10px;margin-bottom:4px">&#10004; '+jShared.length+' cookie(s) passed from IE Mode to Java: '+jShared.map(n=>'<b>'+esc(n)+'</b>').join(', ')+'</div>';
+ if(!shared.length&&!eOnly.length&&!jShared.length)html+='<div style="color:var(--tx3);font-size:10px">No cookie data to compare (need Edge + IE Mode sessions)</div>';
+ html+='</div>';
+ // Redirects
+ if(redirs.length){html+='<div class="ie-sec"><h4>Redirects ('+redirs.length+')</h4>';
+  redirs.forEach(s=>{html+='<div style="font-size:9px;margin-bottom:2px;color:var(--tx2)"><span class="pb '+(s.ptype==='edge'?'pe':s.ptype==='ie'?'pi':'po')+'">'+s.ptype+'</span> #'+s.id+' '+s.status+' '+esc(trunc(s.url,60));let loc=s.resHeaders['Location']||s.resHeaders['location'];if(loc)html+=' &#8594; '+esc(trunc(loc,50));html+='</div>'});
+  html+='</div>'}
+ // JS 404s
+ if(js404.length){html+='<div class="ie-sec"><h4>Missing JavaScript Files ('+js404.length+')</h4>';
+  js404.forEach(s=>{html+='<div style="font-size:9px;margin-bottom:2px;color:var(--err)">#'+s.id+' 404: '+esc(s.url)+'</div>'});
+  html+='</div>'}
+ el.innerHTML=html;
+}
+
+// Site List XML
+async function loadXMLFile(file){let txt=await file.text();parseXML(txt)}
+function ldXML(input){if(input.files[0])loadXMLFile(input.files[0])}
+function parseXML(txt){
+ slData=[];let parser=new DOMParser();let doc=parser.parseFromString(txt,'text/xml');
+ doc.querySelectorAll('shared-cookie').forEach(el=>{
+  slData.push({type:'cookie',domain:el.getAttribute('domain')||'',name:el.getAttribute('name')||'',source:el.getAttribute('source-engine')||''})});
+ doc.querySelectorAll('site').forEach(el=>{
+  let url=el.getAttribute('url')||'';let oi=el.querySelector('open-in');let cm=el.querySelector('compat-mode');
+  let mode=oi?oi.textContent.trim():'';let merge=oi?oi.getAttribute('merge-type')||'':'';let compat=cm?cm.textContent.trim():'';
+  slData.push({type:'site',url:url,mode:mode,merge:merge,compat:compat})});
+ rXL();
+}
+function rXL(){
+ let el=document.getElementById('xlC');let q=(document.getElementById('xlQ').value||'').toLowerCase();
+ let list=slData.filter(e=>!q||((e.url||'')+(e.domain||'')+(e.name||'')).toLowerCase().includes(q));
+ if(!list.length){el.innerHTML='<div style="text-align:center;color:var(--tx3);padding:20px">'+(slData.length?'No entries match filter':'No data loaded')+'</div>';return}
+ el.innerHTML=list.map(e=>{
+  if(e.type==='cookie')return '<div class="xl-e" style="border-left:3px solid var(--ok)"><span class="xl-t xl-ck">shared-cookie</span><span class="xl-u">domain='+esc(e.domain)+' name='+esc(e.name)+' source='+esc(e.source)+'</span></div>';
+  let tags='';
+  if(e.mode==='IE11')tags+='<span class="xl-t xl-ie">IE11</span>';
+  else if(e.mode==='MSEdge')tags+='<span class="xl-t" style="background:rgba(59,130,246,.1);color:var(--edge)">Edge</span>';
+  else if(e.mode==='NONE'||e.mode==='None')tags+='<span class="xl-t xl-no">Neutral</span>';
+  if(e.merge==='no-merge')tags+='<span class="xl-t xl-nm">no-merge</span>';
+  if(e.compat&&e.compat!=='Default')tags+='<span class="xl-t" style="background:rgba(139,144,160,.1);color:var(--tx2)">'+esc(e.compat)+'</span>';
+  return '<div class="xl-e"><span class="xl-u">'+esc(e.url)+'</span>'+tags+'</div>'
+ }).join('');
+}
+
+// Policy JSON
+async function loadJSONFile(file){let txt=await file.text();try{polData=JSON.parse(txt);rPol()}catch(e){}}
+function ldPol(input){if(input.files[0])loadJSONFile(input.files[0])}
+function rPol(){
+ let el=document.getElementById('polC');if(!polData){el.innerHTML='<div style="text-align:center;color:var(--tx3)">No policy data</div>';return}
+ let pols=(polData.policyValues&&polData.policyValues.chrome&&polData.policyValues.chrome.policies)||{};
+ let meta=polData.chromeMetadata||{};
+ let html='<div class="pol-c"><h4>Browser Info</h4>';
+ if(meta.version)html+='<div class="pol-r"><span class="pol-k">Version</span><span class="pol-v">'+esc(meta.version)+'</span></div>';
+ if(meta.OS)html+='<div class="pol-r"><span class="pol-k">OS</span><span class="pol-v">'+esc(meta.OS)+'</span></div>';
+ html+='</div>';
+ // IE Mode policies
+ let ieChecks=[
+  {key:'InternetExplorerIntegrationLevel',expect:1,desc:'IE Mode enabled'},
+  {key:'InternetExplorerIntegrationSiteList',expect:null,desc:'Site list URL'},
+  {key:'InternetExplorerIntegrationReloadInIEModeAllowed',expect:null,desc:'Allow reload in IE Mode'},
+  {key:'InternetExplorerModeToolbarButtonEnabled',expect:null,desc:'IE Mode toolbar button'},
+ ];
+ html+='<div class="pol-c"><h4>IE Mode Policies</h4>';
+ ieChecks.forEach(c=>{let p=pols[c.key];let val=p?JSON.stringify(p.value):'Not set';
+  let ok=c.expect!==null?(p&&p.value===c.expect):!!p;
+  html+='<div class="pol-r"><span class="pol-k">'+esc(c.key)+'</span><span class="pol-v">'+esc(val)+'</span><span class="pol-s" style="color:var('+(ok?'--ok':'--tx3')+');">'+(ok?'OK':'—')+'</span></div>'});
+ html+='</div>';
+ // Security policies
+ let secChecks=['EnhanceSecurityMode','SitePerProcess','BrowserLegacyExtensionPointsBlockingEnabled','ApplicationBoundEncryptionEnabled','DynamicCodeSettings'];
+ html+='<div class="pol-c"><h4>Security Policies</h4>';
+ secChecks.forEach(k=>{let p=pols[k];let val=p?JSON.stringify(p.value):'Not set';
+  html+='<div class="pol-r"><span class="pol-k">'+esc(k)+'</span><span class="pol-v">'+esc(val)+'</span></div>'});
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+// Case Notes
+function genNotes(){
+ let ie=allS.filter(s=>s.ptype==='ie'),edge=allS.filter(s=>s.ptype==='edge'),java=allS.filter(s=>s.ptype==='java');
+ let errs=allS.filter(s=>s.status>=400);let js404=allS.filter(s=>s.status===404&&s.url.endsWith('.js'));
+ let t='CASE NOTES - AUTO-GENERATED\n';
+ t+='Generated: '+new Date().toISOString()+'\n';
+ t+='============================================================\n\n';
+ t+='SESSION SUMMARY\n';
+ t+='Total sessions: '+allS.length+'\n';
+ t+='Edge sessions: '+edge.length+'\n';
+ t+='IE Mode sessions: '+ie.length+'\n';
+ t+='Java/jp2launcher sessions: '+java.length+'\n';
+ t+='HTTP errors (4xx/5xx): '+errs.length+'\n\n';
+ if(js404.length){t+='MISSING JAVASCRIPT FILES (404)\n';js404.forEach(s=>{t+='  Session #'+s.id+': '+s.url+'\n'});t+='\n'}
+ t+='ISSUES DETECTED ('+issues.length+')\n';
+ issues.forEach((iss,i)=>{t+=(i+1)+'. ['+iss.sev.toUpperCase()+'] '+iss.title+'\n   '+iss.desc+'\n';if(iss.fix)t+='   Fix: '+iss.fix+'\n';t+='\n'});
+ // Cookie bridge
+ let eCk={},iCk={};edge.forEach(s=>s.cookies.forEach(c=>{eCk[c.name]=1}));ie.forEach(s=>s.cookies.forEach(c=>{iCk[c.name]=1}));
+ let shared=Object.keys(eCk).filter(n=>n in iCk);
+ if(shared.length){t+='COOKIE BRIDGE STATUS\n';t+='Shared cookies (Edge to IE): '+shared.join(', ')+'\n\n'}
+ // Error sessions
+ if(errs.length){t+='ERROR SESSIONS\n';errs.forEach(s=>{t+='  #'+s.id+' '+s.status+' '+s.method+' '+trunc(s.url,70)+'\n'});t+='\n'}
+ // Site list
+ if(slData.length){t+='SITE LIST ENTRIES: '+slData.length+'\n';
+  slData.filter(e=>e.type==='cookie').forEach(e=>{t+='  shared-cookie: domain='+e.domain+' name='+e.name+' source='+e.source+'\n'});
+  slData.filter(e=>e.type==='site'&&e.merge==='no-merge').forEach(e=>{t+='  '+e.url+' ['+e.mode+'] merge-type=no-merge\n'});
+  t+='\n'}
+ // Policy
+ if(polData){let meta=polData.chromeMetadata||{};t+='EDGE VERSION: '+(meta.version||'Unknown')+'\n';t+='OS: '+(meta.OS||'Unknown')+'\n\n'}
+ t+='============================================================\n';
+ t+='END OF NOTES\n';
+ document.getElementById('nA').value=t;
+}
+function cpNotes(){navigator.clipboard.writeText(document.getElementById('nA').value).then(()=>alert('Copied!'))}
+function dlNotes(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([document.getElementById('nA').value],{type:'text/plain'}));a.download='case_notes.txt';a.click()}
+
+</script>
+</body></html>
