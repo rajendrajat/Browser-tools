@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edge Policy Analyzer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg0:#1e1e1e;--bg1:#252526;--bg2:#2d2d2d;--bg3:#3e3e3e;--bd:#404040;--t0:#cccccc;--t1:#8b949e;--tw:#e6e6e6;--ac:#0078d4;--gn:#2ea043;--rd:#f85149;--or:#d29922;--bl:#58a6ff;--gy:#8b949e;--f:Consolas,'Courier New',monospace;}
+html,body{height:100%;font-family:var(--f);background:var(--bg0);color:var(--t0);font-size:13px;}
+::-webkit-scrollbar{width:8px;height:8px;}::-webkit-scrollbar-track{background:var(--bg1);}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px;}
+.app{display:flex;height:100vh;}
+.sidebar{width:48px;background:var(--bg1);border-right:1px solid var(--bd);display:flex;flex-direction:column;align-items:center;padding-top:8px;flex-shrink:0;}
+.sidebar button{width:40px;height:40px;background:none;border:none;color:var(--t1);cursor:pointer;border-radius:4px;margin-bottom:4px;font-size:10px;display:flex;align-items:center;justify-content:center;}
+.sidebar button:hover,.sidebar button.active{background:var(--bg3);color:var(--tw);}
+.sidebar button.active{border-left:2px solid var(--ac);color:var(--ac);}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{height:36px;background:var(--bg1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 16px;gap:12px;}
+.topbar .title{font-size:12px;color:var(--tw);font-weight:600;}.topbar .meta{font-size:11px;color:var(--t1);}
+.content{flex:1;overflow:auto;padding:16px;}.panel{display:none;}.panel.active{display:block;}
+h2{font-size:16px;color:var(--tw);margin-bottom:12px;font-weight:600;}h3{font-size:14px;color:var(--tw);margin:16px 0 8px;font-weight:600;}
+.upload-zone{border:2px dashed var(--bd);border-radius:6px;padding:40px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:16px;}
+.upload-zone:hover{border-color:var(--ac);}.upload-zone.dragover{border-color:var(--ac);background:rgba(0,120,212,.05);}.upload-zone input{display:none;}
+.btn{padding:6px 14px;border:1px solid var(--bd);background:var(--bg2);color:var(--t0);border-radius:4px;cursor:pointer;font-family:var(--f);font-size:12px;}
+.btn:hover{background:var(--bg3);color:var(--tw);}.btn-primary{background:var(--ac);border-color:var(--ac);color:#fff;}.btn-primary:hover{background:#1a8ceb;}
+.btn-danger{background:#6e2d2d;border-color:#8b3535;color:#f85149;}.btn-sm{padding:3px 8px;font-size:11px;}
+input[type=text],input[type=url],select,textarea{background:var(--bg2);border:1px solid var(--bd);color:var(--t0);padding:6px 10px;border-radius:4px;font-family:var(--f);font-size:12px;outline:none;}
+input:focus,select:focus{border-color:var(--ac);}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}.toolbar input[type=text]{flex:1;min-width:200px;}
+.stats-bar{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;}
+.stat{background:var(--bg1);border:1px solid var(--bd);border-radius:4px;padding:8px 16px;text-align:center;}
+.stat .num{font-size:20px;font-weight:700;color:var(--tw);}.stat .lbl{font-size:10px;color:var(--t1);text-transform:uppercase;margin-top:2px;}
+.meta-box{background:var(--bg1);border:1px solid var(--bd);border-radius:4px;padding:12px 16px;margin-bottom:16px;}
+.meta-box table{width:100%;}.meta-box td{padding:3px 8px;font-size:12px;}.meta-box td:first-child{color:var(--t1);width:140px;}.meta-box td:last-child{color:var(--tw);}
+table.data{width:100%;border-collapse:collapse;font-size:12px;}
+table.data th{background:var(--bg1);color:var(--t1);text-align:left;padding:8px 10px;border-bottom:1px solid var(--bd);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;z-index:1;}
+table.data th:hover{color:var(--tw);}table.data td{padding:6px 10px;border-bottom:1px solid var(--bg2);vertical-align:top;max-width:400px;word-break:break-word;}
+table.data tr:hover td{background:var(--bg2);}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+.badge-ok{background:rgba(46,160,67,.15);color:var(--gn);}.badge-error{background:rgba(248,81,73,.15);color:var(--rd);}
+.badge-superseded{background:rgba(210,153,34,.15);color:var(--or);}.badge-deprecated{background:rgba(139,148,158,.15);color:var(--gy);}
+.badge-obsolete{background:rgba(139,148,158,.2);color:#6e7681;}.badge-mandatory{background:rgba(204,204,204,.1);color:var(--tw);}
+.badge-recommended{background:rgba(88,166,255,.15);color:var(--bl);}.badge-machine{background:rgba(204,204,204,.08);color:var(--t1);}
+.badge-user{background:rgba(136,108,228,.15);color:#b392f0;}
+a.pl{color:var(--bl);text-decoration:none;}a.pl:hover{text-decoration:underline;}
+.val-cell{font-family:var(--f);font-size:11px;color:var(--t1);}
+.json-str{color:#ce9178;}.json-num{color:#b5cea8;}.json-bool{color:#569cd6;}.json-null{color:#808080;}
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.diff-change{background:rgba(210,153,34,.1);}
+.tab-bar{display:flex;border-bottom:1px solid var(--bd);margin-bottom:12px;}
+.tab-bar button{padding:8px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t1);cursor:pointer;font-family:var(--f);font-size:12px;}
+.tab-bar button:hover{color:var(--tw);}.tab-bar button.active{color:var(--ac);border-bottom-color:var(--ac);}
+.tab-content{display:none;}.tab-content.active{display:block;}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}.modal{background:var(--bg1);border:1px solid var(--bd);border-radius:6px;padding:20px;width:500px;max-width:90vw;max-height:80vh;overflow:auto;}
+.modal h3{margin-top:0;}.modal .fr{margin-bottom:10px;}.modal .fr label{display:block;font-size:11px;color:var(--t1);margin-bottom:4px;}.modal .fr input,.modal .fr select{width:100%;}
+.modal .fa{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.info-msg{background:rgba(0,120,212,.1);border:1px solid rgba(0,120,212,.3);color:var(--bl);padding:10px 14px;border-radius:4px;font-size:12px;margin-bottom:12px;}
+.count-badge{background:var(--bg2);color:var(--t1);padding:1px 6px;border-radius:8px;font-size:10px;margin-left:6px;}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+<button class="active" onclick="showPanel('analyze')" title="Analyze">ANL</button>
+<button onclick="showPanel('compare')" title="Compare">CMP</button>
+<button onclick="showPanel('policydb')" title="Policy Database">DB</button>
+<button onclick="showPanel('settings')" title="Settings">SET</button>
+</div>
+<div class="main">
+<div class="topbar"><span class="title">Edge Policy Analyzer v1.0</span><span class="meta" id="topMeta">Ready</span></div>
+<div class="content">
+
+<!-- ANALYZE -->
+<div class="panel active" id="panel-analyze">
+<h2>Policy Analyzer</h2>
+<div id="a-upload">
+<div class="upload-zone" id="dz1" onclick="document.getElementById('f1').click()">
+<p style="color:var(--tw);font-size:14px;">Drop policy.json here or click to browse</p>
+<p style="color:var(--t1);font-size:11px;margin-top:6px;">Export from edge://policy &gt; Export as JSON</p>
+<input type="file" id="f1" accept=".json" onchange="handleFile(this)">
+</div></div>
+<div id="a-results" style="display:none;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<h3 style="margin:0;">Analysis Results</h3>
+<div style="display:flex;gap:8px;"><button class="btn btn-sm" onclick="exportCSV()">Export CSV</button><button class="btn btn-sm" onclick="resetA()">Load Another</button></div>
+</div>
+<div class="meta-box" id="a-meta"></div>
+<div class="stats-bar" id="a-stats"></div>
+<div class="toolbar">
+<input type="text" id="a-search" placeholder="Search policies..." oninput="filterA()">
+<select id="a-fst" onchange="filterA()"><option value="">All Status</option><option value="ok">Applied</option><option value="error">Error</option><option value="superseded">Superseded</option><option value="deprecated">Deprecated/Obsolete</option></select>
+<select id="a-flv" onchange="filterA()"><option value="">All Levels</option><option value="mandatory">Mandatory</option><option value="recommended">Recommended</option></select>
+<select id="a-fsr" onchange="filterA()"><option value="">All Sources</option></select>
+</div>
+<div style="overflow:auto;max-height:calc(100vh - 380px);">
+<table class="data"><thead><tr>
+<th onclick="sortA('name')">Policy Name</th><th onclick="sortA('status')" style="width:100px;">Status</th>
+<th onclick="sortA('level')" style="width:95px;">Level</th><th onclick="sortA('scope')" style="width:80px;">Scope</th>
+<th onclick="sortA('source')" style="width:85px;">Source</th><th onclick="sortA('category')" style="width:120px;">Category</th>
+<th style="min-width:200px;">Value</th></tr></thead><tbody id="a-tbody"></tbody></table>
+</div></div></div>
+
+<!-- COMPARE -->
+<div class="panel" id="panel-compare">
+<h2>Compare Policies</h2>
+<div id="c-upload">
+<div class="compare-grid">
+<div><p style="font-size:12px;color:var(--tw);margin-bottom:8px;">File A (Working Machine)</p>
+<div class="upload-zone" id="dzA" onclick="document.getElementById('fA').click()"><p>Drop File A here</p><input type="file" id="fA" accept=".json" onchange="handleCF('A',this)"></div>
+<div id="mA" class="meta-box" style="display:none;"></div></div>
+<div><p style="font-size:12px;color:var(--tw);margin-bottom:8px;">File B (Failing Machine)</p>
+<div class="upload-zone" id="dzB" onclick="document.getElementById('fB').click()"><p>Drop File B here</p><input type="file" id="fB" accept=".json" onchange="handleCF('B',this)"></div>
+<div id="mB" class="meta-box" style="display:none;"></div></div>
+</div>
+<div style="display:flex;gap:8px;"><button class="btn btn-primary" id="cmpBtn" onclick="runCmp()" disabled>Compare</button><button class="btn" onclick="resetC()">Reset</button></div>
+</div>
+<div id="c-results" style="display:none;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<h3 style="margin:0;">Comparison Results</h3>
+<div style="display:flex;gap:8px;"><button class="btn btn-sm" onclick="exportCmpCSV()">Export CSV</button><button class="btn btn-sm" onclick="resetC()">New Comparison</button></div>
+</div>
+<div class="stats-bar" id="c-stats"></div>
+<div class="tab-bar" id="c-tabs">
+<button class="active" onclick="showCTab('common')">Common</button>
+<button onclick="showCTab('onlyA')">Only in A</button>
+<button onclick="showCTab('onlyB')">Only in B</button>
+<button onclick="showCTab('summary')">Summary</button>
+</div>
+<div class="toolbar"><input type="text" id="c-search" placeholder="Search..." oninput="filterC()"></div>
+<div class="tab-content active" id="ct-common"><div style="overflow:auto;max-height:calc(100vh - 400px);">
+<table class="data"><thead><tr><th>Policy</th><th>Status</th><th>Value (A)</th><th>Value (B)</th><th>Match</th></tr></thead><tbody id="ct-cb"></tbody></table></div></div>
+<div class="tab-content" id="ct-onlyA"><div style="overflow:auto;max-height:calc(100vh - 400px);">
+<table class="data"><thead><tr><th>Policy</th><th>Level</th><th>Scope</th><th>Source</th><th>Value</th></tr></thead><tbody id="ct-ab"></tbody></table></div></div>
+<div class="tab-content" id="ct-onlyB"><div style="overflow:auto;max-height:calc(100vh - 400px);">
+<table class="data"><thead><tr><th>Policy</th><th>Level</th><th>Scope</th><th>Source</th><th>Value</th></tr></thead><tbody id="ct-bb"></tbody></table></div></div>
+<div class="tab-content" id="ct-summary"><div id="c-summary"></div></div>
+</div></div>
+
+<!-- POLICY DB -->
+<div class="panel" id="panel-policydb">
+<h2>Policy Database</h2>
+<div class="info-msg">Master database of all known Microsoft Edge policies. Click "Fetch New Policies" to sync with upstream Microsoft documentation (like GitHub fork sync).</div>
+<div class="toolbar">
+<input type="text" id="db-search" placeholder="Search policies..." oninput="filterDB()">
+<select id="db-fcat" onchange="filterDB()"><option value="">All Categories</option></select>
+<select id="db-fst" onchange="filterDB()"><option value="">All</option><option value="a">Active</option><option value="d">Deprecated</option><option value="o">Obsolete</option></select>
+<button class="btn btn-primary" onclick="showAddModal()">+ Add Policy</button>
+<button class="btn" onclick="fetchNew()">Fetch New Policies</button>
+<button class="btn" onclick="exportDB()">Export DB</button>
+<button class="btn btn-danger btn-sm" onclick="resetDB()">Reset Default</button>
+</div>
+<div id="db-info" style="font-size:11px;color:var(--t1);margin-bottom:8px;"></div>
+<div style="overflow:auto;max-height:calc(100vh - 300px);">
+<table class="data"><thead><tr>
+<th onclick="sortDBCol('n')">Policy Name</th><th onclick="sortDBCol('g')" style="min-width:160px;">Category</th>
+<th onclick="sortDBCol('s')" style="width:90px;">Status</th><th style="width:80px;">Actions</th>
+</tr></thead><tbody id="db-tbody"></tbody></table></div></div>
+
+<!-- SETTINGS -->
+<div class="panel" id="panel-settings">
+<h2>Settings</h2>
+<div style="max-width:600px;">
+<h3>Documentation Source URL</h3>
+<p style="font-size:11px;color:var(--t1);margin-bottom:8px;">Upstream URL for policy updates (like GitHub upstream branch).</p>
+<div style="display:flex;gap:8px;margin-bottom:24px;">
+<input type="url" id="srcUrl" style="flex:1;" value="https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies">
+<button class="btn" onclick="saveSrc()">Save</button></div>
+<h3>Import / Export Policy Database</h3>
+<div style="display:flex;gap:8px;margin-bottom:24px;">
+<button class="btn" onclick="exportDB()">Export JSON</button>
+<button class="btn" onclick="document.getElementById('impDB').click()">Import JSON</button>
+<input type="file" id="impDB" accept=".json" style="display:none;" onchange="importDB(this)"></div>
+<h3>About</h3>
+<div style="font-size:12px;color:var(--t1);line-height:1.7;">
+<p>Edge Policy Analyzer v1.0 - Built for Microsoft Edge Browser support engineers.</p>
+<p>Analyzes policy.json exports from edge://policy. Compare two machines side by side.</p>
+<p>Database: <a href="https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies" target="_blank" class="pl">Microsoft Edge Browser Policy Documentation</a></p>
+</div></div></div>
+
+</div></div></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="pModal">
+<div class="modal">
+<h3 id="mTitle">Add Policy</h3>
+<div class="fr"><label>Policy Name</label><input type="text" id="mName"></div>
+<div class="fr"><label>Category</label><input type="text" id="mCat" placeholder="e.g. SmartScreen settings"></div>
+<div class="fr"><label>Documentation URL</label><input type="url" id="mUrl"></div>
+<div class="fr"><label>Status</label><select id="mSt"><option value="a">Active</option><option value="d">Deprecated</option><option value="o">Obsolete</option></select></div>
+<div class="fa"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveModal()">Save</button></div>
+</div></div>
+<script>
+var BASE="https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies#";
+var CATM={AC:"Accessibility",AB:"Address Bar",AG:"Application Guard",CA:"Cast",CE:"Certificate management",CN:"Connector",CS:"Content settings",CO:"Copilot",CR:"Cryptography compliance",SP:"Default search provider",DD:"Diagnostic Data",DL:"Downloads",TP:"Typo Protection",WS:"Workspaces",ES:"Enhanced Security Mode",EX:"Experimentation",XT:"Extensions",GM:"Games",AI:"Generative AI",HA:"HTTP authentication",ID:"Identity and sign-in",IB:"Idle Browser Actions",IR:"Immersive Reader",IM:"Import",IE:"Internet Explorer Mode",KM:"Kiosk Mode",MG:"Manageability",MO:"Microsoft Office",NM:"Native Messaging",NW:"Network settings",PD:"PDF Reader",PW:"Password manager",PF:"Performance",SC:"Screen capture",PS:"Personalization",PR:"Printing",PN:"Private Network",PO:"Profile settings",PC:"Protected Content",PX:"Proxy server",RS:"Related Website Sets",SB:"Scareware Blocker",ST:"Sleeping tabs",SS:"SmartScreen settings",SU:"Startup home page and NTP",WR:"WebRtc settings",AD:"Additional"};
+var _RDB={"AccessibilityImageLabelsEnabled":["AC","a"],"AccessibilityPerformanceFilteringAllowed":["AC","a"],"LiveCaptionsAllowed":["AC","a"],"AddressBarEditingEnabled":["AB","a"],"AddressBarMicrosoftSearchInBingProviderEnabled":["AB","o"],"AddressBarTrendingSuggestEnabled":["AB","a"],"AddressBarWorkSearchResultsEnabled":["AB","a"],"ApplicationGuardContainerProxy":["AG","a"],"ApplicationGuardFavoritesSyncEnabled":["AG","a"],"ApplicationGuardPassiveModeEnabled":["AG","a"],"ApplicationGuardTrafficIdentificationEnabled":["AG","a"],"ApplicationGuardUploadBlockingEnabled":["AG","a"],"EdgeDisableDialProtocolForCastDiscovery":["CA","a"],"EnableMediaRouter":["CA","a"],"ShowCastIconInToolbar":["CA","a"],"CACertificateManagementAllowed":["CE","a"],"CACertificates":["CE","a"],"CACertificatesWithConstraints":["CE","a"],"CADistrustedCertificates":["CE","a"],"CAHintCertificates":["CE","a"],"CAPlatformIntegrationEnabled":["CE","a"],"CertificateTransparencyEnforcementDisabledForCas":["CE","a"],"CertificateTransparencyEnforcementDisabledForLegacyCas":["CE","o"],"CertificateTransparencyEnforcementDisabledForUrls":["CE","a"],"ForceCertificatePromptsOnMultipleMatches":["CE","d"],"PromptOnMultipleMatchingCertificates":["CE","a"],"OnBulkDataEntryEnterpriseConnector":["CN","a"],"OnFileAttachedEnterpriseConnector":["CN","a"],"OnPrintEnterpriseConnector":["CN","a"],"OnSecurityEventEnterpriseConnector":["CN","a"],"AutoSelectCertificateForUrls":["CS","a"],"AutomaticDownloadsAllowedForUrls":["CS","a"],"AutomaticDownloadsBlockedForUrls":["CS","a"],"AutomaticFullscreenAllowedForUrls":["CS","a"],"AutomaticFullscreenBlockedForUrls":["CS","a"],"CookiesAllowedForUrls":["CS","a"],"CookiesBlockedForUrls":["CS","a"],"CookiesSessionOnlyForUrls":["CS","a"],"DataUrlInSvgUseEnabled":["CS","a"],"DefaultAutomaticDownloadsSetting":["CS","a"],"DefaultCookiesSetting":["CS","a"],"DefaultDesktopSiteSetting":["CS","a"],"DefaultFileSystemReadGuardSetting":["CS","a"],"DefaultFileSystemWriteGuardSetting":["CS","a"],"DefaultGeolocationSetting":["CS","a"],"DefaultIdleDetectionSetting":["CS","a"],"DefaultImagesSetting":["CS","a"],"DefaultInsecureContentSetting":["CS","a"],"DefaultJavaScriptJitSetting":["CS","a"],"DefaultJavaScriptOptimizerSetting":["CS","a"],"DefaultJavaScriptSetting":["CS","a"],"DefaultNotificationsSetting":["CS","a"],"DefaultPluginsSetting":["CS","o"],"DefaultPopupsSetting":["CS","a"],"DefaultThirdPartyStoragePartitioningSetting":["CS","o"],"DefaultWebBluetoothGuardSetting":["CS","a"],"DefaultWebHidGuardSetting":["CS","a"],"DefaultWebUsbGuardSetting":["CS","a"],"DefaultWindowManagementSetting":["CS","a"],"DesktopSiteForceForUrls":["CS","a"],"EdgeFileUploadAllowedForUrls":["CS","a"],"EdgeFileUploadBlockedForUrls":["CS","a"],"FileSystemReadAskForUrls":["CS","a"],"FileSystemReadBlockedForUrls":["CS","a"],"FileSystemWriteAskForUrls":["CS","a"],"FileSystemWriteBlockedForUrls":["CS","a"],"GeolocationBlockedForUrls":["CS","a"],"IdleDetectionAllowedForUrls":["CS","a"],"IdleDetectionBlockedForUrls":["CS","a"],"ImagesAllowedForUrls":["CS","a"],"ImagesBlockedForUrls":["CS","a"],"InsecureContentAllowedForUrls":["CS","a"],"InsecureContentBlockedForUrls":["CS","a"],"IntranetFileLinksEnabled":["CS","a"],"JavaScriptAllowedForUrls":["CS","a"],"JavaScriptBlockedForUrls":["CS","a"],"JavaScriptJitAllowedForSites":["CS","a"],"JavaScriptJitBlockedForSites":["CS","a"],"JavaScriptOptimizerAllowedForSites":["CS","a"],"JavaScriptOptimizerBlockedForSites":["CS","a"],"LegacySameSiteCookieBehaviorEnabled":["CS","o"],"LegacySameSiteCookieBehaviorEnabledForDomainList":["CS","o"],"MobileSiteForceForUrls":["CS","a"],"NotificationsAllowedForUrls":["CS","a"],"NotificationsBlockedForUrls":["CS","a"],"PartitionedBlobUrlUsage":["CS","a"],"PdfLocalFileAccessAllowedForDomains":["CS","a"],"PluginsAllowedForUrls":["CS","o"],"PluginsBlockedForUrls":["CS","o"],"PopupsAllowedForUrls":["CS","a"],"PopupsBlockedForUrls":["CS","a"],"PreciseGeolocationAllowedForUrls":["CS","a"],"RegisteredProtocolHandlers":["CS","a"],"SerialAllowAllPortsForUrls":["CS","a"],"SerialAllowUsbDevicesForUrls":["CS","a"],"ShowPDFDefaultRecommendationsEnabled":["CS","a"],"SpotlightExperiencesAndRecommendationsEnabled":["CS","a"],"ThirdPartyStoragePartitioningBlockedForOrigins":["CS","o"],"WebHidAllowAllDevicesForUrls":["CS","a"],"WebHidAllowDevicesForUrls":["CS","a"],"WebHidAllowDevicesWithHidUsagesForUrls":["CS","a"],"WebHidAskForUrls":["CS","a"],"WebHidBlockedForUrls":["CS","a"],"WebUsbAllowDevicesForUrls":["CS","a"],"WebUsbAskForUrls":["CS","a"],"WebUsbBlockedForUrls":["CS","a"],"WindowManagementAllowedForUrls":["CS","a"],"WindowManagementBlockedForUrls":["CS","a"],"CopilotCDPPageContext":["CO","o"],"CopilotPageContext":["CO","a"],"EdgeCopilotEnabled":["CO","a"],"EdgeEntraCopilotPageContext":["CO","a"],"Microsoft365CopilotChatIconEnabled":["CO","a"],"PreferSlowCiphers":["CR","a"],"PreferSlowKexAlgorithms":["CR","a"],"DefaultSearchProviderContextMenuAccessAllowed":["SP","a"],"DefaultSearchProviderEnabled":["SP","a"],"DefaultSearchProviderEncodings":["SP","a"],"DefaultSearchProviderImageURL":["SP","a"],"DefaultSearchProviderImageURLPostParams":["SP","a"],"DefaultSearchProviderKeyword":["SP","a"],"DefaultSearchProviderName":["SP","a"],"DefaultSearchProviderSearchURL":["SP","a"],"DefaultSearchProviderSuggestURL":["SP","a"],"NewTabPageSearchBox":["SP","a"],"DiagnosticData":["DD","a"],"UrlDiagnosticDataEnabled":["DD","a"],"AutoOpenAllowedForURLs":["DL","a"],"AutoOpenFileTypes":["DL","a"],"DefaultDownloadDirectory":["DL","a"],"DownloadBlockedForFileTypes":["DL","a"],"DownloadDirectory":["DL","a"],"DownloadRestrictions":["DL","a"],"ExemptFileTypeDownloadWarnings":["DL","a"],"PromptForDownloadLocation":["DL","a"],"ShowDownloadsInsecureWarningsEnabled":["DL","a"],"PreventTyposquattingPromptOverride":["TP","a"],"TyposquattingAllowListDomains":["TP","a"],"TyposquattingCheckerEnabled":["TP","a"],"EdgeWorkspacesEnabled":["WS","a"],"WorkspacesNavigationSettings":["WS","a"],"EnhanceSecurityMode":["ES","a"],"EnhanceSecurityModeAllowUserBypass":["ES","a"],"EnhanceSecurityModeBypassIntranet":["ES","a"],"EnhanceSecurityModeBypassListDomains":["ES","a"],"EnhanceSecurityModeEnforceListDomains":["ES","a"],"EnhanceSecurityModeIndicatorUIEnabled":["ES","a"],"EnhanceSecurityModeOptOutUXEnabled":["ES","o"],"FeatureFlagOverridesControl":["EX","a"],"BlockExternalExtensions":["XT","a"],"ControlDefaultStateOfAllowExtensionFromOtherStoresSettingEnabled":["XT","a"],"EdgeSafeHostingExtensionEnabled":["XT","a"],"ExtensionAllowedTypes":["XT","a"],"ExtensionDeveloperModeSettings":["XT","a"],"ExtensionExtendedBackgroundLifetimeForPortConnectionsToUrls":["XT","a"],"ExtensionInstallAllowlist":["XT","a"],"ExtensionInstallBlocklist":["XT","a"],"ExtensionInstallForcelist":["XT","a"],"ExtensionInstallSources":["XT","a"],"ExtensionInstallTypeBlocklist":["XT","a"],"ExtensionManifestV2Availability":["XT","a"],"ExtensionSettings":["XT","a"],"MandatoryExtensionsForInPrivateNavigation":["XT","a"],"AllowGamesMenu":["GM","d"],"AllowSurfGame":["GM","a"],"GamerModeEnabled":["GM","o"],"AIGenThemesEnabled":["AI","a"],"GenAILocalFoundationalModelSettings":["AI","a"],"AllHttpAuthSchemesAllowedForOrigins":["HA","a"],"AllowCrossOriginAuthPrompt":["HA","a"],"AuthAndroidNegotiateAccountType":["HA","a"],"AuthNegotiateDelegateAllowlist":["HA","a"],"AuthNegotiateDelegateByKdcPolicy":["HA","a"],"AuthSchemes":["HA","a"],"AuthServerAllowlist":["HA","a"],"BasicAuthOverHttpEnabled":["HA","a"],"DisableAuthNegotiateCnameLookup":["HA","a"],"EnableAuthNegotiatePort":["HA","a"],"GloballyScopeHTTPAuthCacheEnabled":["HA","a"],"NtlmV2Enabled":["HA","a"],"WindowsHelloForHTTPAuthEnabled":["HA","a"],"AutomaticProfileSwitchingSiteList":["ID","a"],"EdgeBlockSignInEnabled":["ID","a"],"EdgeDefaultProfileEnabled":["ID","a"],"EdgeOpenExternalLinksWithAppSpecifiedProfile":["ID","a"],"EdgeOpenExternalLinksWithPrimaryWorkProfileEnabled":["ID","a"],"EditProfileEnabled":["ID","a"],"GuidedSwitchEnabled":["ID","a"],"ImplicitSignInEnabled":["ID","a"],"LinkedAccountEnabled":["ID","o"],"OneAuthAuthenticationEnforced":["ID","a"],"OnlyOnPremisesImplicitSigninEnabled":["ID","a"],"ProactiveAuthWorkflowEnabled":["ID","a"],"SeamlessWebToBrowserSignInEnabled":["ID","a"],"SignInCtaOnNtpEnabled":["ID","o"],"SwitchIntranetSitesToWorkProfile":["ID","a"],"SwitchSitesOnIEModeSiteListToWorkProfile":["ID","a"],"WAMAuthBelowWin10RS3Enabled":["ID","a"],"WebSSOInIframeEnabled":["ID","a"],"WebToBrowserSignInEnabled":["ID","a"],"IdleTimeout":["IB","a"],"IdleTimeoutActions":["IB","a"],"ImmersiveReaderGrammarToolsEnabled":["IR","o"],"ImmersiveReaderPictureDictionaryEnabled":["IR","o"],"ImportAutofillFormData":["IM","a"],"ImportBrowserSettings":["IM","a"],"ImportCookies":["IM","a"],"ImportExtensions":["IM","a"],"ImportFavorites":["IM","a"],"ImportHistory":["IM","a"],"ImportHomepage":["IM","a"],"ImportOnEachLaunch":["IM","a"],"ImportOpenTabs":["IM","a"],"ImportPasswordsDisabled":["IM","a"],"ImportPaymentInfo":["IM","a"],"ImportSavedPasswords":["IM","a"],"ImportSearchEngine":["IM","a"],"ImportShortcuts":["IM","a"],"ImportStartupPageSettings":["IM","a"],"InternetExplorerIntegrationAlwaysUseOSCapture":["IE","a"],"InternetExplorerIntegrationAlwaysWaitForUnload":["IE","a"],"InternetExplorerIntegrationCloudNeutralSitesReporting":["IE","a"],"InternetExplorerIntegrationCloudSiteList":["IE","a"],"InternetExplorerIntegrationCloudUserSitesReporting":["IE","a"],"InternetExplorerIntegrationComplexNavDataTypes":["IE","a"],"InternetExplorerIntegrationEnhancedHangDetection":["IE","a"],"InternetExplorerIntegrationLevel":["IE","a"],"InternetExplorerIntegrationLocalFileAllowed":["IE","a"],"InternetExplorerIntegrationLocalFileExtensionAllowList":["IE","a"],"InternetExplorerIntegrationLocalFileShowContextMenu":["IE","a"],"InternetExplorerIntegrationLocalMhtFileAllowed":["IE","a"],"InternetExplorerIntegrationLocalSiteListExpirationDays":["IE","a"],"InternetExplorerIntegrationReloadInIEModeAllowed":["IE","a"],"InternetExplorerIntegrationSiteList":["IE","a"],"InternetExplorerIntegrationSiteListRefreshInterval":["IE","a"],"InternetExplorerIntegrationSiteRedirect":["IE","a"],"InternetExplorerIntegrationTestingAllowed":["IE","o"],"InternetExplorerIntegrationWindowOpenHeightAdjustment":["IE","a"],"InternetExplorerIntegrationWindowOpenWidthAdjustment":["IE","a"],"InternetExplorerIntegrationZoneIdentifierMhtFileAllowed":["IE","a"],"InternetExplorerModeClearDataOnExitEnabled":["IE","a"],"InternetExplorerModeEnableSavePageAs":["IE","a"],"InternetExplorerModeTabInEdgeModeAllowed":["IE","a"],"InternetExplorerModeToolbarButtonEnabled":["IE","a"],"InternetExplorerSetForegroundWhenActive":["IE","a"],"InternetExplorerZoomDisplay":["IE","a"],"EdgeEnableKioskMode":["KM","a"],"EdgeShowAddressBarInKioskMode":["KM","a"],"EdgeShowBottomBarInKioskMode":["KM","a"],"KioskAddressBarEditingEnabled":["KM","a"],"KioskDeleteDownloadsOnExit":["KM","a"],"KioskSwipeGesturesEnabled":["KM","a"],"AllowEdgeDataInBackups":["MG","a"],"EdgeAllowedAccountOnly":["MG","a"],"EdgeAllowedAccountUPN":["MG","a"],"EdgeManagementEnabled":["MG","a"],"EdgeManagementEnrollmentToken":["MG","a"],"EdgeManagementExtensionsFeedbackEnabled":["MG","a"],"EdgeManagementPolicyOverridesPlatformPolicy":["MG","a"],"EdgeManagementUserPolicyOverridesCloudMachinePolicy":["MG","a"],"MAMEnabled":["MG","a"],"ManagedTopSites":["MG","a"],"MicrosoftOfficeMenuEnabled":["MO","d"],"OutlookHubMenuEnabled":["MO","o"],"QuickViewOfficeFilesEnabled":["MO","a"],"ShowOfficeShortcutInFavoritesBar":["MO","d"],"NativeMessagingAllowlist":["NM","a"],"NativeMessagingBlocklist":["NM","a"],"NativeMessagingUserLevelHosts":["NM","a"],"AccessControlAllowMethodsInCORSPreflightSpecConformant":["NW","a"],"AdditionalDnsQueryTypesEnabled":["NW","a"],"BlockTruncatedCookies":["NW","o"],"BuiltInDnsClientEnabled":["NW","a"],"CompressionDictionaryTransportEnabled":["NW","a"],"DataURLWhitespacePreservationEnabled":["NW","a"],"DnsOverHttpsMode":["NW","a"],"DnsOverHttpsTemplates":["NW","a"],"EdgeNetworkStackPref":["NW","a"],"ExplicitlyAllowedNetworkPorts":["NW","a"],"FetchKeepaliveDurationSecondsOnShutdown":["NW","a"],"HappyEyeballsV3Enabled":["NW","a"],"IPv6ReachabilityOverrideEnabled":["NW","a"],"LocalNetworkAccessAllowedForUrls":["NW","a"],"LocalNetworkAccessBlockedForUrls":["NW","a"],"LocalNetworkAccessIpAddressSpaceOverrides":["NW","a"],"LocalNetworkAccessPermissionsPolicyDefaultEnabled":["NW","a"],"LocalNetworkAccessRestrictionsEnabled":["NW","o"],"LocalNetworkAccessRestrictionsTemporaryOptOut":["NW","a"],"LocalNetworkAllowedForUrls":["NW","a"],"LocalNetworkBlockedForUrls":["NW","a"],"LoopbackNetworkAllowedForUrls":["NW","a"],"LoopbackNetworkBlockedForUrls":["NW","a"],"NetworkPredictionOptions":["NW","a"],"QuicAllowed":["NW","a"],"ZstdContentEncodingEnabled":["NW","o"],"AlwaysOpenPdfExternally":["PD","a"],"NewPDFReaderEnabled":["PD","a"],"PDFSecureMode":["PD","a"],"PDFXFAEnabled":["PD","a"],"PdfViewerOutOfProcessIframeEnabled":["PD","a"],"RestorePdfView":["PD","a"],"ShowAcrobatSubscriptionButton":["PD","a"],"ViewXFAPDFInIEModeAllowedFileHash":["PD","a"],"ViewXFAPDFInIEModeAllowedOrigins":["PD","a"],"BiometricAuthenticationBeforeFilling":["PW","a"],"DeletingUndecryptablePasswordsEnabled":["PW","a"],"PasswordDeleteOnBrowserCloseEnabled":["PW","a"],"PasswordExportEnabled":["PW","a"],"PasswordGeneratorEnabled":["PW","a"],"PasswordManagerBlocklist":["PW","a"],"PasswordManagerEnabled":["PW","a"],"PasswordManagerPasskeysEnabled":["PW","a"],"PasswordManagerRestrictLengthEnabled":["PW","a"],"PasswordMonitorAllowed":["PW","a"],"PasswordProtectionChangePasswordURL":["PW","a"],"PasswordProtectionLoginURLs":["PW","a"],"PasswordProtectionWarningTrigger":["PW","a"],"PasswordRevealEnabled":["PW","a"],"PrimaryPasswordSetting":["PW","a"],"ThirdPartyPasswordManagersAllowed":["PW","a"],"EfficiencyMode":["PF","a"],"EfficiencyModeEnabled":["PF","a"],"EfficiencyModeOnPowerEnabled":["PF","a"],"ExtensionsPerformanceDetectorEnabled":["PF","a"],"IntensiveWakeUpThrottlingEnabled":["PF","a"],"PerformanceDetectorEnabled":["PF","a"],"PinBrowserEssentialsToolbarButton":["PF","a"],"RAMResourceControlsEnabled":["PF","a"],"StartupBoostEnabled":["PF","a"],"TotalMemoryLimitMb":["PF","a"],"AudioCaptureAllowed":["SC","a"],"AudioCaptureAllowedUrls":["SC","a"],"DisableScreenshots":["SC","a"],"SameOriginTabCaptureAllowedByOrigins":["SC","a"],"ScreenCaptureAllowed":["SC","a"],"ScreenCaptureAllowedByOrigins":["SC","a"],"ScreenCaptureWithoutGestureAllowedForOrigins":["SC","a"],"TabCaptureAllowedByOrigins":["SC","a"],"VideoCaptureAllowed":["SC","a"],"VideoCaptureAllowedUrls":["SC","a"],"WebCaptureEnabled":["SC","a"],"WindowCaptureAllowedByOrigins":["SC","a"],"PersonalizationReportingEnabled":["PS","a"],"PersonalizeTopSitesInCustomizeSidebarEnabled":["PS","a"],"DefaultPrinterSelection":["PR","a"],"OopPrintDriversAllowed":["PR","a"],"PrintHeaderFooter":["PR","a"],"PrintPdfAsImageDefault":["PR","a"],"PrintPostScriptMode":["PR","a"],"PrintPreviewStickySettings":["PR","a"],"PrintPreviewUseSystemDefaultPrinter":["PR","a"],"PrintRasterizationMode":["PR","a"],"PrintRasterizePdfDpi":["PR","a"],"PrintStickySettings":["PR","a"],"PrinterTypeDenyList":["PR","a"],"PrintingAllowedBackgroundGraphicsModes":["PR","a"],"PrintingBackgroundGraphicsDefault":["PR","a"],"PrintingEnabled":["PR","a"],"PrintingLPACSandboxEnabled":["PR","a"],"PrintingPaperSizeDefault":["PR","a"],"PrintingWebpageLayout":["PR","a"],"UseSystemPrintDialog":["PR","a"],"InsecurePrivateNetworkRequestsAllowed":["PN","o"],"InsecurePrivateNetworkRequestsAllowedForUrls":["PN","o"],"PrivateNetworkAccessRestrictionsEnabled":["PN","o"],"ProfileTypeInProfileButtonEnabled":["PO","a"],"ProtectedContentIdentifiersAllowed":["PC","a"],"ProxyBypassList":["PX","d"],"ProxyMode":["PX","d"],"ProxyOverrideRules":["PX","a"],"ProxyPacUrl":["PX","d"],"ProxyServer":["PX","d"],"ProxySettings":["PX","a"],"RelatedWebsiteSetsEnabled":["RS","d"],"RelatedWebsiteSetsOverrides":["RS","d"],"ScarewareBlockerAllowListDomains":["SB","a"],"ScarewareBlockerBlocksDetectedSitesEnabled":["SB","a"],"ScarewareBlockerProtectionEnabled":["SB","a"],"ScarewareBlockerSendDetectedSitesToSmartScreenEnabled":["SB","a"],"AutoDiscardSleepingTabsEnabled":["ST","a"],"SleepingTabsBlockedForUrls":["ST","a"],"SleepingTabsEnabled":["ST","a"],"SleepingTabsTimeout":["ST","a"],"ExemptSmartScreenDownloadWarnings":["SS","a"],"NewSmartScreenLibraryEnabled":["SS","o"],"PreventSmartScreenPromptOverride":["SS","a"],"PreventSmartScreenPromptOverrideForFiles":["SS","a"],"SmartScreenAllowListDomains":["SS","a"],"SmartScreenDnsRequestsEnabled":["SS","a"],"SmartScreenEnabled":["SS","a"],"SmartScreenForTrustedDownloadsEnabled":["SS","a"],"SmartScreenPuaEnabled":["SS","a"],"ConfigureNTPFeedTabVisibility":["SU","a"],"HomepageIsNewTabPage":["SU","a"],"HomepageLocation":["SU","a"],"NewTabPageAllowedBackgroundTypes":["SU","a"],"NewTabPageAppLauncherEnabled":["SU","a"],"NewTabPageBingChatEnabled":["SU","a"],"NewTabPageCompanyLogo":["SU","o"],"NewTabPageCompanyLogoBackplateColor":["SU","a"],"NewTabPageCompanyLogoEnabled":["SU","a"],"NewTabPageContentEnabled":["SU","a"],"NewTabPageHideDefaultTopSites":["SU","a"],"NewTabPageLocation":["SU","a"],"NewTabPageManagedQuickLinks":["SU","a"],"NewTabPagePrerenderEnabled":["SU","a"],"NewTabPageQuickLinksEnabled":["SU","a"],"NewTabPageSetFeedType":["SU","o"],"RestoreOnStartup":["SU","a"],"RestoreOnStartupURLs":["SU","a"],"RestoreOnStartupUserURLsEnabled":["SU","a"],"SetNTPDefaultFeedTab":["SU","a"],"ShowHomeButton":["SU","a"],"WebRtcAllowLegacyTLSProtocols":["WR","o"],"WebRtcIPHandlingUrl":["WR","a"],"WebRtcLocalIpsAllowedUrls":["WR","a"],"WebRtcLocalhostIpHandling":["WR","a"],"WebRtcPostQuantumKeyAgreement":["WR","a"],"WebRtcRespectOsRoutingTableEnabled":["WR","a"],"WebRtcUdpPortRange":["WR","a"],"AADWebSiteSSOUsingThisProfileEnabled":["AD","a"],"AdHocCodeSigningForPWAsEnabled":["AD","a"],"AdditionalSearchBoxEnabled":["AD","a"],"AdsSettingForIntrusiveAdsSites":["AD","a"],"AdsTransparencyEnabled":["AD","a"],"AllowBackForwardCacheForCacheControlNoStorePageEnabled":["AD","a"],"AllowDeletingBrowserHistory":["AD","a"],"AllowFileSelectionDialogs":["AD","a"],"AllowPopupsDuringPageUnload":["AD","o"],"AllowSyncXHRInPageDismissal":["AD","o"],"AllowSystemNotifications":["AD","a"],"AllowTokenBindingForUrls":["AD","o"],"AllowTrackingForUrls":["AD","a"],"AllowWebAuthnWithBrokenTlsCerts":["AD","a"],"AllowedDomainsForApps":["AD","a"],"AlternateErrorPagesEnabled":["AD","a"],"AmbientAuthenticationInPrivateModesEnabled":["AD","a"],"AntiParallelOnStartUpEnabled":["AD","a"],"AppCacheForceEnabled":["AD","o"],"ApplicationBoundEncryptionEnabled":["AD","a"],"ApplicationLocaleValue":["AD","a"],"AskBeforeCloseEnabled":["AD","a"],"AudioProcessHighPriorityEnabled":["AD","a"],"AudioSandboxEnabled":["AD","a"],"AutoImportAtFirstRun":["AD","a"],"AutoLaunchProtocolsComponentEnabled":["AD","a"],"AutoLaunchProtocolsFromOrigins":["AD","a"],"AutofillAddressEnabled":["AD","a"],"AutofillCreditCardEnabled":["AD","a"],"AutofillMembershipsEnabled":["AD","a"],"AutomaticHttpsDefault":["AD","o"],"AutoplayAllowed":["AD","a"],"AutoplayAllowlist":["AD","a"],"BackForwardCacheEnabled":["AD","a"],"BackgroundModeEnabled":["AD","a"],"BackgroundTemplateListUpdatesEnabled":["AD","d"],"BeforeunloadEventCancelByPreventDefaultEnabled":["AD","o"],"BingAdsSuppression":["AD","a"],"BlockThirdPartyCookies":["AD","a"],"BrowserAddProfileEnabled":["AD","a"],"BrowserCodeIntegritySetting":["AD","a"],"BrowserGuestModeEnabled":["AD","a"],"BrowserGuestModeEnforced":["AD","a"],"BrowserLegacyExtensionPointsBlockingEnabled":["AD","a"],"BrowserNetworkTimeQueriesEnabled":["AD","a"],"BrowserSignin":["AD","a"],"BrowsingDataLifetime":["AD","a"],"BuiltInAIAPIsEnabled":["AD","a"],"BuiltinCertificateVerifierEnabled":["AD","o"],"CECPQ2Enabled":["AD","o"],"CORSNonWildcardRequestHeadersSupport":["AD","a"],"CSSCustomStateDeprecatedSyntaxEnabled":["AD","o"],"ClearBrowsingDataOnExit":["AD","a"],"ClearCachedImagesAndFilesOnExit":["AD","a"],"ClickOnceEnabled":["AD","a"],"ClipboardAllowedForUrls":["AD","a"],"ClipboardBlockedForUrls":["AD","a"],"CollectionsServicesAndExportsBlockList":["AD","a"],"CommandLineFlagSecurityWarningsEnabled":["AD","a"],"ComponentUpdatesEnabled":["AD","a"],"ComposeInlineEnabled":["AD","a"],"ConfigureDoNotTrack":["AD","a"],"ConfigureFriendlyURLFormat":["AD","a"],"ConfigureKeyboardShortcuts":["AD","a"],"ConfigureOnPremisesAccountAutoSignIn":["AD","a"],"ConfigureOnlineTextToSpeech":["AD","a"],"ConfigureShare":["AD","a"],"ConfigureViewInFileExplorer":["AD","a"],"CreatePasskeysInICloudKeychain":["AD","a"],"CredentialProviderPromoEnabled":["AD","a"],"CrossOriginWebAssemblyModuleSharingEnabled":["AD","o"],"CryptoWalletEnabled":["AD","o"],"CustomHelpLink":["AD","a"],"DNSInterceptionChecksEnabled":["AD","a"],"DefaultBrowserSettingEnabled":["AD","a"],"DefaultBrowserSettingsCampaignEnabled":["AD","a"],"DefaultClipboardSetting":["AD","a"],"DefaultSensorsSetting":["AD","a"],"DefaultSerialGuardSetting":["AD","a"],"DefaultShareAdditionalOSRegionSetting":["AD","a"],"DefinePreferredLanguages":["AD","a"],"DelayNavigationsForInitialSiteListDownload":["AD","a"],"DeleteDataOnMigration":["AD","a"],"DeveloperToolsAvailability":["AD","a"],"DirectInvokeEnabled":["AD","a"],"Disable3DAPIs":["AD","a"],"DisabledMiniApps":["AD","a"],"DiscoverPageContextEnabled":["AD","o"],"DiskCacheDir":["AD","a"],"DiskCacheSize":["AD","a"],"DisplayCapturePermissionsPolicyEnabled":["AD","o"],"DoNotSilentlyBlockProtocolsFromOrigins":["AD","a"],"DoubleClickCloseTabEnabled":["AD","a"],"DynamicCodeSettings":["AD","a"],"Edge3PSerpTelemetryEnabled":["AD","a"],"EdgeAssetDeliveryServiceEnabled":["AD","a"],"EdgeAutofillMlEnabled":["AD","a"],"EdgeBrandColor":["AD","a"],"EdgeBrandLogo":["AD","a"],"EdgeCollectionsEnabled":["AD","a"],"EdgeDisableShareUsageData":["AD","a"],"EdgeDiscoverEnabled":["AD","o"],"EdgeEDropEnabled":["AD","a"],"EdgeEnhanceImagesEnabled":["AD","o"],"EdgeFollowEnabled":["AD","o"],"EdgeHistoryAISearchEnabled":["AD","a"],"EdgeLockedViewModeAllowedActions":["AD","a"],"EdgeLockedViewModeEnabled":["AD","a"],"EdgeMyApps":["AD","a"],"EdgeOneAuthProxy":["AD","a"],"EdgeOpenInSidebarEnabled":["AD","a"],"EdgeProxyPacFailOpenEnabled":["AD","a"],"EdgeProxyPacUrl":["AD","a"],"EdgeSharedDeviceSupportEnabled":["AD","a"],"EdgeShoppingAssistantEnabled":["AD","a"],"EdgeSidebarAppUrlHostAllowList":["AD","a"],"EdgeSidebarAppUrlHostBlockList":["AD","a"],"EdgeSidebarAppUrlHostForceList":["AD","a"],"EdgeSidebarCustomizeEnabled":["AD","a"],"EdgeWalletCheckoutEnabled":["AD","a"],"EdgeWalletEtreeEnabled":["AD","a"],"EditFavoritesEnabled":["AD","a"],"EnableDeprecatedWebPlatformFeatures":["AD","o"],"EnableDomainActionsDownload":["AD","o"],"EnableOnlineRevocationChecks":["AD","a"],"EnableSha1ForLocalAnchors":["AD","o"],"EnableUnsafeSwiftShader":["AD","a"],"EncryptedClientHelloEnabled":["AD","a"],"EnforceLocalAnchorConstraintsEnabled":["AD","o"],"EnterpriseHardwarePlatformAPIEnabled":["AD","a"],"EnterpriseModeSiteListManagerAllowed":["AD","a"],"EventPathEnabled":["AD","o"],"ExemptDomainFileTypePairsFromFileTypeDownloadWarnings":["AD","o"],"ExperimentationAndConfigurationServiceControl":["AD","a"],"ExternalProtocolDialogShowAlwaysOpenCheckbox":["AD","a"],"FamilySafetySettingsEnabled":["AD","a"],"FavoritesBarEnabled":["AD","a"],"FileOrDirectoryPickerWithoutGestureAllowedForOrigins":["AD","a"],"ForceBingSafeSearch":["AD","a"],"ForceBuiltInPushMessagingClient":["AD","a"],"ForceEphemeralProfiles":["AD","a"],"ForceForegroundPriorityForAllTabs":["AD","a"],"ForceGoogleSafeSearch":["AD","a"],"ForceLegacyDefaultReferrerPolicy":["AD","o"],"ForceMajorVersionToMinorPositionInUserAgent":["AD","o"],"ForceNetworkInProcess":["AD","o"],"ForcePermissionPolicyUnloadDefaultEnabled":["AD","a"],"ForceSync":["AD","a"],"ForceSyncTypes":["AD","a"],"ForceYouTubeRestrict":["AD","a"],"FullscreenAllowed":["AD","a"],"GoToIntranetSiteForSingleWordEntryInAddressBar":["AD","a"],"HSTSPolicyBypassList":["AD","a"],"HardwareAccelerationModeEnabled":["AD","a"],"HeadlessModeEnabled":["AD","a"],"HideFirstRunExperience":["AD","a"],"HideInternetExplorerRedirectUXForIncompatibleSitesEnabled":["AD","a"],"HideRestoreDialogEnabled":["AD","a"],"HttpAllowlist":["AD","a"],"HttpsOnlyMode":["AD","a"],"HttpsUpgradesEnabled":["AD","a"],"HubsSidebarEnabled":["AD","a"],"InAppSupportEnabled":["AD","a"],"InPrivateModeAvailability":["AD","a"],"InPrivateModeUrlAllowlist":["AD","a"],"InPrivateModeUrlBlocklist":["AD","a"],"InsecureFormsWarningsEnabled":["AD","d"],"IntranetRedirectBehavior":["AD","a"],"IsolateOrigins":["AD","a"],"KeyboardFocusableScrollersEnabled":["AD","o"],"LiveVideoTranslationEnabled":["AD","a"],"LocalBrowserDataShareEnabled":["AD","a"],"LocalProvidersEnabled":["AD","a"],"MAUEnabled":["AD","o"],"MSAWebSiteSSOUsingThisProfileAllowed":["AD","a"],"ManagedConfigurationPerOrigin":["AD","a"],"ManagedFavorites":["AD","a"],"ManagedNtpShortcuts":["AD","a"],"ManagedSearchEngines":["AD","a"],"MathSolverEnabled":["AD","o"],"MaxConnectionsPerProxy":["AD","a"],"MediaRouterCastAllowAllIPs":["AD","a"],"MetricsReportingEnabled":["AD","o"],"MicrosoftEdgeInsiderPromotionEnabled":["AD","a"],"MicrosoftEditorProofingEnabled":["AD","a"],"MicrosoftEditorSynonymsEnabled":["AD","a"],"MicrosoftRootStoreEnabled":["AD","o"],"MouseGestureEnabled":["AD","a"],"MutationEventsEnabled":["AD","o"],"NTPContentSuggestionsEnabled":["AD","a"],"NativeHostsExecutablesLaunchDirectly":["AD","a"],"NativeWindowOcclusionEnabled":["AD","d"],"NavigationDelayForInitialSiteListDownloadTimeout":["AD","a"],"NetworkServiceSandboxEnabled":["AD","a"],"NewBaseUrlInheritanceBehaviorAllowed":["AD","o"],"NonRemovableProfileEnabled":["AD","a"],"OrganizationLogoOverlayOnAppIconEnabled":["AD","a"],"OrganizationalBrandingOnWorkProfileUIEnabled":["AD","a"],"OriginAgentClusterDefaultEnabled":["AD","a"],"OriginKeyedProcessesEnabled":["AD","a"],"OverlayPermissionDetectionEnabled":["AD","a"],"OverrideSecurityRestrictionsOnInsecureOrigin":["AD","a"],"PaymentMethodQueryEnabled":["AD","a"],"PictureInPictureOverlayEnabled":["AD","a"],"PinningWizardAllowed":["AD","a"],"PolicyRefreshRate":["AD","a"],"PostQuantumKeyAgreementEnabled":["AD","o"],"PrefetchWithServiceWorkerEnabled":["AD","a"],"ProactiveAuthEnabled":["AD","o"],"PromotionalTabsEnabled":["AD","d"],"ProvisionalNotificationsAllowed":["AD","a"],"QRCodeGeneratorEnabled":["AD","a"],"QuickSearchShowMiniMenu":["AD","a"],"RSAKeyUsageForLocalAnchorsEnabled":["AD","o"],"ReadAloudEnabled":["AD","a"],"ReadExtendedCertificateLocationsEnabled":["AD","a"],"RedirectSitesFromInternetExplorerPreventBHOInstall":["AD","a"],"RedirectSitesFromInternetExplorerRedirectMode":["AD","a"],"ReduceIPAddressChangeNotificationEnabled":["AD","a"],"RelatedMatchesCloudServiceEnabled":["AD","o"],"RelaunchFastIfOutdated":["AD","a"],"RelaunchNotification":["AD","a"],"RelaunchNotificationPeriod":["AD","a"],"RelaunchWindow":["AD","a"],"RemoteDebuggingAllowed":["AD","a"],"RendererAppContainerEnabled":["AD","a"],"RendererCodeIntegrityEnabled":["AD","o"],"RequireOnlineRevocationChecksForLocalAnchors":["AD","a"],"ResolveNavigationErrorsUseWebService":["AD","a"],"RestrictCoreSharingOnRenderer":["AD","a"],"RestrictSigninToPattern":["AD","a"],"RoamingProfileLocation":["AD","a"],"RoamingProfileSupportEnabled":["AD","a"],"RunAllFlashInAllowMode":["AD","o"],"SSLErrorOverrideAllowed":["AD","a"],"SSLErrorOverrideAllowedForOrigins":["AD","a"],"SSLVersionMin":["AD","o"],"SandboxExternalProtocolBlocked":["AD","a"],"SaveCookiesOnExit":["AD","a"],"SavingBrowserHistoryDisabled":["AD","a"],"ScrollToTextFragmentEnabled":["AD","a"],"SearchFiltersEnabled":["AD","a"],"SearchForImageEnabled":["AD","a"],"SearchInSidebarEnabled":["AD","a"],"SearchSuggestEnabled":["AD","a"],"SearchbarAllowed":["AD","a"],"SearchbarIsEnabledOnStartup":["AD","a"],"SecurityKeyPermitAttestation":["AD","a"],"SelectParserRelaxationEnabled":["AD","o"],"SendIntranetToInternetExplorer":["AD","a"],"SendMouseEventsDisabledFormControlsEnabled":["AD","o"],"SendSiteInfoToImproveServices":["AD","o"],"SensorsAllowedForUrls":["AD","a"],"SensorsBlockedForUrls":["AD","a"],"SerialAskForUrls":["AD","a"],"SerialBlockedForUrls":["AD","a"],"ServiceWorkerAutoPreloadEnabled":["AD","a"],"ServiceWorkerToControlSrcdocIframeEnabled":["AD","a"],"SetTimeoutWithout1MsClampEnabled":["AD","o"],"ShadowStackCrashRollbackBehavior":["AD","o"],"ShareBrowsingHistoryWithCopilotSearchAllowed":["AD","a"],"SharedArrayBufferUnrestrictedAccessAllowed":["AD","a"],"SharedLinksEnabled":["AD","a"],"SharedWorkerBlobURLFixEnabled":["AD","a"],"ShowDownloadsToolbarButton":["AD","a"],"ShowHistoryThumbnails":["AD","a"],"ShowMicrosoftRewards":["AD","a"],"ShowRecommendationsEnabled":["AD","a"],"ShowTabPreviewEnabled":["AD","a"],"SignedHTTPExchangeEnabled":["AD","a"],"SilentPrintingEnabled":["AD","a"],"SitePerProcess":["AD","a"],"SiteSafetyServicesEnabled":["AD","o"],"SmartActionsBlockList":["AD","a"],"SpeechRecognitionEnabled":["AD","a"],"SpellcheckEnabled":["AD","a"],"SpellcheckLanguage":["AD","a"],"SpellcheckLanguageBlocklist":["AD","a"],"SplitScreenEnabled":["AD","a"],"StandaloneHubsSidebarEnabled":["AD","a"],"StandardizedBrowserZoomEnabled":["AD","a"],"StaticStorageQuotaEnabled":["AD","a"],"StricterMixedContentTreatmentEnabled":["AD","o"],"SuperDragDropEnabled":["AD","a"],"SuppressUnsupportedOSWarning":["AD","a"],"SyncDisabled":["AD","a"],"SyncTypesListDisabled":["AD","a"],"TLS13EarlyDataEnabled":["AD","a"],"TLS13HardeningForLocalAnchorsEnabled":["AD","o"],"TLSCipherSuiteDenyList":["AD","a"],"TabFreezingEnabled":["AD","o"],"TabServicesEnabled":["AD","a"],"TargetBlankImpliesNoOpener":["AD","o"],"TaskManagerEndProcessEnabled":["AD","a"],"TextPredictionEnabled":["AD","a"],"ThrottleNonVisibleCrossOriginIframesAllowed":["AD","o"],"TrackingPrevention":["AD","a"],"TranslateEnabled":["AD","a"],"TravelAssistanceEnabled":["AD","o"],"TripleDESEnabled":["AD","o"],"TwaDisclosureUiMode":["AD","a"],"U2fSecurityKeyApiEnabled":["AD","o"],"URLAllowlist":["AD","a"],"URLBlocklist":["AD","a"],"UnthrottledNestedTimeoutEnabled":["AD","d"],"UpdatePolicyOverride":["AD","a"],"UploadFromPhoneEnabled":["AD","a"],"UserAgentClientHintsEnabled":["AD","o"],"UserAgentClientHintsGREASEUpdateEnabled":["AD","o"],"UserAgentReduction":["AD","o"],"UserDataDir":["AD","a"],"UserDataSnapshotRetentionLimit":["AD","a"],"UserFeedbackAllowed":["AD","a"],"VerticalTabsAllowed":["AD","a"],"VisualSearchEnabled":["AD","a"],"WPADQuickCheckEnabled":["AD","a"],"WalletDonationEnabled":["AD","a"],"WarnBeforeQuittingEnabled":["AD","a"],"WebAnnotations":["AD","a"],"WebAppInstallByUserEnabled":["AD","a"],"WebAppInstallForceList":["AD","a"],"WebAppSettings":["AD","a"],"WebAudioOutputBufferingEnabled":["AD","a"],"WebAuthenticationRemoteDesktopAllowedOrigins":["AD","a"],"WebComponentsV0Enabled":["AD","o"],"WebContentFilteringBlockedCategories":["AD","a"],"WebDriverOverridesIncompatiblePolicies":["AD","o"],"WebSQLAccess":["AD","o"],"WebSQLInThirdPartyContextEnabled":["AD","o"],"WebSQLNonSecureContextEnabled":["AD","o"],"WebSelectEnabled":["AD","o"],"WebWidgetAllowed":["AD","d"],"WebWidgetIsEnabledOnStartup":["AD","o"],"WebXRImmersiveArEnabled":["AD","a"],"WhatsNewPageForEntraProfilesEnabled":["AD","a"],"WinHttpProxyResolverEnabled":["AD","a"],"WindowOcclusionEnabled":["AD","a"],"XSLTEnabled":["AD","a"]};
+
+function expandDB(raw){var db={};for(var k in raw){if(raw.hasOwnProperty(k)){db[k]={g:CATM[raw[k][0]]||raw[k][0],s:raw[k][1],u:BASE+k.toLowerCase()};}}return db;}
+var DEFAULT_DB=expandDB(_RDB);
+var DEP={},OBS={};for(var k in DEFAULT_DB){if(DEFAULT_DB[k].s==="d")DEP[k]=1;if(DEFAULT_DB[k].s==="o")OBS[k]=1;}
+
+var pdb={},curA=null,cdA=null,cdB=null,aSC="name",aSA=true,dSC="n",dSA=true;
+var _editPN=null,_cc=null,_ca=null,_cb=null;
+
+function loadDB(){var s=localStorage.getItem("epdb");if(s){try{pdb=JSON.parse(s);return;}catch(e){}}pdb=JSON.parse(JSON.stringify(DEFAULT_DB));saveDB();}
+function saveDB(){localStorage.setItem("epdb",JSON.stringify(pdb));}
+function resetDB(){if(!confirm("Reset to defaults?"))return;pdb=JSON.parse(JSON.stringify(DEFAULT_DB));saveDB();renderDB();updDBInfo();popCats();}
+
+function init(){loadDB();popCats();renderDB();updDBInfo();setupDD("dz1","f1");setupDD("dzA","fA");setupDD("dzB","fB");
+var u=localStorage.getItem("epSrcUrl");if(u)document.getElementById("srcUrl").value=u;}
+document.addEventListener("DOMContentLoaded",init);
+
+function showPanel(n){var panels=document.querySelectorAll(".panel");for(var i=0;i<panels.length;i++)panels[i].classList.remove("active");
+var btns=document.querySelectorAll(".sidebar button");for(var i=0;i<btns.length;i++)btns[i].classList.remove("active");
+var el=document.getElementById("panel-"+n);if(el)el.classList.add("active");
+var m={analyze:0,compare:1,policydb:2,settings:3};if(m[n]!==undefined&&btns[m[n]])btns[m[n]].classList.add("active");}
+
+function setupDD(zid,iid){var z=document.getElementById(zid);if(!z)return;
+z.addEventListener("dragover",function(e){e.preventDefault();z.classList.add("dragover");});
+z.addEventListener("dragleave",function(){z.classList.remove("dragover");});
+z.addEventListener("drop",function(e){e.preventDefault();z.classList.remove("dragover");var f=e.dataTransfer.files[0];if(!f)return;
+if(iid==="f1")readAndAnalyze(f);else if(iid==="fA")readAndCompare("A",f);else if(iid==="fB")readAndCompare("B",f);});}
+
+function readJSON(file){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){try{var t=e.target.result;if(t.charCodeAt(0)===0xFEFF)t=t.slice(1);res(JSON.parse(t));}catch(er){rej(er);}};r.onerror=function(){rej(new Error("Read error"));};r.readAsText(file);});}
+
+function handleFile(inp){var f=inp.files[0];if(f)readAndAnalyze(f);}
+function readAndAnalyze(file){readJSON(file).then(function(j){curA=procJSON(j,file.name);renderA();}).catch(function(e){alert("Parse error: "+e.message);});}
+
+function extractP(j){var p={};if(j.policyValues&&j.policyValues.chrome&&j.policyValues.chrome.policies){var cp=j.policyValues.chrome.policies;for(var k in cp)if(cp.hasOwnProperty(k))p[k]=cp[k];}
+if(j.policyValues&&j.policyValues.updater&&j.policyValues.updater.policies){var up=j.policyValues.updater.policies;for(var k in up)if(up.hasOwnProperty(k))p["[Updater] "+k]=up[k];}return p;}
+
+function extractM(j){var m=j.chromeMetadata||{};return{os:m.OS||"N/A",app:m.application||"N/A",ver:m.version||"N/A",rev:m.revision||"N/A"};}
+
+function procJSON(j,fn){var meta=extractM(j),raw=extractP(j),ps=[];
+for(var n in raw){if(!raw.hasOwnProperty(n))continue;var d=raw[n];var cn=n.replace("[Updater] ",""),isU=n.indexOf("[Updater] ")===0;
+ps.push({name:cn,dn:n,status:detSt(cn,d),level:d.level||"N/A",scope:d.scope||"N/A",source:d.source||"N/A",
+value:d.value,error:d.error||null,info:d.info||null,sup:d.superseded||null,
+category:isU?"EdgeUpdate Policies":getCat(cn),url:getUrl(cn),isU:isU});}
+var st={total:ps.length,ok:0,error:0,superseded:0,deprecated:0,obsolete:0,mandatory:0,recommended:0};
+for(var i=0;i<ps.length;i++){var p=ps[i];st[p.status]=(st[p.status]||0)+1;if(p.level==="mandatory")st.mandatory++;if(p.level==="recommended")st.recommended++;}
+return{meta:meta,policies:ps,stats:st,fn:fn};}
+
+function detSt(n,d){if(d.error)return"error";if(d.superseded)return"superseded";if(OBS[n]||(pdb[n]&&pdb[n].s==="o"))return"obsolete";if(DEP[n]||(pdb[n]&&pdb[n].s==="d"))return"deprecated";return"ok";}
+function getUrl(n){return(pdb[n]&&pdb[n].u)||BASE+n.toLowerCase();}
+function getCat(n){return(pdb[n]&&pdb[n].g)||"Unknown";}
+
+function fmtV(v){if(v===null||v===undefined)return'<span class="json-null">null</span>';
+if(typeof v==="boolean")return'<span class="json-bool">'+v+'</span>';
+if(typeof v==="number")return'<span class="json-num">'+v+'</span>';
+if(typeof v==="string"){var e=esc(v);return'<span class="json-str">"'+(e.length>120?e.substring(0,120)+'...':e)+'"</span>';}
+if(Array.isArray(v)){if(!v.length)return'<span class="json-null">[]</span>';
+var items=[];for(var i=0;i<v.length;i++)items.push('<div style="padding-left:12px;">'+fmtV(v[i])+(i<v.length-1?",":"")+'</div>');
+if(items.length>5)return'['+items.slice(0,5).join("")+'<div style="padding-left:12px;color:var(--t1);">...+'+(items.length-5)+' more</div>]';
+return'['+items.join("")+']';}
+if(typeof v==="object"){var ks=Object.keys(v);if(!ks.length)return'<span class="json-null">{}</span>';
+var es=[];for(var i=0;i<ks.length;i++)es.push('<div style="padding-left:12px;"><span class="json-str">"'+ks[i]+'"</span>: '+fmtV(v[ks[i]])+(i<ks.length-1?",":"")+'</div>');
+if(es.length>5)return'{'+es.slice(0,5).join("")+'<div style="padding-left:12px;color:var(--t1);">...+'+(es.length-5)+' more</div>}';
+return'{'+es.join("")+'}';}return String(v);}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function stBadge(s){var m={ok:'badge-ok">APPLIED',error:'badge-error">ERROR',superseded:'badge-superseded">SUPERSEDED',deprecated:'badge-deprecated">DEPRECATED',obsolete:'badge-obsolete">OBSOLETE'};return'<span class="badge '+(m[s]||'badge-ok">'+s.toUpperCase())+'</span>';}
+function lvBadge(l){if(l==="mandatory")return'<span class="badge badge-mandatory">MANDATORY</span>';if(l==="recommended")return'<span class="badge badge-recommended">RECOMMENDED</span>';return'<span class="badge">'+l+'</span>';}
+function scBadge(s){if(s==="machine")return'<span class="badge badge-machine">MACHINE</span>';if(s==="user")return'<span class="badge badge-user">USER</span>';return'<span class="badge">'+s+'</span>';}
+function stBox(n,l,c){return'<div class="stat"><div class="num" style="color:'+c+';">'+n+'</div><div class="lbl">'+l+'</div></div>';}
+
+function renderA(){if(!curA)return;var a=curA;
+document.getElementById("a-upload").style.display="none";document.getElementById("a-results").style.display="block";
+document.getElementById("topMeta").textContent=a.fn+" | "+a.meta.ver+" | "+a.stats.total+" policies";
+document.getElementById("a-meta").innerHTML='<table><tr><td>Application</td><td>'+esc(a.meta.app)+'</td></tr><tr><td>Version</td><td>'+esc(a.meta.ver)+'</td></tr><tr><td>OS</td><td>'+esc(a.meta.os)+'</td></tr><tr><td>Revision</td><td style="font-size:11px;">'+esc(a.meta.rev)+'</td></tr></table>';
+document.getElementById("a-stats").innerHTML=stBox(a.stats.total,"Total","var(--tw)")+stBox(a.stats.ok,"Applied","var(--gn)")+stBox(a.stats.error,"Error","var(--rd)")+stBox(a.stats.superseded,"Superseded","var(--or)")+stBox(a.stats.deprecated+(a.stats.obsolete||0),"Dep/Obs","var(--gy)")+stBox(a.stats.mandatory,"Mandatory","var(--tw)")+stBox(a.stats.recommended,"Recommended","var(--bl)");
+var srcs={};for(var i=0;i<a.policies.length;i++)srcs[a.policies[i].source]=1;var sel=document.getElementById("a-fsr");sel.innerHTML='<option value="">All Sources</option>';Object.keys(srcs).sort().forEach(function(s){sel.innerHTML+='<option value="'+s+'">'+s+'</option>';});
+renderAT(a.policies);}
+function renderAT(ps){var tb=document.getElementById("a-tbody");if(!ps.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--t1);padding:24px;">No matching policies.</td></tr>';return;}
+var h="";for(var i=0;i<ps.length;i++){var p=ps[i];var ex="";if(p.error)ex+='<div style="color:var(--rd);font-size:10px;margin-top:2px;">'+esc(p.error)+'</div>';if(p.info)ex+='<div style="color:var(--or);font-size:10px;margin-top:2px;">'+esc(p.info)+'</div>';
+h+='<tr><td><a href="'+p.url+'" target="_blank" class="pl">'+esc(p.dn)+'</a>'+ex+'</td><td>'+stBadge(p.status)+'</td><td>'+lvBadge(p.level)+'</td><td>'+scBadge(p.scope)+'</td><td style="font-size:11px;">'+esc(p.source)+'</td><td style="font-size:11px;color:var(--t1);">'+esc(p.category)+'</td><td class="val-cell">'+fmtV(p.value)+'</td></tr>';}tb.innerHTML=h;}
+function filterA(){if(!curA)return;var s=document.getElementById("a-search").value.toLowerCase(),sf=document.getElementById("a-fst").value,lf=document.getElementById("a-flv").value,rf=document.getElementById("a-fsr").value;
+var f=[];for(var i=0;i<curA.policies.length;i++){var p=curA.policies[i];if(s&&p.name.toLowerCase().indexOf(s)<0&&p.category.toLowerCase().indexOf(s)<0)continue;if(sf){if(sf==="deprecated"&&p.status!=="deprecated"&&p.status!=="obsolete")continue;else if(sf!=="deprecated"&&p.status!==sf)continue;}if(lf&&p.level!==lf)continue;if(rf&&p.source!==rf)continue;f.push(p);}renderAT(f);}
+function sortA(c){if(aSC===c)aSA=!aSA;else{aSC=c;aSA=true;}if(!curA)return;curA.policies.sort(function(a,b){var va=a[c]||"",vb=b[c]||"";if(typeof va==="string")va=va.toLowerCase();if(typeof vb==="string")vb=vb.toLowerCase();return va<vb?(aSA?-1:1):va>vb?(aSA?1:-1):0;});filterA();}
+function resetA(){curA=null;document.getElementById("a-upload").style.display="block";document.getElementById("a-results").style.display="none";document.getElementById("f1").value="";document.getElementById("topMeta").textContent="Ready";}
+function exportCSV(){if(!curA)return;var r=[["Policy","Status","Level","Scope","Source","Category","Value","Error","Info"]];for(var i=0;i<curA.policies.length;i++){var p=curA.policies[i];r.push([p.dn,p.status,p.level,p.scope,p.source,p.category,JSON.stringify(p.value),p.error||"",p.info||""]);}dlCSV(r,"policy_analysis.csv");}
+function dlCSV(rows,fn){var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c).replace(/"/g,'""')+'"';}).join(",");}).join("\n");var b=new Blob([csv],{type:"text/csv"});var u=URL.createObjectURL(b);var a=document.createElement("a");a.href=u;a.download=fn;a.click();URL.revokeObjectURL(u);}
+
+// COMPARE
+function handleCF(side,inp){var f=inp.files[0];if(f)readAndCompare(side,f);}
+function readAndCompare(side,file){readJSON(file).then(function(j){var d=procJSON(j,file.name);
+if(side==="A"){cdA=d;var el=document.getElementById("mA");el.style.display="block";el.innerHTML='<table><tr><td>File</td><td>'+esc(file.name)+'</td></tr><tr><td>Version</td><td>'+esc(d.meta.ver)+'</td></tr><tr><td>OS</td><td>'+esc(d.meta.os)+'</td></tr><tr><td>Policies</td><td>'+d.stats.total+'</td></tr></table>';}
+else{cdB=d;var el=document.getElementById("mB");el.style.display="block";el.innerHTML='<table><tr><td>File</td><td>'+esc(file.name)+'</td></tr><tr><td>Version</td><td>'+esc(d.meta.ver)+'</td></tr><tr><td>OS</td><td>'+esc(d.meta.os)+'</td></tr><tr><td>Policies</td><td>'+d.stats.total+'</td></tr></table>';}
+document.getElementById("cmpBtn").disabled=!(cdA&&cdB);}).catch(function(e){alert("Parse error ("+side+"): "+e.message);});}
+
+function runCmp(){if(!cdA||!cdB)return;var mAp={},mBp={};for(var i=0;i<cdA.policies.length;i++)mAp[cdA.policies[i].name]=cdA.policies[i];for(var i=0;i<cdB.policies.length;i++)mBp[cdB.policies[i].name]=cdB.policies[i];
+var all={};for(var k in mAp)all[k]=1;for(var k in mBp)all[k]=1;var com=[],oA=[],oB=[];var dc=0;
+for(var k in all){var inA=mAp.hasOwnProperty(k),inB=mBp.hasOwnProperty(k);
+if(inA&&inB){var m=JSON.stringify(mAp[k].value)===JSON.stringify(mBp[k].value);if(!m)dc++;com.push({name:k,pA:mAp[k],pB:mBp[k],match:m,url:getUrl(k)});}
+else if(inA)oA.push(mAp[k]);else oB.push(mBp[k]);}
+com.sort(function(a,b){return a.match===b.match?a.name.localeCompare(b.name):(a.match?1:-1);});oA.sort(function(a,b){return a.name.localeCompare(b.name);});oB.sort(function(a,b){return a.name.localeCompare(b.name);});
+document.getElementById("c-upload").style.display="none";document.getElementById("c-results").style.display="block";
+var tabs=document.querySelectorAll("#c-tabs button");tabs[0].innerHTML='Common<span class="count-badge">'+com.length+'</span>';tabs[1].innerHTML='Only A<span class="count-badge">'+oA.length+'</span>';tabs[2].innerHTML='Only B<span class="count-badge">'+oB.length+'</span>';
+var sc=0;for(var i=0;i<com.length;i++)if(com[i].match)sc++;
+document.getElementById("c-stats").innerHTML=stBox(com.length,"Common","var(--tw)")+stBox(sc,"Same","var(--gn)")+stBox(dc,"Different","var(--or)")+stBox(oA.length,"Only A","var(--bl)")+stBox(oB.length,"Only B","var(--rd)");
+renderCom(com);renderOnly(oA,"ct-ab");renderOnly(oB,"ct-bb");renderSum(com,oA,oB,dc);_cc=com;_ca=oA;_cb=oB;showCTab("common");
+document.getElementById("topMeta").textContent="Comparing: "+cdA.fn+" vs "+cdB.fn;}
+
+function renderCom(com){var tb=document.getElementById("ct-cb");if(!com.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t1);padding:24px;">No common policies.</td></tr>';return;}
+var h="";for(var i=0;i<com.length;i++){var c=com[i];var rc=c.match?"":" class=\"diff-change\"";var ml=c.match?'<span class="badge badge-ok">SAME</span>':'<span class="badge badge-error">DIFF</span>';
+h+='<tr'+rc+'><td><a href="'+c.url+'" target="_blank" class="pl">'+esc(c.name)+'</a></td><td>'+stBadge(c.pA.status)+'</td><td class="val-cell">'+fmtV(c.pA.value)+'</td><td class="val-cell">'+fmtV(c.pB.value)+'</td><td>'+ml+'</td></tr>';}tb.innerHTML=h;}
+
+function renderOnly(ps,tid){var tb=document.getElementById(tid);if(!ps.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--t1);padding:24px;">No extra policies.</td></tr>';return;}
+var h="";for(var i=0;i<ps.length;i++){var p=ps[i];h+='<tr><td><a href="'+p.url+'" target="_blank" class="pl">'+esc(p.dn)+'</a></td><td>'+lvBadge(p.level)+'</td><td>'+scBadge(p.scope)+'</td><td style="font-size:11px;">'+esc(p.source)+'</td><td class="val-cell">'+fmtV(p.value)+'</td></tr>';}tb.innerHTML=h;}
+
+function renderSum(com,oA,oB,dc){var el=document.getElementById("c-summary");var sc=0;for(var i=0;i<com.length;i++)if(com[i].match)sc++;var dps=com.filter(function(c){return!c.match;});
+var h='<div class="meta-box" style="margin-bottom:16px;"><h3 style="margin-bottom:8px;">Summary</h3><table>'+
+'<tr><td>File A</td><td>'+esc(cdA.fn)+' ('+cdA.stats.total+' policies)</td></tr>'+
+'<tr><td>File B</td><td>'+esc(cdB.fn)+' ('+cdB.stats.total+' policies)</td></tr>'+
+'<tr><td>Common</td><td>'+com.length+'</td></tr><tr><td>Same Values</td><td style="color:var(--gn);">'+sc+'</td></tr>'+
+'<tr><td>Different</td><td style="color:var(--or);">'+dc+'</td></tr><tr><td>Only in A</td><td style="color:var(--bl);">'+oA.length+'</td></tr>'+
+'<tr><td>Only in B</td><td style="color:var(--rd);">'+oB.length+'</td></tr></table></div>';
+if(dps.length){h+='<h3>Value Differences ('+dps.length+')</h3><table class="data"><thead><tr><th>Policy</th><th>Value A</th><th>Value B</th></tr></thead><tbody>';
+for(var i=0;i<dps.length;i++){var c=dps[i];h+='<tr class="diff-change"><td><a href="'+c.url+'" target="_blank" class="pl">'+esc(c.name)+'</a></td><td class="val-cell">'+fmtV(c.pA.value)+'</td><td class="val-cell">'+fmtV(c.pB.value)+'</td></tr>';}h+='</tbody></table>';}
+if(oA.length){h+='<h3 style="margin-top:16px;">Only in A ('+oA.length+')</h3><ul style="margin-left:20px;font-size:12px;line-height:1.8;">';for(var i=0;i<oA.length;i++)h+='<li><a href="'+oA[i].url+'" target="_blank" class="pl">'+esc(oA[i].name)+'</a></li>';h+='</ul>';}
+if(oB.length){h+='<h3 style="margin-top:16px;">Only in B ('+oB.length+')</h3><ul style="margin-left:20px;font-size:12px;line-height:1.8;">';for(var i=0;i<oB.length;i++)h+='<li><a href="'+oB[i].url+'" target="_blank" class="pl">'+esc(oB[i].name)+'</a></li>';h+='</ul>';}
+el.innerHTML=h;}
+
+function showCTab(t){var tabs=document.querySelectorAll("#c-tabs button");for(var i=0;i<tabs.length;i++)tabs[i].classList.remove("active");
+var contents=document.querySelectorAll("#panel-compare .tab-content");for(var i=0;i<contents.length;i++)contents[i].classList.remove("active");
+var m={common:0,onlyA:1,onlyB:2,summary:3};tabs[m[t]].classList.add("active");document.getElementById("ct-"+t).classList.add("active");}
+
+function filterC(){var s=document.getElementById("c-search").value.toLowerCase();
+if(_cc)renderCom(_cc.filter(function(c){return!s||c.name.toLowerCase().indexOf(s)>=0;}));
+if(_ca)renderOnly(_ca.filter(function(p){return!s||p.name.toLowerCase().indexOf(s)>=0;}),"ct-ab");
+if(_cb)renderOnly(_cb.filter(function(p){return!s||p.name.toLowerCase().indexOf(s)>=0;}),"ct-bb");}
+
+function resetC(){cdA=cdB=null;_cc=_ca=_cb=null;document.getElementById("c-upload").style.display="block";document.getElementById("c-results").style.display="none";
+document.getElementById("mA").style.display="none";document.getElementById("mB").style.display="none";
+document.getElementById("fA").value="";document.getElementById("fB").value="";document.getElementById("cmpBtn").disabled=true;document.getElementById("topMeta").textContent="Ready";}
+
+function exportCmpCSV(){if(!_cc)return;var r=[["Type","Policy","Level_A","Level_B","Source_A","Source_B","Value_A","Value_B","Match"]];
+for(var i=0;i<_cc.length;i++){var c=_cc[i];r.push(["Common",c.name,c.pA.level,c.pB.level,c.pA.source,c.pB.source,JSON.stringify(c.pA.value),JSON.stringify(c.pB.value),c.match?"Yes":"No"]);}
+if(_ca)for(var i=0;i<_ca.length;i++){var p=_ca[i];r.push(["Only_A",p.name,p.level,"",p.source,"",JSON.stringify(p.value),"",""]);}
+if(_cb)for(var i=0;i<_cb.length;i++){var p=_cb[i];r.push(["Only_B",p.name,"",p.level,"",p.source,"",JSON.stringify(p.value),""]);}
+dlCSV(r,"policy_comparison.csv");}
+
+// POLICY DB
+function popCats(){var cats={};for(var k in pdb)if(pdb[k].g)cats[pdb[k].g]=1;
+var sel=document.getElementById("db-fcat");sel.innerHTML='<option value="">All Categories</option>';Object.keys(cats).sort().forEach(function(c){sel.innerHTML+='<option value="'+c+'">'+c+'</option>';});}
+
+function updDBInfo(){var t=Object.keys(pdb).length,a=0,d=0,o=0;for(var k in pdb){if(pdb[k].s==="a")a++;if(pdb[k].s==="d")d++;if(pdb[k].s==="o")o++;}
+document.getElementById("db-info").textContent="Total: "+t+" | Active: "+a+" | Deprecated: "+d+" | Obsolete: "+o;}
+
+function getFilteredDB(){var s=document.getElementById("db-search").value.toLowerCase(),cf=document.getElementById("db-fcat").value,sf=document.getElementById("db-fst").value;
+var e=[];for(var k in pdb){if(!pdb.hasOwnProperty(k))continue;var v=pdb[k];
+if(s&&k.toLowerCase().indexOf(s)<0&&(!v.g||v.g.toLowerCase().indexOf(s)<0))continue;
+if(cf&&v.g!==cf)continue;if(sf&&v.s!==sf)continue;e.push([k,v]);}
+e.sort(function(a,b){var va=dSC==="n"?a[0]:(a[1][dSC]||""),vb=dSC==="n"?b[0]:(b[1][dSC]||"");va=va.toLowerCase();vb=vb.toLowerCase();return va<vb?(dSA?-1:1):va>vb?(dSA?1:-1):0;});return e;}
+
+function renderDB(){var e=getFilteredDB();var tb=document.getElementById("db-tbody");if(!e.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--t1);padding:24px;">No matches.</td></tr>';return;}
+var h="";for(var i=0;i<e.length;i++){var n=e[i][0],d=e[i][1];var sc=d.s==="a"?"badge-ok":d.s==="d"?"badge-deprecated":"badge-obsolete";var sl=d.s==="a"?"ACTIVE":d.s==="d"?"DEPRECATED":"OBSOLETE";
+var ne=n.replace(/'/g,"\\'");
+h+='<tr><td><a href="'+d.u+'" target="_blank" class="pl">'+esc(n)+'</a></td><td style="font-size:11px;">'+esc(d.g||"")+'</td><td><span class="badge '+sc+'">'+sl+'</span></td>'+
+'<td><button class="btn btn-sm" onclick="doEditP(\''+ne+'\')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delP(\''+ne+'\')">Del</button></td></tr>';}tb.innerHTML=h;}
+
+function filterDB(){renderDB();}
+function sortDBCol(c){if(dSC===c)dSA=!dSA;else{dSC=c;dSA=true;}renderDB();}
+
+function showAddModal(){_editPN=null;document.getElementById("mTitle").textContent="Add Policy";document.getElementById("mName").value="";document.getElementById("mName").disabled=false;
+document.getElementById("mCat").value="";document.getElementById("mUrl").value="";document.getElementById("mSt").value="a";document.getElementById("pModal").classList.add("show");}
+
+function doEditP(n){_editPN=n;var d=pdb[n];document.getElementById("mTitle").textContent="Edit: "+n;document.getElementById("mName").value=n;document.getElementById("mName").disabled=true;
+document.getElementById("mCat").value=d.g||"";document.getElementById("mUrl").value=d.u||"";document.getElementById("mSt").value=d.s||"a";document.getElementById("pModal").classList.add("show");}
+
+function closeModal(){document.getElementById("pModal").classList.remove("show");_editPN=null;}
+
+function saveModal(){var n=document.getElementById("mName").value.trim();if(!n){alert("Name required.");return;}
+var u=document.getElementById("mUrl").value.trim();if(!u)u=BASE+n.toLowerCase();
+pdb[n]={g:document.getElementById("mCat").value.trim(),s:document.getElementById("mSt").value,u:u};saveDB();popCats();renderDB();updDBInfo();closeModal();}
+
+function delP(n){if(!confirm('Delete "'+n+'"?'))return;delete pdb[n];saveDB();renderDB();updDBInfo();}
+
+function fetchNew(){var added=0,upd=0,nps=[],ups=[];
+for(var k in DEFAULT_DB){if(!DEFAULT_DB.hasOwnProperty(k))continue;
+if(!pdb[k]){pdb[k]=JSON.parse(JSON.stringify(DEFAULT_DB[k]));added++;nps.push(k);}
+else if(pdb[k].s!==DEFAULT_DB[k].s){pdb[k].s=DEFAULT_DB[k].s;upd++;ups.push(k+" ("+DEFAULT_DB[k].s+")");}}
+saveDB();popCats();renderDB();updDBInfo();
+var m="Sync complete.\n\nNew: "+added+"\n";if(nps.length&&nps.length<=20)m+="  "+nps.join(", ")+"\n";
+m+="Updated: "+upd+"\n";if(ups.length&&ups.length<=20)m+="  "+ups.join(", ")+"\n";
+if(!added&&!upd)m+="\nAlready up to date.";alert(m);}
+
+function exportDB(){var j=JSON.stringify(pdb,null,2);var b=new Blob([j],{type:"application/json"});var u=URL.createObjectURL(b);var a=document.createElement("a");a.href=u;a.download="edge_policy_db.json";a.click();URL.revokeObjectURL(u);}
+
+function importDB(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){try{var d=JSON.parse(e.target.result);if(typeof d!=="object"||Array.isArray(d))throw new Error("Invalid");
+pdb=d;saveDB();popCats();renderDB();updDBInfo();alert("Imported "+Object.keys(pdb).length+" policies.");}catch(er){alert("Import failed: "+er.message);}};r.readAsText(f);inp.value="";}
+
+function saveSrc(){localStorage.setItem("epSrcUrl",document.getElementById("srcUrl").value.trim());alert("Saved.");}
+</script>
+</body>
+</html>
