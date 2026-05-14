@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetExport Analyzer Pro - Edge/Chromium Net-Export Log Tool</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f0f1a;--bg2:#1a1a2e;--bg3:#16213e;--bg4:#1e2a4a;--accent:#0f3460;--accent2:#533483;--text:#e0e0e0;--text2:#a0a0b0;--green:#00c853;--red:#ff1744;--orange:#ff9100;--yellow:#ffd600;--blue:#2196f3;--purple:#b388ff;--cyan:#00e5ff;--border:#2a2a4a}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;overflow:hidden;height:100vh}
+.app{display:flex;flex-direction:column;height:100vh}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:15px;flex-shrink:0}
+header h1{font-size:18px;font-weight:600;color:var(--cyan)}
+header h1 span{color:var(--text2);font-weight:400;font-size:13px;margin-left:8px}
+.badge{background:var(--accent);padding:2px 10px;border-radius:10px;font-size:11px;color:var(--cyan)}
+.upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px}
+.upload-box{border:2px dashed var(--border);border-radius:16px;padding:60px 80px;text-align:center;cursor:pointer;transition:.3s;max-width:600px;width:100%}
+.upload-box:hover,.upload-box.dragover{border-color:var(--cyan);background:rgba(0,229,255,.05)}
+.upload-box h2{color:var(--cyan);margin-bottom:10px;font-size:22px}
+.upload-box p{color:var(--text2);font-size:14px;margin-bottom:5px}
+.upload-box .icon{font-size:48px;margin-bottom:15px}
+#fileInput{display:none}
+.main-view{display:none;flex-direction:column;flex:1;overflow:hidden}
+.toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.toolbar input[type=text]{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-size:13px;width:280px;outline:none}
+.toolbar input[type=text]:focus{border-color:var(--cyan)}
+.filter-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:.2s;user-select:none}
+.filter-btn:hover{border-color:var(--cyan);color:var(--text)}
+.filter-btn.active{background:var(--accent);border-color:var(--cyan);color:var(--cyan)}
+.filter-btn.f-ok{border-left:3px solid var(--green)}
+.filter-btn.f-fail{border-left:3px solid var(--red)}
+.filter-btn.f-warn{border-left:3px solid var(--orange)}
+.filter-btn.f-info{border-left:3px solid var(--blue)}
+.stats-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 15px;display:flex;gap:20px;align-items:center;flex-shrink:0}
+.stat{display:flex;align-items:center;gap:6px;font-size:13px}
+.stat .dot{width:10px;height:10px;border-radius:50%}
+.stat .cnt{font-weight:700;font-size:15px}
+.stat-label{color:var(--text2);font-size:12px}
+.content{display:flex;flex:1;overflow:hidden}
+.request-list{flex:1;overflow-y:auto;border-right:1px solid var(--border);min-width:0}
+.request-list::-webkit-scrollbar{width:8px}
+.request-list::-webkit-scrollbar-track{background:var(--bg)}
+.request-list::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+.req-item{display:grid;grid-template-columns:70px 80px 1fr 140px 70px;align-items:center;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:.15s;font-size:12px;gap:8px}
+.req-item:hover{background:rgba(255,255,255,.05)}
+.req-item.selected{background:var(--accent);border-left:3px solid var(--cyan)}
+.req-item .sev{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;text-align:center;white-space:nowrap}
+.sev-ok{background:rgba(0,200,83,.15);color:var(--green)}
+.sev-fail{background:rgba(255,23,68,.15);color:var(--red)}
+.sev-warn{background:rgba(255,145,0,.15);color:var(--orange)}
+.sev-info{background:rgba(33,150,243,.15);color:var(--blue)}
+.req-item .status{font-weight:700;font-family:'Cascadia Code','Fira Code',monospace;font-size:12px}
+.status-2xx{color:var(--green)}
+.status-3xx{color:var(--blue)}
+.status-4xx{color:var(--orange)}
+.status-5xx{color:var(--red)}
+.status-err{color:var(--red)}
+.status-ws{color:var(--purple)}
+.req-item .url{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-family:'Cascadia Code','Fira Code',monospace;font-size:11px}
+.req-item .dur{color:var(--text2);font-size:11px;text-align:right}
+.req-item .time{color:var(--text2);font-size:11px;font-family:'Cascadia Code','Fira Code',monospace}
+.list-header{display:grid;grid-template-columns:70px 80px 1fr 140px 70px;padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2);text-transform:uppercase;font-weight:600;letter-spacing:.5px;background:var(--bg2);position:sticky;top:0;z-index:5;gap:8px}
+.detail-panel{width:480px;background:var(--bg2);overflow-y:auto;flex-shrink:0;display:none;flex-direction:column}
+.detail-panel.open{display:flex}
+.detail-panel::-webkit-scrollbar{width:8px}
+.detail-panel::-webkit-scrollbar-track{background:var(--bg2)}
+.detail-panel::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+.dp-header{padding:12px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:5}
+.dp-header h3{font-size:14px;color:var(--cyan)}
+.dp-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:4px}
+.dp-close:hover{background:var(--bg3);color:var(--text)}
+.dp-section{padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.05)}
+.dp-section h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--cyan);margin-bottom:8px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.dp-section h4::before{content:'▼';font-size:8px;transition:.2s}
+.dp-section.collapsed h4::before{content:'►'}
+.dp-section.collapsed .dp-content{display:none}
+.dp-row{display:flex;padding:3px 0;font-size:12px;gap:8px}
+.dp-row .label{color:var(--text2);min-width:110px;flex-shrink:0}
+.dp-row .value{color:var(--text);word-break:break-all;font-family:'Cascadia Code','Fira Code',monospace;font-size:11px}
+.dp-row .value.ok{color:var(--green)}
+.dp-row .value.err{color:var(--red)}
+.dp-row .value.warn{color:var(--orange)}
+.dp-header-line{font-family:'Cascadia Code','Fira Code',monospace;font-size:11px;padding:2px 0;color:var(--text)}
+.dp-header-line .hname{color:var(--cyan)}
+.dp-header-line .hval{color:var(--text)}
+.event-line{font-family:'Cascadia Code','Fira Code',monospace;font-size:11px;padding:2px 0;display:flex;gap:8px}
+.event-line .etime{color:var(--text2);min-width:60px}
+.event-line .etype{color:var(--yellow)}
+.event-line .edetail{color:var(--text2);word-break:break-all}
+.ws-frame{background:rgba(179,136,255,.08);padding:4px 8px;border-radius:4px;margin:2px 0;font-family:'Cascadia Code','Fira Code',monospace;font-size:11px}
+.ws-recv{border-left:3px solid var(--green)}
+.ws-sent{border-left:3px solid var(--blue)}
+.ws-close{border-left:3px solid var(--red)}
+.findings-panel{background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin:10px 15px;padding:12px 15px}
+.findings-panel h4{color:var(--cyan);font-size:13px;margin-bottom:8px}
+.finding{padding:6px 10px;margin:4px 0;border-radius:6px;font-size:12px;display:flex;align-items:flex-start;gap:8px}
+.finding.critical{background:rgba(255,23,68,.1);border-left:3px solid var(--red)}
+.finding.warning{background:rgba(255,145,0,.1);border-left:3px solid var(--orange)}
+.finding.ok{background:rgba(0,200,83,.1);border-left:3px solid var(--green)}
+.finding.info{background:rgba(33,150,243,.1);border-left:3px solid var(--blue)}
+.finding .f-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.finding .f-text{line-height:1.4}
+.toolbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn{background:var(--accent);border:1px solid var(--border);color:var(--text);padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;transition:.2s}
+.btn:hover{background:var(--bg4);border-color:var(--cyan)}
+.btn-primary{background:var(--accent2);border-color:var(--accent2)}
+.btn-primary:hover{background:#6a42a0}
+.host-group{background:var(--bg3);border-left:3px solid var(--accent2);margin:4px 0;padding:6px 10px;border-radius:0 6px 6px 0;font-size:12px;color:var(--purple);font-weight:600}
+.progress-bar{width:100%;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:5px}
+.progress-fill{height:100%;border-radius:2px;transition:width .3s}
+.tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.tab{padding:8px 16px;cursor:pointer;font-size:12px;color:var(--text2);border-bottom:2px solid transparent;transition:.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tab-content{display:none;flex:1;overflow:hidden;flex-direction:column}
+.tab-content.active{display:flex}
+.flow-item{display:flex;align-items:center;gap:10px;padding:8px 15px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px}
+.flow-item .flow-num{color:var(--text2);min-width:30px;font-weight:700}
+.flow-item .flow-arrow{color:var(--accent2);font-size:16px}
+.flow-item .flow-url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Cascadia Code','Fira Code',monospace;font-size:11px}
+.flow-item .flow-status{font-weight:700;min-width:60px;text-align:center}
+.flow-item .flow-dur{color:var(--text2);min-width:60px;text-align:right}
+#loadingBar{display:none;padding:20px;text-align:center;color:var(--cyan)}
+.empty-detail{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:13px;padding:20px;text-align:center}
+.copy-toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;transform:translateY(100px);opacity:0;transition:.3s;z-index:999}
+.copy-toast.show{transform:translateY(0);opacity:1}
+@media(max-width:1024px){.detail-panel{width:380px}.req-item{grid-template-columns:60px 70px 1fr 100px 60px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>🔍 NetExport Analyzer Pro <span>Edge / Chromium Net-Export Log Tool</span></h1>
+<span class="badge">v2.0</span>
+<div class="toolbar-right" id="headerActions" style="display:none">
+<button class="btn" onclick="copyFindings()">📋 Copy Findings</button>
+<button class="btn" onclick="exportCSV()">📊 Export CSV</button>
+<button class="btn btn-primary" onclick="resetApp()">🔄 Load New File</button>
+</div>
+</header>
+
+<div class="upload-zone" id="uploadZone">
+<div class="upload-box" id="uploadBox">
+<div class="icon">📁</div>
+<h2>Drop Net-Export JSON File Here</h2>
+<p>or click to browse</p>
+<p style="margin-top:15px;font-size:12px;color:#666">Supports Chromium / Edge net-export (.json) files</p>
+<p style="font-size:11px;color:#555;margin-top:5px">Collected from edge://net-export or chrome://net-export</p>
+</div>
+<input type="file" id="fileInput" accept=".json">
+</div>
+
+<div id="loadingBar">
+<div class="icon" style="font-size:32px">⏳</div>
+<p style="margin-top:10px">Parsing log file... This may take a moment for large files.</p>
+<div class="progress-bar" style="max-width:400px;margin:10px auto"><div class="progress-fill" id="progressFill" style="width:0%;background:var(--cyan)"></div></div>
+</div>
+
+<div class="main-view" id="mainView">
+<div class="stats-bar" id="statsBar"></div>
+<div id="findingsArea"></div>
+<div class="toolbar">
+<input type="text" id="searchInput" placeholder="🔍 Search URL, host, header, status...">
+<div class="filter-btn f-ok active" data-filter="ok" onclick="toggleFilter(this)">✅ OK <span id="cntOk">0</span></div>
+<div class="filter-btn f-warn active" data-filter="warn" onclick="toggleFilter(this)">⚠️ Warn <span id="cntWarn">0</span></div>
+<div class="filter-btn f-fail active" data-filter="fail" onclick="toggleFilter(this)">❌ Failed <span id="cntFail">0</span></div>
+<div class="filter-btn f-info active" data-filter="info" onclick="toggleFilter(this)">ℹ️ Info <span id="cntInfo">0</span></div>
+<select id="hostFilter" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px" onchange="applyFilters()">
+<option value="">All Hosts</option>
+</select>
+<select id="statusFilter" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px" onchange="applyFilters()">
+<option value="">All Statuses</option>
+</select>
+</div>
+<div class="tab-bar">
+<div class="tab active" data-tab="timeline" onclick="switchTab(this)">📋 Timeline</div>
+<div class="tab" data-tab="flow" onclick="switchTab(this)">🔄 Flow Analysis</div>
+</div>
+<div class="content">
+<div class="tab-content active" id="tab-timeline" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+<div class="request-list" id="requestList">
+<div class="list-header"><span>TIME</span><span>STATUS</span><span>URL</span><span>TYPE</span><span>DURATION</span></div>
+</div>
+</div>
+<div class="tab-content" id="tab-flow" style="flex:1;overflow:auto">
+<div id="flowContent" style="padding:10px"></div>
+</div>
+<div class="detail-panel" id="detailPanel">
+<div class="dp-header"><h3 id="dpTitle">Request Details</h3><button class="dp-close" onclick="closeDetail()">✕</button></div>
+<div id="dpBody"><div class="empty-detail">Click a request to view details</div></div>
+</div>
+</div>
+</div>
+</div>
+<div class="copy-toast" id="copyToast">✅ Copied to clipboard!</div>
+
+<script>
+let allRequests=[];let filteredRequests=[];let constants={};let activeFilters={ok:true,warn:true,fail:true,info:true};let selectedIdx=-1;
+
+const uploadBox=document.getElementById('uploadBox');
+const fileInput=document.getElementById('fileInput');
+const uploadZone=document.getElementById('uploadZone');
+const mainView=document.getElementById('mainView');
+const loadingBar=document.getElementById('loadingBar');
+
+uploadBox.addEventListener('click',()=>fileInput.click());
+uploadBox.addEventListener('dragover',e=>{e.preventDefault();uploadBox.classList.add('dragover')});
+uploadBox.addEventListener('dragleave',()=>uploadBox.classList.remove('dragover'));
+uploadBox.addEventListener('drop',e=>{e.preventDefault();uploadBox.classList.remove('dragover');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0])});
+fileInput.addEventListener('change',e=>{if(e.target.files.length)handleFile(e.target.files[0])});
+document.getElementById('searchInput').addEventListener('input',applyFilters);
+
+function handleFile(file){
+if(!file.name.endsWith('.json')){alert('Please upload a .json file');return}
+uploadZone.style.display='none';loadingBar.style.display='block';
+const reader=new FileReader();
+reader.onload=e=>{
+try{
+document.getElementById('progressFill').style.width='50%';
+setTimeout(()=>{
+const data=JSON.parse(e.target.result);
+document.getElementById('progressFill').style.width='80%';
+parseNetLog(data);
+document.getElementById('progressFill').style.width='100%';
+setTimeout(()=>{loadingBar.style.display='none';mainView.style.display='flex';document.getElementById('headerActions').style.display='flex'},200);
+},50);
+}catch(err){alert('Error parsing JSON: '+err.message);resetApp()}
+};
+reader.readAsText(file);
+}
+
+function parseNetLog(data){
+constants=data.constants||{};
+const events=data.events||[];
+const sources={};
+const eventTypes={};const sourceTypes={};
+if(constants.logEventTypes)Object.entries(constants.logEventTypes).forEach(([k,v])=>eventTypes[v]=k);
+if(constants.logSourceType)Object.entries(constants.logSourceType).forEach(([k,v])=>sourceTypes[v]=k);
+const phases={0:'BEGIN',1:'END',2:'NONE'};
+const logEntryPhasesMap=constants.logEventPhase||{};
+const phaseNames={};
+Object.entries(logEntryPhasesMap).forEach(([k,v])=>phaseNames[v]=k);
+
+let baseTime=0;
+events.forEach(ev=>{
+const sid=ev.source?ev.source.id:0;
+const stype=ev.source?ev.source.type:0;
+if(!sources[sid])sources[sid]={id:sid,type:stype,typeName:sourceTypes[stype]||'UNKNOWN',events:[]};
+sources[sid].events.push(ev);
+if(!baseTime&&ev.time)baseTime=parseInt(ev.time)||0;
+});
+
+allRequests=[];
+Object.values(sources).forEach(src=>{
+if(src.typeName!=='URL_REQUEST')return;
+const req={id:src.id,url:'',method:'GET',httpStatus:0,netError:0,netErrorName:'',startTime:0,endTime:0,duration:0,severity:'ok',requestHeaders:[],responseHeaders:[],cookies:[],events:[],isWebSocket:false,wsFrames:[],priority:'',initiator:'',loadFlags:'',cacheResult:'',remoteAddr:'',protocol:'',type:'other'};
+
+let minTime=Infinity,maxTime=0;
+src.events.forEach(ev=>{
+const t=parseInt(ev.time)||0;
+if(t<minTime)minTime=t;if(t>maxTime)maxTime=t;
+const tn=eventTypes[ev.type]||('EVENT_'+ev.type);
+const pn=phaseNames[ev.phase]||phases[ev.phase]||'?';
+const p=ev.params||{};
+req.events.push({time:t,offset:0,type:tn,phase:pn,params:p});
+
+if(tn==='URL_REQUEST_START_JOB'||tn==='REQUEST_ALIVE'){
+if(p.url&&!req.url)req.url=p.url;
+if(p.method)req.method=p.method;
+if(p.priority)req.priority=p.priority;
+if(p.initiator)req.initiator=p.initiator;
+if(p.load_flags!==undefined)req.loadFlags=p.load_flags;
+if(p.request_type)req.type=p.request_type;
+}
+if(tn==='HTTP_TRANSACTION_SEND_REQUEST_HEADERS'){
+if(p.headers)req.requestHeaders=Array.isArray(p.headers)?p.headers:[p.headers];
+if(typeof p.line==='string'||typeof p==='string'){
+const raw=typeof p==='string'?p:(p.line||'');
+const m=raw.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s/);
+if(m)req.method=m[1];
+}
+if(typeof p==='string'&&p.includes('Upgrade: websocket'))req.isWebSocket=true;
+if(req.requestHeaders.some(h=>typeof h==='string'&&h.toLowerCase().includes('upgrade: websocket')))req.isWebSocket=true;
+}
+if(tn==='HTTP_TRANSACTION_READ_RESPONSE_HEADERS'){
+const raw=typeof p==='string'?p:(p.headers?p.headers.join?p.headers.join('\n'):String(p.headers):'');
+if(typeof p==='object'&&!Array.isArray(p)){
+const h=p.headers;
+if(Array.isArray(h))req.responseHeaders=h;
+else if(typeof h==='string')req.responseHeaders=h.split('\n');
+else if(typeof p==='string')req.responseHeaders=p.split('\n');
+}
+let allH=[...req.responseHeaders];
+if(req.events.length>0){/*check raw*/}
+allH.forEach(line=>{
+if(typeof line!=='string')return;
+const sm=line.match(/HTTP\/[\d.]+ (\d+)/);
+if(sm)req.httpStatus=parseInt(sm[1]);
+if(line.match(/101 Switching Protocols/i))req.isWebSocket=true;
+});
+if(!req.httpStatus){
+const sm2=raw.match(/HTTP\/[\d.]+ (\d+)/);
+if(sm2)req.httpStatus=parseInt(sm2[1]);
+}
+}
+if(tn==='COOKIE_INCLUSION_STATUS'){
+req.cookies.push({name:p.name||'',domain:p.domain||'',status:p.status||'',operation:p.operation||''});
+}
+if(tn==='CANCELLED'||tn==='URL_REQUEST_JOB_FILTERED_BYTES_READ'){}
+if(p.net_error!==undefined&&p.net_error!==0){req.netError=p.net_error}
+
+if(tn==='WEBSOCKET_RECV_FRAME_HEADER'){
+req.wsFrames.push({dir:'RECV',opcode:p.opcode,length:p.payload_length||0,time:t,final:p.final});
+}
+if(tn==='WEBSOCKET_SENT_FRAME_HEADER'){
+req.wsFrames.push({dir:'SENT',opcode:p.opcode,length:p.payload_length||0,time:t,final:p.final});
+}
+});
+
+req.startTime=minTime;req.endTime=maxTime;
+req.duration=maxTime-minTime;
+req.events.forEach(ev=>ev.offset=ev.time-minTime);
+if(req.url.startsWith('ws://'))req.isWebSocket=true;
+
+// determine severity
+if(req.httpStatus>=200&&req.httpStatus<300&&!req.netError)req.severity='ok';
+else if(req.httpStatus===101){req.severity=req.wsFrames.some(f=>f.opcode===8)?'warn':'ok'}
+else if(req.httpStatus>=400||req.netError<0){
+if(req.netError===-400||req.netErrorName==='ERR_CACHE_MISS')req.severity='warn';
+else if(req.httpStatus>=400&&req.httpStatus<500)req.severity='warn';
+else req.severity='fail';
+}else if(req.httpStatus===0&&req.netError<0)req.severity='fail';
+else if(req.httpStatus===0&&req.netError===0)req.severity='info';
+else req.severity='ok';
+
+// override: actual failures
+if(req.httpStatus===404||req.httpStatus===500||req.httpStatus===502||req.httpStatus===503)req.severity='fail';
+if(req.netError&&req.netError!==-400&&req.netError!==-173&&req.netError!==0)req.severity='fail';
+if(req.netError===-173&&req.isWebSocket)req.severity='ok'; // WS upgrade is OK
+
+// net error name
+const errMap={'-2':'ERR_FAILED','-3':'ERR_ABORTED','-7':'ERR_TIMED_OUT','-21':'ERR_NETWORK_CHANGED','-100':'ERR_CONNECTION_CLOSED','-101':'ERR_CONNECTION_RESET','-102':'ERR_CONNECTION_REFUSED','-104':'ERR_CONNECTION_FAILED','-105':'ERR_NAME_NOT_RESOLVED','-106':'ERR_INTERNET_DISCONNECTED','-118':'ERR_CONNECTION_TIMED_OUT','-137':'ERR_NAME_RESOLUTION_FAILED','-173':'ERR_WS_UPGRADE','-200':'ERR_CERT_COMMON_NAME_INVALID','-201':'ERR_CERT_DATE_INVALID','-202':'ERR_CERT_AUTHORITY_INVALID','-324':'ERR_EMPTY_RESPONSE','-400':'ERR_CACHE_MISS','-403':'ERR_CACHE_READ_FAILURE'};
+if(req.netError)req.netErrorName=errMap[String(req.netError)]||('NET_ERROR_'+req.netError);
+
+if(req.url)allRequests.push(req);
+});
+
+allRequests.sort((a,b)=>a.startTime-b.startTime);
+buildUI();
+}
+
+function buildUI(){
+const counts={ok:0,warn:0,fail:0,info:0};
+const hosts=new Set();const statuses=new Set();
+allRequests.forEach(r=>{
+counts[r.severity]=(counts[r.severity]||0)+1;
+try{const u=new URL(r.url);hosts.add(u.hostname)}catch(e){const m=r.url.match(/\/\/([^/?#]+)/);if(m)hosts.add(m[1])}
+if(r.httpStatus)statuses.add(r.httpStatus);
+if(r.netErrorName)statuses.add(r.netErrorName);
+});
+
+document.getElementById('cntOk').textContent=counts.ok;
+document.getElementById('cntWarn').textContent=counts.warn;
+document.getElementById('cntFail').textContent=counts.fail;
+document.getElementById('cntInfo').textContent=counts.info;
+
+const total=allRequests.length;
+document.getElementById('statsBar').innerHTML=`
+<div class="stat"><div class="dot" style="background:var(--text2)"></div><span class="cnt">${total}</span><span class="stat-label">Total</span></div>
+<div class="stat"><div class="dot" style="background:var(--green)"></div><span class="cnt">${counts.ok}</span><span class="stat-label">OK</span></div>
+<div class="stat"><div class="dot" style="background:var(--orange)"></div><span class="cnt">${counts.warn}</span><span class="stat-label">Warnings</span></div>
+<div class="stat"><div class="dot" style="background:var(--red)"></div><span class="cnt">${counts.fail}</span><span class="stat-label">Failed</span></div>
+<div class="stat"><div class="dot" style="background:var(--blue)"></div><span class="cnt">${counts.info}</span><span class="stat-label">Info</span></div>
+<div class="stat" style="margin-left:auto"><span class="stat-label" style="color:var(--text2)">Blocked: </span><span class="cnt" style="color:${0>0?'var(--red)':'var(--green)'}">${0}</span></div>
+<div class="progress-bar" style="width:200px">
+<div class="progress-fill" style="width:${total?counts.ok/total*100:0}%;background:var(--green)"></div>
+</div>`;
+
+const hf=document.getElementById('hostFilter');
+hf.innerHTML='<option value="">All Hosts</option>';
+[...hosts].sort().forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;hf.appendChild(o)});
+
+const sf=document.getElementById('statusFilter');
+sf.innerHTML='<option value="">All Statuses</option>';
+[...statuses].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sf.appendChild(o)});
+
+generateFindings();
+applyFilters();
+buildFlowAnalysis();
+}
+
+function generateFindings(){
+const findings=[];
+const f404=allRequests.filter(r=>r.httpStatus===404);
+if(f404.length)findings.push({level:'critical',text:`${f404.length} request(s) returned HTTP 404 Not Found — server cannot serve the requested resource`,urls:f404.map(r=>r.url)});
+const f401=allRequests.filter(r=>r.httpStatus===401);
+if(f401.length)findings.push({level:'critical',text:`${f401.length} request(s) returned HTTP 401 Unauthorized — authentication/authorization failure`,urls:f401.map(r=>r.url)});
+const f5xx=allRequests.filter(r=>r.httpStatus>=500);
+if(f5xx.length)findings.push({level:'critical',text:`${f5xx.length} request(s) returned 5xx server errors`,urls:f5xx.map(r=>r.url)});
+const fdns=allRequests.filter(r=>r.netError===-105||r.netError===-137);
+if(fdns.length)findings.push({level:'critical',text:`${fdns.length} DNS resolution failure(s) — hostname could not be resolved`,urls:fdns.map(r=>r.url)});
+const fconn=allRequests.filter(r=>[-100,-101,-102,-104,-118].includes(r.netError));
+if(fconn.length)findings.push({level:'warning',text:`${fconn.length} connection error(s) detected`,urls:fconn.map(r=>r.url)});
+const fws=allRequests.filter(r=>r.isWebSocket);
+if(fws.length){
+const wsOk=fws.filter(r=>r.httpStatus===101);
+const wsFail=fws.filter(r=>r.httpStatus!==101);
+if(wsOk.length)findings.push({level:'info',text:`${wsOk.length} WebSocket connection(s) established successfully (101 Switching Protocols)`,urls:wsOk.map(r=>r.url)});
+if(wsFail.length)findings.push({level:'critical',text:`${wsFail.length} WebSocket connection(s) failed`,urls:wsFail.map(r=>r.url)});
+const wsClose=fws.filter(r=>r.wsFrames.some(f=>f.opcode===8));
+if(wsClose.length)findings.push({level:'warning',text:`${wsClose.length} WebSocket connection(s) closed by server (opcode 8)`,urls:wsClose.map(r=>r.url)});
+}
+const fcache=allRequests.filter(r=>r.netError===-400);
+if(fcache.length)findings.push({level:'info',text:`${fcache.length} cache miss(es) — ERR_CACHE_MISS (expected on first load, not an issue)`,urls:fcache.map(r=>r.url)});
+const blocked=allRequests.filter(r=>r.events.some(e=>e.type.includes('BLOCKED')));
+if(blocked.length)findings.push({level:'critical',text:`${blocked.length} request(s) were BLOCKED by browser policy/security`,urls:blocked.map(r=>r.url)});
+if(!findings.some(f=>f.level==='critical'))findings.push({level:'ok',text:'No critical issues detected — all requests processed normally by the browser'});
+
+const area=document.getElementById('findingsArea');
+if(!findings.length){area.innerHTML='';return}
+const icons={critical:'🔴',warning:'🟡',ok:'🟢',info:'🔵'};
+area.innerHTML=`<div class="findings-panel"><h4>🔍 Auto-Detected Findings (${findings.length})</h4>${findings.map(f=>`<div class="finding ${f.level}"><span class="f-icon">${icons[f.level]||'ℹ️'}</span><div class="f-text"><div>${f.text}</div>${f.urls?`<div style="font-size:10px;color:var(--text2);margin-top:3px;font-family:monospace">${f.urls.slice(0,3).map(u=>truncUrl(u,80)).join('<br>')}${f.urls.length>3?`<br>...and ${f.urls.length-3} more`:''}
+</div>`:''}</div></div>`).join('')}</div>`;
+}
+
+function truncUrl(u,max){return u.length>max?u.substring(0,max)+'...':u}
+
+function applyFilters(){
+const search=document.getElementById('searchInput').value.toLowerCase();
+const host=document.getElementById('hostFilter').value.toLowerCase();
+const status=document.getElementById('statusFilter').value;
+
+filteredRequests=allRequests.filter(r=>{
+if(!activeFilters[r.severity])return false;
+if(search){
+const hay=(r.url+' '+r.method+' '+(r.httpStatus||'')+' '+(r.netErrorName||'')+' '+r.requestHeaders.join(' ')+' '+r.responseHeaders.join(' ')).toLowerCase();
+if(!hay.includes(search))return false;
+}
+if(host){try{const u=new URL(r.url);if(!u.hostname.toLowerCase().includes(host))return false}catch(e){if(!r.url.toLowerCase().includes(host))return false}}
+if(status){if(String(r.httpStatus)!==status&&r.netErrorName!==status)return false}
+return true;
+});
+
+renderList();
+}
+
+function renderList(){
+const list=document.getElementById('requestList');
+const baseT=allRequests.length?allRequests[0].startTime:0;
+let html='<div class="list-header"><span>TIME</span><span>STATUS</span><span>URL</span><span>TYPE</span><span>DURATION</span></div>';
+const fragment=document.createDocumentFragment();
+
+filteredRequests.forEach((r,i)=>{
+const offset=r.startTime-baseT;
+const timeStr=offset>=0?formatMs(offset):'0ms';
+let statusStr='',statusClass='';
+if(r.isWebSocket&&r.httpStatus===101){statusStr='101 WS';statusClass='status-ws'}
+else if(r.httpStatus){statusStr='HTTP '+r.httpStatus;statusClass=r.httpStatus<300?'status-2xx':r.httpStatus<400?'status-3xx':r.httpStatus<500?'status-4xx':'status-5xx'}
+else if(r.netErrorName){statusStr=r.netErrorName;statusClass='status-err'}
+else{statusStr='pending';statusClass=''}
+const sevClass={'ok':'sev-ok','warn':'sev-warn','fail':'sev-fail','info':'sev-info'}[r.severity]||'sev-info';
+const sevLabel={'ok':'OK','warn':'WARN','fail':'FAIL','info':'INFO'}[r.severity]||'INFO';
+const shortUrl=r.url.length>120?r.url.substring(0,120)+'...':r.url;
+const typeLabel=r.isWebSocket?'WebSocket':r.type==='main frame'?'Document':'Resource';
+
+html+=`<div class="req-item${selectedIdx===i?' selected':''}" data-idx="${i}" onclick="selectRequest(${i})">
+<span class="time">${timeStr}</span>
+<span class="sev ${sevClass}">${sevLabel}</span>
+<span class="url" title="${escHtml(r.url)}">${escHtml(shortUrl)}</span>
+<span class="status ${statusClass}">${statusStr}</span>
+<span class="dur">${r.duration}ms</span>
+</div>`;
+});
+
+list.innerHTML=html;
+}
+
+function selectRequest(idx){
+selectedIdx=idx;
+const r=filteredRequests[idx];
+if(!r)return;
+document.querySelectorAll('.req-item').forEach(el=>el.classList.remove('selected'));
+const items=document.querySelectorAll('.req-item');
+if(items[idx+1])items[idx+1].classList.add('selected'); // +1 because header
+
+const dp=document.getElementById('detailPanel');
+dp.classList.add('open');
+document.getElementById('dpTitle').textContent=`#${r.id} — ${r.method} ${r.isWebSocket?'WebSocket':'HTTP'}`;
+
+let html='';
+// Overview
+html+=`<div class="dp-section"><h4 onclick="toggleSection(this)">📋 Overview</h4><div class="dp-content">
+<div class="dp-row"><span class="label">URL</span><span class="value" style="word-break:break-all">${escHtml(decodeURIComponent(r.url))}</span></div>
+<div class="dp-row"><span class="label">Method</span><span class="value">${r.method}</span></div>
+<div class="dp-row"><span class="label">HTTP Status</span><span class="value ${r.httpStatus>=400?'err':r.httpStatus>=200?'ok':''}">${r.httpStatus||'N/A'}${r.isWebSocket&&r.httpStatus===101?' (WebSocket Upgrade Success)':''}</span></div>
+<div class="dp-row"><span class="label">Net Error</span><span class="value ${r.netError&&r.netError!==-173?'err':'ok'}">${r.netErrorName||'None'}${r.netError===-173&&r.isWebSocket?' (Normal — WS Upgrade)':''}</span></div>
+<div class="dp-row"><span class="label">Duration</span><span class="value">${r.duration}ms</span></div>
+<div class="dp-row"><span class="label">Priority</span><span class="value">${r.priority||'N/A'}</span></div>
+<div class="dp-row"><span class="label">Initiator</span><span class="value">${escHtml(r.initiator||'N/A')}</span></div>
+<div class="dp-row"><span class="label">Type</span><span class="value">${r.type}</span></div>
+<div class="dp-row"><span class="label">WebSocket</span><span class="value">${r.isWebSocket?'Yes':'No'}</span></div>
+</div></div>`;
+
+// Request Headers
+if(r.requestHeaders.length){
+html+=`<div class="dp-section"><h4 onclick="toggleSection(this)">📤 Request Headers (${r.requestHeaders.length})</h4><div class="dp-content">`;
+r.requestHeaders.forEach(h=>{
+if(typeof h==='string'){
+const parts=h.split(': ');
+html+=`<div class="dp-header-line"><span class="hname">${escHtml(parts[0])}:</span> <span class="hval">${escHtml(parts.slice(1).join(': '))}</span></div>`;
+}
+});
+html+=`</div></div>`;
+}
+
+// Response Headers
+if(r.responseHeaders.length){
+html+=`<div class="dp-section"><h4 onclick="toggleSection(this)">📥 Response Headers (${r.responseHeaders.length})</h4><div class="dp-content">`;
+r.responseHeaders.forEach(h=>{
+if(typeof h==='string'){
+const parts=h.split(': ');
+html+=`<div class="dp-header-line"><span class="hname">${escHtml(parts[0])}:</span> <span class="hval">${escHtml(parts.slice(1).join(': '))}</span></div>`;
+}
+});
+html+=`</div></div>`;
+}
+
+// Cookies
+if(r.cookies.length){
+html+=`<div class="dp-section"><h4 onclick="toggleSection(this)">🍪 Cookies (${r.cookies.length})</h4><div class="dp-content">`;
+r.cookies.forEach(c=>{
+html+=`<div class="dp-row"><span class="label">${escHtml(c.name)}</span><span class="value ${c.status.includes('INCLUDE')?'ok':'err'}">${escHtml(c.status)} [${c.operation}]</span></div>`;
+});
+html+=`</div></div>`;
+}
+
+// WebSocket Frames
+if(r.wsFrames.length){
+const opcodeNames={0:'Continuation',1:'Text',2:'Binary',8:'Close',9:'Ping',10:'Pong'};
+html+=`<div class="dp-section"><h4 onclick="toggleSection(this)">🔌 WebSocket Frames (${r.wsFrames.length})</h4><div class="dp-content">`;
+r.wsFrames.forEach(f=>{
+const cls=f.opcode===8?'ws-close':f.dir==='RECV'?'ws-recv':'ws-sent';
+const t=f.time-r.startTime;
+html+=`<div class="ws-frame ${cls}">
+<span style="color:var(--text2)">[+${t}ms]</span>
+<span style="color:${f.dir==='RECV'?'var(--green)':'var(--blue)'}">${f.dir}</span>
+<span>${opcodeNames[f.opcode]||'opcode:'+f.opcode}</span>
+<span style="color:var(--text2)">${f.length} bytes</span>
+${f.final?'<span style="color:var(--text2)">[FIN]</span>':''}
+</div>`;
+});
+html+=`</div></div>`;
+}
+
+// Event Trace
+html+=`<div class="dp-section collapsed"><h4 onclick="toggleSection(this)">📊 Event Trace (${r.events.length})</h4><div class="dp-content">`;
+r.events.forEach(ev=>{
+const paramStr=Object.keys(ev.params).length?JSON.stringify(ev.params).substring(0,200):'';
+html+=`<div class="event-line">
+<span class="etime">[+${ev.offset}ms]</span>
+<span class="etype">[${ev.phase}] ${ev.type}</span>
+${paramStr?`<span class="edetail">${escHtml(paramStr)}</span>`:''}
+</div>`;
+});
+html+=`</div></div>`;
+
+document.getElementById('dpBody').innerHTML=html;
+renderList();
+}
+
+function buildFlowAnalysis(){
+const hostGroups={};
+allRequests.forEach(r=>{
+let host='unknown';
+try{const u=new URL(r.url);host=u.hostname}catch(e){const m=r.url.match(/\/\/([^/?#]+)/);if(m)host=m[1]}
+if(!hostGroups[host])hostGroups[host]=[];
+hostGroups[host].push(r);
+});
+
+let html='';
+Object.entries(hostGroups).sort((a,b)=>a[1].length>b[1].length?-1:1).forEach(([host,reqs])=>{
+const ok=reqs.filter(r=>r.severity==='ok').length;
+const fail=reqs.filter(r=>r.severity==='fail').length;
+const warn=reqs.filter(r=>r.severity==='warn').length;
+html+=`<div class="host-group">🌐 ${escHtml(host)} — ${reqs.length} requests (✅${ok} ⚠️${warn} ❌${fail})</div>`;
+reqs.forEach((r,i)=>{
+let statusStr='',statusClass='';
+if(r.isWebSocket&&r.httpStatus===101){statusStr='101 WS';statusClass='status-ws'}
+else if(r.httpStatus){statusStr=String(r.httpStatus);statusClass=r.httpStatus<300?'status-2xx':r.httpStatus<400?'status-3xx':r.httpStatus<500?'status-4xx':'status-5xx'}
+else if(r.netErrorName){statusStr=r.netErrorName;statusClass='status-err'}
+const path=r.url.replace(/^https?:\/\/[^/]+/,'').replace(/^wss?:\/\/[^/]+/,'');
+const shortPath=path.length>90?path.substring(0,90)+'...':path;
+html+=`<div class="flow-item">
+<span class="flow-num">${i+1}</span>
+<span class="flow-arrow">→</span>
+<span class="flow-url" title="${escHtml(r.url)}">${r.method} ${escHtml(shortPath||'/')}</span>
+<span class="flow-status ${statusClass}">${statusStr}</span>
+<span class="flow-dur">${r.duration}ms</span>
+</div>`;
+});
+});
+document.getElementById('flowContent').innerHTML=html;
+}
+
+function toggleSection(el){el.parentElement.classList.toggle('collapsed')}
+function closeDetail(){document.getElementById('detailPanel').classList.remove('open');selectedIdx=-1;renderList()}
+function toggleFilter(el){const f=el.dataset.filter;activeFilters[f]=!activeFilters[f];el.classList.toggle('active');applyFilters()}
+function switchTab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+el.dataset.tab).classList.add('active')}
+function formatMs(ms){return ms>=1000?(ms/1000).toFixed(1)+'s':ms+'ms'}
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function resetApp(){
+allRequests=[];filteredRequests=[];selectedIdx=-1;
+mainView.style.display='none';loadingBar.style.display='none';
+uploadZone.style.display='flex';
+document.getElementById('headerActions').style.display='none';
+document.getElementById('requestList').innerHTML='';
+document.getElementById('dpBody').innerHTML='<div class="empty-detail">Click a request to view details</div>';
+document.getElementById('detailPanel').classList.remove('open');
+fileInput.value='';
+}
+
+function copyFindings(){
+let text='=== NetExport Analyzer Pro — Findings Report ===\n\n';
+text+=`Total Requests: ${allRequests.length}\n`;
+const c={ok:0,warn:0,fail:0,info:0};allRequests.forEach(r=>c[r.severity]++);
+text+=`OK: ${c.ok} | Warnings: ${c.warn} | Failed: ${c.fail} | Info: ${c.info}\n\n`;
+text+='--- Failed/Warning Requests ---\n';
+allRequests.filter(r=>r.severity==='fail'||r.severity==='warn').forEach(r=>{
+text+=`[${r.severity.toUpperCase()}] ${r.method} ${r.url}\n`;
+text+=`  Status: ${r.httpStatus||'N/A'} | Error: ${r.netErrorName||'None'} | Duration: ${r.duration}ms\n`;
+if(r.isWebSocket)text+=`  WebSocket: Yes | Frames: ${r.wsFrames.length}\n`;
+text+='\n';
+});
+navigator.clipboard.writeText(text).then(()=>{
+const t=document.getElementById('copyToast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);
+});
+}
+
+function exportCSV(){
+let csv='ID,Severity,Method,URL,HTTP_Status,Net_Error,Duration_ms,WebSocket,Type\n';
+allRequests.forEach(r=>{
+csv+=`${r.id},${r.severity},${r.method},"${r.url.replace(/"/g,'""')}",${r.httpStatus||''},${r.netErrorName||''},${r.duration},${r.isWebSocket},${r.type}\n`;
+});
+const blob=new Blob([csv],{type:'text/csv'});
+const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='netexport_analysis.csv';a.click();
+}
+</script>
+</body>
+</html>

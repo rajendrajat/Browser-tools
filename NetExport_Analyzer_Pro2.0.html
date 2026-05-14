@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetExport Analyzer Pro v2.1</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f0f1a;--bg2:#1a1a2e;--bg3:#16213e;--bg4:#1e2a4a;--accent:#0f3460;--accent2:#533483;--text:#e0e0e0;--text2:#a0a0b0;--green:#00c853;--red:#ff1744;--orange:#ff9100;--yellow:#ffd600;--blue:#2196f3;--purple:#b388ff;--cyan:#00e5ff;--border:#2a2a4a}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+header h1{font-size:17px;font-weight:600;color:var(--cyan)}
+header h1 span{color:var(--text2);font-weight:400;font-size:12px;margin-left:6px}
+.badge{background:var(--accent);padding:2px 8px;border-radius:10px;font-size:10px;color:var(--cyan)}
+.fname{color:var(--text2);font-size:11px;margin-left:8px;font-style:italic}
+.hdr-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1}
+.upload-box{border:2px dashed var(--border);border-radius:16px;padding:50px 70px;text-align:center;cursor:pointer;transition:.3s;max-width:550px;width:100%}
+.upload-box:hover,.upload-box.dragover{border-color:var(--cyan);background:rgba(0,229,255,.05)}
+.upload-box h2{color:var(--cyan);margin-bottom:8px;font-size:20px}
+.upload-box p{color:var(--text2);font-size:13px}
+#fileInput{display:none}
+.main-view{display:none;flex-direction:column;flex:1;overflow:hidden}
+.stats-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 15px;display:flex;gap:16px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.stat{display:flex;align-items:center;gap:5px;font-size:12px}
+.stat .dot{width:9px;height:9px;border-radius:50%}
+.stat .cnt{font-weight:700;font-size:14px}
+.stat-label{color:var(--text2);font-size:11px}
+/* Findings - collapsible, max height */
+.findings-wrap{flex-shrink:0;border-bottom:1px solid var(--border)}
+.findings-toggle{background:var(--bg3);padding:6px 15px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--cyan);font-weight:600;user-select:none}
+.findings-toggle:hover{background:var(--bg4)}
+.findings-toggle .arrow{transition:transform .2s;font-size:10px}
+.findings-toggle.open .arrow{transform:rotate(90deg)}
+.findings-body{max-height:0;overflow:hidden;transition:max-height .3s ease;background:var(--bg)}
+.findings-body.open{max-height:250px;overflow-y:auto}
+.findings-body::-webkit-scrollbar{width:6px}
+.findings-body::-webkit-scrollbar-track{background:var(--bg)}
+.findings-body::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+.finding{padding:6px 15px;margin:3px 10px;border-radius:6px;font-size:12px;display:flex;align-items:flex-start;gap:8px}
+.finding.critical{background:rgba(255,23,68,.1);border-left:3px solid var(--red)}
+.finding.warning{background:rgba(255,145,0,.1);border-left:3px solid var(--orange)}
+.finding.ok{background:rgba(0,200,83,.1);border-left:3px solid var(--green)}
+.finding.info{background:rgba(33,150,243,.1);border-left:3px solid var(--blue)}
+.finding .f-icon{font-size:13px;flex-shrink:0;margin-top:1px}
+.finding .f-text{line-height:1.4}
+.finding .f-urls{font-size:10px;color:var(--text2);margin-top:2px;font-family:monospace;word-break:break-all}
+/* Toolbar */
+.toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+.toolbar input[type=text]{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;width:240px;outline:none}
+.toolbar input[type=text]:focus{border-color:var(--cyan)}
+.fb{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;transition:.2s;user-select:none;white-space:nowrap}
+.fb:hover{border-color:var(--cyan);color:var(--text)}
+.fb.active{border-color:var(--cyan);color:var(--cyan)}
+.fb.f-ok{border-left:3px solid var(--green)}
+.fb.f-fail{border-left:3px solid var(--red)}
+.fb.f-warn{border-left:3px solid var(--orange)}
+.fb.f-info{border-left:3px solid var(--blue)}
+.toolbar select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:5px;font-size:11px}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2)}
+.tab{padding:6px 16px;cursor:pointer;font-size:12px;color:var(--text2);border-bottom:2px solid transparent;transition:.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+/* Content area - MUST fill remaining space */
+.content-area{flex:1;display:flex;overflow:hidden;min-height:0}
+.tab-content{display:none;flex:1;min-height:0;overflow:hidden}
+.tab-content.active{display:flex}
+/* Request list */
+.req-list-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.list-hdr{display:grid;grid-template-columns:70px 90px 1fr 80px 65px;padding:5px 10px;font-size:10px;color:var(--text2);text-transform:uppercase;font-weight:600;letter-spacing:.4px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:6px}
+.req-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.req-scroll::-webkit-scrollbar{width:7px}
+.req-scroll::-webkit-scrollbar-track{background:var(--bg)}
+.req-scroll::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+.ri{display:grid;grid-template-columns:70px 90px 1fr 80px 65px;align-items:center;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background .12s;font-size:11px;gap:6px}
+.ri:hover{background:rgba(255,255,255,.04)}
+.ri.sel{background:var(--accent);border-left:3px solid var(--cyan)}
+.ri .tm{color:var(--text2);font-family:monospace;font-size:10px}
+.ri .sv{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase;text-align:center}
+.sv-ok{background:rgba(0,200,83,.15);color:var(--green)}
+.sv-fail{background:rgba(255,23,68,.15);color:var(--red)}
+.sv-warn{background:rgba(255,145,0,.15);color:var(--orange)}
+.sv-info{background:rgba(33,150,243,.15);color:var(--blue)}
+.ri .ur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:10px;color:var(--text)}
+.ri .st{font-weight:700;font-family:monospace;font-size:11px;text-align:center}
+.st-2{color:var(--green)}.st-3{color:var(--blue)}.st-4{color:var(--orange)}.st-5{color:var(--red)}.st-e{color:var(--red)}.st-w{color:var(--purple)}
+.ri .du{color:var(--text2);font-size:10px;text-align:right}
+/* Detail panel */
+.detail-panel{width:460px;background:var(--bg2);overflow-y:auto;flex-shrink:0;display:none;border-left:1px solid var(--border)}
+.detail-panel.open{display:flex;flex-direction:column}
+.detail-panel::-webkit-scrollbar{width:7px}
+.detail-panel::-webkit-scrollbar-track{background:var(--bg2)}
+.detail-panel::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+.dp-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:5;flex-shrink:0}
+.dp-hdr h3{font-size:13px;color:var(--cyan)}
+.dp-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px}
+.dp-close:hover{background:var(--bg3);color:var(--text)}
+.dp-body{flex:1;overflow-y:auto}
+.dp-sec{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
+.dp-sec h4{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--cyan);margin-bottom:6px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:5px}
+.dp-sec h4::before{content:'▼';font-size:7px;transition:transform .2s}
+.dp-sec.coll h4::before{transform:rotate(-90deg)}
+.dp-sec.coll .dp-c{display:none}
+.dp-r{display:flex;padding:2px 0;font-size:11px;gap:6px}
+.dp-r .lb{color:var(--text2);min-width:100px;flex-shrink:0;font-size:10px}
+.dp-r .vl{color:var(--text);word-break:break-all;font-family:monospace;font-size:10px}
+.vl.ok{color:var(--green)}.vl.err{color:var(--red)}.vl.wrn{color:var(--orange)}
+.hl{font-family:monospace;font-size:10px;padding:1px 0;color:var(--text)}
+.hl .hn{color:var(--cyan)}
+.ev{font-family:monospace;font-size:10px;padding:1px 0;display:flex;gap:6px}
+.ev .et{color:var(--text2);min-width:50px}
+.ev .en{color:var(--yellow)}
+.ev .ed{color:var(--text2);word-break:break-all;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.wsf{padding:3px 8px;border-radius:3px;margin:2px 0;font-family:monospace;font-size:10px;display:flex;gap:8px;align-items:center}
+.wsf.wr{background:rgba(0,200,83,.06);border-left:3px solid var(--green)}
+.wsf.ws{background:rgba(33,150,243,.06);border-left:3px solid var(--blue)}
+.wsf.wc{background:rgba(255,23,68,.06);border-left:3px solid var(--red)}
+/* Flow tab */
+.flow-scroll{flex:1;overflow-y:auto;padding:8px}
+.flow-scroll::-webkit-scrollbar{width:7px}
+.flow-scroll::-webkit-scrollbar-track{background:var(--bg)}
+.flow-scroll::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+.hgrp{background:var(--bg3);border-left:3px solid var(--accent2);margin:6px 0 2px 0;padding:5px 10px;border-radius:0 5px 5px 0;font-size:12px;color:var(--purple);font-weight:600}
+.fi{display:flex;align-items:center;gap:8px;padding:4px 12px;border-bottom:1px solid rgba(255,255,255,.03);font-size:11px;cursor:pointer}
+.fi:hover{background:rgba(255,255,255,.04)}
+.fi .fn{color:var(--text2);min-width:24px;font-weight:700;font-size:10px}
+.fi .fa{color:var(--accent2)}
+.fi .fu{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:10px}
+.fi .fs{font-weight:700;min-width:50px;text-align:center;font-size:11px}
+.fi .fd{color:var(--text2);min-width:50px;text-align:right;font-size:10px}
+/* Buttons */
+.btn{background:var(--accent);border:1px solid var(--border);color:var(--text);padding:4px 12px;border-radius:5px;font-size:11px;cursor:pointer;transition:.2s;white-space:nowrap}
+.btn:hover{background:var(--bg4);border-color:var(--cyan)}
+.btn-p{background:var(--accent2);border-color:var(--accent2)}
+.btn-p:hover{background:#6a42a0}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#000;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;transform:translateY(80px);opacity:0;transition:.3s;z-index:999}
+.toast.show{transform:translateY(0);opacity:1}
+#loadingBar{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center}
+#loadingBar .icon{font-size:30px}
+.pbar{width:300px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:8px}
+.pfill{height:100%;background:var(--cyan);border-radius:2px;transition:width .3s}
+.empty-dp{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:12px;padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>🔍 NetExport Analyzer Pro <span>Edge / Chromium</span></h1>
+<span class="badge">v2.1</span>
+<span class="fname" id="fnameLbl"></span>
+<div class="hdr-right" id="hdrAct" style="display:none">
+<button class="btn" onclick="copyFindings()">📋 Copy Findings</button>
+<button class="btn" onclick="exportCSV()">📊 Export CSV</button>
+<button class="btn btn-p" onclick="resetApp()">🔄 New File</button>
+</div>
+</header>
+
+<div class="upload-zone" id="uploadZone">
+<div class="upload-box" id="uploadBox">
+<div style="font-size:42px;margin-bottom:12px">📁</div>
+<h2>Drop Net-Export JSON Here</h2>
+<p>or click to browse</p>
+<p style="margin-top:12px;font-size:11px;color:#666">Collected from edge://net-export or chrome://net-export</p>
+</div>
+<input type="file" id="fileInput" accept=".json">
+</div>
+
+<div id="loadingBar">
+<div class="icon">⏳</div>
+<p style="margin-top:8px;font-size:13px;color:var(--cyan)">Parsing log file...</p>
+<div class="pbar"><div class="pfill" id="pFill" style="width:0%"></div></div>
+</div>
+
+<div class="main-view" id="mainView">
+<!-- Stats Bar -->
+<div class="stats-bar" id="statsBar"></div>
+<!-- Findings - Collapsible -->
+<div class="findings-wrap" id="findingsWrap" style="display:none">
+<div class="findings-toggle" id="findingsToggle" onclick="toggleFindings()">
+<span class="arrow">►</span>
+<span id="findingsTitle">🔍 Auto-Detected Findings</span>
+</div>
+<div class="findings-body" id="findingsBody"></div>
+</div>
+<!-- Toolbar -->
+<div class="toolbar">
+<input type="text" id="searchInput" placeholder="🔍 Search URL, status, header...">
+<div class="fb f-ok active" data-f="ok" onclick="togF(this)">✅ OK <b id="cOk">0</b></div>
+<div class="fb f-warn active" data-f="warn" onclick="togF(this)">⚠️ Warn <b id="cWarn">0</b></div>
+<div class="fb f-fail active" data-f="fail" onclick="togF(this)">❌ Fail <b id="cFail">0</b></div>
+<div class="fb f-info active" data-f="info" onclick="togF(this)">ℹ️ Info <b id="cInfo">0</b></div>
+<select id="hostF" onchange="applyF()"><option value="">All Hosts</option></select>
+<select id="statusF" onchange="applyF()"><option value="">All Statuses</option></select>
+</div>
+<!-- Tabs -->
+<div class="tab-bar">
+<div class="tab active" data-t="timeline" onclick="swTab(this)">📋 Timeline</div>
+<div class="tab" data-t="flow" onclick="swTab(this)">🔄 Flow Analysis</div>
+</div>
+<!-- Content -->
+<div class="content-area">
+<!-- Timeline Tab -->
+<div class="tab-content active" id="tab-timeline" style="display:flex;flex:1;min-height:0">
+<div class="req-list-wrap">
+<div class="list-hdr"><span>TIME</span><span>SEVERITY</span><span>URL</span><span>STATUS</span><span>MS</span></div>
+<div class="req-scroll" id="reqScroll"></div>
+</div>
+</div>
+<!-- Flow Tab -->
+<div class="tab-content" id="tab-flow" style="flex:1;min-height:0">
+<div class="flow-scroll" id="flowContent"></div>
+</div>
+<!-- Detail Panel -->
+<div class="detail-panel" id="dp">
+<div class="dp-hdr"><h3 id="dpTitle">Details</h3><button class="dp-close" onclick="closeDP()">✕</button></div>
+<div class="dp-body" id="dpBody"><div class="empty-dp">Click a request to view details</div></div>
+</div>
+</div>
+</div>
+</div>
+<div class="toast" id="toast">✅ Copied!</div>
+
+<script>
+let allR=[],filtR=[],consts={},aFilt={ok:1,warn:1,fail:1,info:1},selIdx=-1,loadedName='';
+const $=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+const fmtMs=ms=>ms>=1000?(ms/1000).toFixed(1)+'s':ms+'ms';
+
+$('uploadBox').onclick=()=>$('fileInput').click();
+$('uploadBox').ondragover=e=>{e.preventDefault();$('uploadBox').classList.add('dragover')};
+$('uploadBox').ondragleave=()=>$('uploadBox').classList.remove('dragover');
+$('uploadBox').ondrop=e=>{e.preventDefault();$('uploadBox').classList.remove('dragover');if(e.dataTransfer.files.length)loadFile(e.dataTransfer.files[0])};
+$('fileInput').onchange=e=>{if(e.target.files.length)loadFile(e.target.files[0])};
+$('searchInput').oninput=applyF;
+
+function loadFile(f){
+if(!f.name.endsWith('.json'))return alert('Please upload a .json file');
+loadedName=f.name;
+$('uploadZone').style.display='none';$('loadingBar').style.display='flex';
+const r=new FileReader();
+r.onload=e=>{
+try{$('pFill').style.width='50%';
+setTimeout(()=>{const d=JSON.parse(e.target.result);$('pFill').style.width='80%';
+parseLog(d);$('pFill').style.width='100%';
+setTimeout(()=>{$('loadingBar').style.display='none';$('mainView').style.display='flex';$('hdrAct').style.display='flex';$('fnameLbl').textContent='📄 '+loadedName},150);
+},30);
+}catch(err){alert('Parse error: '+err.message);resetApp()}
+};r.readAsText(f);
+}
+
+function parseLog(data){
+consts=data.constants||{};const events=data.events||[];
+const srcs={},et={},st={};
+if(consts.logEventTypes)Object.entries(consts.logEventTypes).forEach(([k,v])=>et[v]=k);
+if(consts.logSourceType)Object.entries(consts.logSourceType).forEach(([k,v])=>st[v]=k);
+const pm=consts.logEventPhase||{};const pn={};Object.entries(pm).forEach(([k,v])=>pn[v]=k);
+
+events.forEach(ev=>{
+const sid=ev.source?ev.source.id:0,sty=ev.source?ev.source.type:0;
+if(!srcs[sid])srcs[sid]={id:sid,type:sty,tn:st[sty]||'UNK',evs:[]};
+srcs[sid].evs.push(ev);
+});
+
+allR=[];
+Object.values(srcs).forEach(src=>{
+if(src.tn!=='URL_REQUEST')return;
+const req={id:src.id,url:'',method:'GET',http:0,nerr:0,nerrN:'',t0:Infinity,t1:0,dur:0,sev:'ok',
+rqH:[],rsH:[],cookies:[],evs:[],isWS:false,wsF:[],pri:'',init:'',lf:'',rtype:'other'};
+
+src.evs.forEach(ev=>{
+const t=parseInt(ev.time)||0;if(t<req.t0)req.t0=t;if(t>req.t1)req.t1=t;
+const tn=et[ev.type]||('E_'+ev.type);
+const ph=pn[ev.phase]||'?';const p=ev.params||{};
+req.evs.push({t,off:0,type:tn,ph,p});
+
+if((tn==='URL_REQUEST_START_JOB'||tn==='REQUEST_ALIVE')&&!req.url&&p.url)req.url=p.url;
+if(p.method)req.method=p.method;
+if(p.priority&&!req.pri)req.pri=p.priority;
+if(p.initiator&&!req.init)req.init=p.initiator;
+if(p.request_type)req.rtype=p.request_type;
+
+if(tn==='HTTP_TRANSACTION_SEND_REQUEST_HEADERS'){
+let hdrs=p.headers;if(typeof p==='string')hdrs=p.split('\n');
+if(Array.isArray(hdrs))req.rqH=hdrs;
+else if(typeof hdrs==='string')req.rqH=hdrs.split('\n');
+const raw=(req.rqH.join(' ')+(p.line||''));
+if(raw.match(/upgrade:\s*websocket/i))req.isWS=true;
+const mm=raw.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s/);if(mm)req.method=mm[1];
+}
+
+if(tn==='HTTP_TRANSACTION_READ_RESPONSE_HEADERS'){
+let hdrs=p.headers;
+if(Array.isArray(hdrs))req.rsH=hdrs;
+else if(typeof hdrs==='string')req.rsH=hdrs.split('\n');
+else if(typeof p==='string')req.rsH=p.split('\n');
+req.rsH.forEach(line=>{
+if(typeof line!=='string')return;
+const m=line.match(/HTTP\/[\d.]+ (\d+)/);if(m)req.http=parseInt(m[1]);
+if(line.match(/101\s+Switching\s+Protocols/i))req.isWS=true;
+});
+}
+if(tn==='COOKIE_INCLUSION_STATUS')req.cookies.push({n:p.name||'',d:p.domain||'',s:p.status||'',o:p.operation||''});
+if(p.net_error!==undefined&&p.net_error!==0)req.nerr=p.net_error;
+if(tn==='WEBSOCKET_RECV_FRAME_HEADER')req.wsF.push({dir:'RECV',op:p.opcode,len:p.payload_length||0,t});
+if(tn==='WEBSOCKET_SENT_FRAME_HEADER')req.wsF.push({dir:'SENT',op:p.opcode,len:p.payload_length||0,t});
+});
+
+req.dur=req.t1-req.t0;if(req.dur<0)req.dur=0;
+req.evs.forEach(e=>e.off=e.t-req.t0);
+if(req.url.startsWith('ws://'))req.isWS=true;
+
+const errMap={'-2':'ERR_FAILED','-3':'ERR_ABORTED','-7':'ERR_TIMED_OUT','-21':'ERR_NETWORK_CHANGED',
+'-100':'ERR_CONNECTION_CLOSED','-101':'ERR_CONNECTION_RESET','-102':'ERR_CONNECTION_REFUSED',
+'-104':'ERR_CONNECTION_FAILED','-105':'ERR_NAME_NOT_RESOLVED','-106':'ERR_INTERNET_DISCONNECTED',
+'-118':'ERR_CONNECTION_TIMED_OUT','-137':'ERR_NAME_RESOLUTION_FAILED','-173':'ERR_WS_UPGRADE',
+'-200':'ERR_CERT_COMMON_NAME_INVALID','-201':'ERR_CERT_DATE_INVALID','-202':'ERR_CERT_AUTHORITY_INVALID',
+'-324':'ERR_EMPTY_RESPONSE','-400':'ERR_CACHE_MISS','-403':'ERR_CACHE_READ_FAILURE'};
+if(req.nerr)req.nerrN=errMap[String(req.nerr)]||('NET_ERR_'+req.nerr);
+
+// severity
+if(req.http>=200&&req.http<300&&!req.nerr)req.sev='ok';
+else if(req.http===101)req.sev='ok';
+else if(req.http===404||req.http>=500)req.sev='fail';
+else if(req.http===401||req.http===403)req.sev='warn';
+else if(req.http>=400)req.sev='warn';
+else if(req.nerr===-400)req.sev='info'; // cache miss
+else if(req.nerr===-173&&req.isWS)req.sev='ok'; // WS upgrade
+else if(req.nerr&&req.nerr!==-400&&req.nerr!==-173)req.sev='fail';
+else if(req.http===0&&!req.nerr)req.sev='info';
+else req.sev='ok';
+
+if(req.url)allR.push(req);
+});
+
+allR.sort((a,b)=>a.t0-b.t0);
+buildUI();
+}
+
+function buildUI(){
+const c={ok:0,warn:0,fail:0,info:0};const hosts=new Set();const stats=new Set();
+allR.forEach(r=>{c[r.sev]++;
+try{hosts.add(new URL(r.url).hostname)}catch(e){const m=r.url.match(/\/\/([^/?#]+)/);if(m)hosts.add(m[1])}
+if(r.http)stats.add(r.http);if(r.nerrN)stats.add(r.nerrN);
+});
+$('cOk').textContent=c.ok;$('cWarn').textContent=c.warn;$('cFail').textContent=c.fail;$('cInfo').textContent=c.info;
+const tot=allR.length;const pct=tot?Math.round(c.ok/tot*100):0;
+$('statsBar').innerHTML=`<div class="stat"><div class="dot" style="background:var(--text2)"></div><span class="cnt">${tot}</span><span class="stat-label">Total</span></div>
+<div class="stat"><div class="dot" style="background:var(--green)"></div><span class="cnt">${c.ok}</span><span class="stat-label">OK</span></div>
+<div class="stat"><div class="dot" style="background:var(--orange)"></div><span class="cnt">${c.warn}</span><span class="stat-label">Warn</span></div>
+<div class="stat"><div class="dot" style="background:var(--red)"></div><span class="cnt">${c.fail}</span><span class="stat-label">Failed</span></div>
+<div class="stat"><div class="dot" style="background:var(--blue)"></div><span class="cnt">${c.info}</span><span class="stat-label">Info</span></div>
+<div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+<span class="stat-label">Health: ${pct}%</span>
+<div class="pbar" style="width:120px"><div class="pfill" style="width:${pct}%"></div></div>
+</div>`;
+
+const hf=$('hostF');hf.innerHTML='<option value="">All Hosts</option>';
+[...hosts].sort().forEach(h=>{const o=document.createElement('option');o.value=h;o.textContent=h;hf.appendChild(o)});
+const sf=$('statusF');sf.innerHTML='<option value="">All Statuses</option>';
+[...stats].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sf.appendChild(o)});
+
+genFindings();applyF();buildFlow();
+}
+
+function genFindings(){
+const fd=[];
+const f404=allR.filter(r=>r.http===404);if(f404.length)fd.push({l:'critical',t:`${f404.length} request(s) returned HTTP 404 Not Found`,u:f404.map(r=>r.url)});
+const f401=allR.filter(r=>r.http===401);if(f401.length)fd.push({l:'critical',t:`${f401.length} request(s) returned HTTP 401 Unauthorized`,u:f401.map(r=>r.url)});
+const f5xx=allR.filter(r=>r.http>=500);if(f5xx.length)fd.push({l:'critical',t:`${f5xx.length} request(s) returned 5xx server error`,u:f5xx.map(r=>r.url)});
+const fdns=allR.filter(r=>r.nerr===-105||r.nerr===-137);if(fdns.length)fd.push({l:'critical',t:`${fdns.length} DNS resolution failure(s)`,u:fdns.map(r=>r.url)});
+const fconn=allR.filter(r=>[-100,-101,-102,-104,-118].includes(r.nerr));if(fconn.length)fd.push({l:'warning',t:`${fconn.length} connection error(s)`,u:fconn.map(r=>r.url)});
+const fws=allR.filter(r=>r.isWS);
+if(fws.length){
+const wsOk=fws.filter(r=>r.http===101);if(wsOk.length)fd.push({l:'info',t:`${wsOk.length} WebSocket connected (101)`,u:wsOk.map(r=>r.url)});
+const wsCl=fws.filter(r=>r.wsF.some(f=>f.op===8));if(wsCl.length)fd.push({l:'warning',t:`${wsCl.length} WebSocket closed by server`,u:wsCl.map(r=>r.url)});
+}
+const fc=allR.filter(r=>r.nerr===-400);if(fc.length)fd.push({l:'info',t:`${fc.length} cache miss(es) — ERR_CACHE_MISS (normal)`,u:fc.map(r=>r.url)});
+if(!fd.some(f=>f.l==='critical'))fd.push({l:'ok',t:'No critical issues — browser processed all requests correctly'});
+
+if(!fd.length){$('findingsWrap').style.display='none';return}
+$('findingsWrap').style.display='block';
+$('findingsTitle').textContent=`🔍 Auto-Detected Findings (${fd.length}) — Click to expand`;
+const ic={critical:'🔴',warning:'🟡',ok:'🟢',info:'🔵'};
+$('findingsBody').innerHTML=fd.map(f=>`<div class="finding ${f.l}"><span class="f-icon">${ic[f.l]||'ℹ️'}</span><div class="f-text"><div>${f.t}</div>${f.u?`<div class="f-urls">${f.u.slice(0,3).map(u=>esc(u.length>90?u.slice(0,90)+'...':u)).join('<br>')}${f.u.length>3?'<br>...+'+(f.u.length-3)+' more':''}</div>`:''}</div></div>`).join('');
+}
+
+function toggleFindings(){
+const tg=$('findingsToggle'),bd=$('findingsBody');
+tg.classList.toggle('open');bd.classList.toggle('open');
+}
+
+function applyF(){
+const q=$('searchInput').value.toLowerCase();
+const hv=$('hostF').value.toLowerCase();
+const sv=$('statusF').value;
+filtR=allR.filter(r=>{
+if(!aFilt[r.sev])return false;
+if(q){const hay=(r.url+' '+r.method+' '+(r.http||'')+' '+(r.nerrN||'')+' '+r.rqH.join(' ')+' '+r.rsH.join(' ')).toLowerCase();if(!hay.includes(q))return false}
+if(hv){try{if(!new URL(r.url).hostname.toLowerCase().includes(hv))return false}catch(e){if(!r.url.toLowerCase().includes(hv))return false}}
+if(sv&&String(r.http)!==sv&&r.nerrN!==sv)return false;
+return true;
+});
+renderList();
+}
+
+function renderList(){
+const sc=$('reqScroll');const bt=allR.length?allR[0].t0:0;
+let h='';
+filtR.forEach((r,i)=>{
+const off=r.t0-bt;const ts=fmtMs(off>=0?off:0);
+let ss='',sc2='';
+if(r.isWS&&r.http===101){ss='101 WS';sc2='st-w'}
+else if(r.http){ss=''+r.http;sc2=r.http<300?'st-2':r.http<400?'st-3':r.http<500?'st-4':'st-5'}
+else if(r.nerrN){ss=r.nerrN;sc2='st-e'}
+const svC={ok:'sv-ok',warn:'sv-warn',fail:'sv-fail',info:'sv-info'}[r.sev]||'sv-info';
+const svL={ok:'OK',warn:'WARN',fail:'FAIL',info:'INFO'}[r.sev]||'INFO';
+const su=r.url.length>130?r.url.slice(0,130)+'...':r.url;
+h+=`<div class="ri${selIdx===i?' sel':''}" onclick="selReq(${i})"><span class="tm">${ts}</span><span class="sv ${svC}">${svL}</span><span class="ur" title="${esc(r.url)}">${esc(su)}</span><span class="st ${sc2}">${ss}</span><span class="du">${r.dur}ms</span></div>`;
+});
+sc.innerHTML=h;
+}
+
+function selReq(i){
+selIdx=i;const r=filtR[i];if(!r)return;
+renderList();
+const dp=$('dp');dp.classList.add('open');
+$('dpTitle').textContent=`#${r.id} ${r.method} ${r.isWS?'WebSocket':''}`;
+let h='';
+// Overview
+h+=`<div class="dp-sec"><h4 onclick="togSec(this)">📋 OVERVIEW</h4><div class="dp-c">
+<div class="dp-r"><span class="lb">URL</span><span class="vl">${esc(decodeURIComponent(r.url))}</span></div>
+<div class="dp-r"><span class="lb">Method</span><span class="vl">${r.method}</span></div>
+<div class="dp-r"><span class="lb">HTTP Status</span><span class="vl ${r.http>=400?'err':r.http>=200?'ok':''}">${r.http||'N/A'}${r.isWS&&r.http===101?' ✅ WebSocket Upgrade OK':''}</span></div>
+<div class="dp-r"><span class="lb">Net Error</span><span class="vl ${r.nerr&&r.nerr!==-173?'err':'ok'}">${r.nerrN||'None'}${r.nerr===-173&&r.isWS?' (Normal WS Upgrade)':''}</span></div>
+<div class="dp-r"><span class="lb">Duration</span><span class="vl">${r.dur}ms</span></div>
+<div class="dp-r"><span class="lb">Priority</span><span class="vl">${r.pri||'—'}</span></div>
+<div class="dp-r"><span class="lb">Initiator</span><span class="vl">${esc(r.init||'—')}</span></div>
+<div class="dp-r"><span class="lb">Type</span><span class="vl">${r.rtype}${r.isWS?' (WebSocket)':''}</span></div>
+</div></div>`;
+// Req Headers
+if(r.rqH.length){h+=`<div class="dp-sec"><h4 onclick="togSec(this)">📤 REQUEST HEADERS (${r.rqH.length})</h4><div class="dp-c">`;
+r.rqH.forEach(l=>{if(typeof l==='string'){const p=l.split(': ');h+=`<div class="hl"><span class="hn">${esc(p[0])}:</span> ${esc(p.slice(1).join(': '))}</div>`}});
+h+=`</div></div>`}
+// Resp Headers
+if(r.rsH.length){h+=`<div class="dp-sec"><h4 onclick="togSec(this)">📥 RESPONSE HEADERS (${r.rsH.length})</h4><div class="dp-c">`;
+r.rsH.forEach(l=>{if(typeof l==='string'){const p=l.split(': ');h+=`<div class="hl"><span class="hn">${esc(p[0])}:</span> ${esc(p.slice(1).join(': '))}</div>`}});
+h+=`</div></div>`}
+// Cookies
+if(r.cookies.length){h+=`<div class="dp-sec"><h4 onclick="togSec(this)">🍪 COOKIES (${r.cookies.length})</h4><div class="dp-c">`;
+r.cookies.forEach(c=>{h+=`<div class="dp-r"><span class="lb">${esc(c.n)}</span><span class="vl ${c.s.includes('INCLUDE')?'ok':'err'}">${esc(c.s)} [${c.o}]</span></div>`});
+h+=`</div></div>`}
+// WS Frames
+if(r.wsF.length){
+const opN={0:'Continue',1:'Text',2:'Binary',8:'Close',9:'Ping',10:'Pong'};
+const totalBytes=r.wsF.reduce((s,f)=>s+f.len,0);
+const recvB=r.wsF.filter(f=>f.dir==='RECV').reduce((s,f)=>s+f.len,0);
+const sentB=r.wsF.filter(f=>f.dir==='SENT').reduce((s,f)=>s+f.len,0);
+h+=`<div class="dp-sec"><h4 onclick="togSec(this)">🔌 WEBSOCKET FRAMES (${r.wsF.length}) — ${totalBytes} bytes total</h4><div class="dp-c">`;
+h+=`<div class="dp-r"><span class="lb">Received</span><span class="vl">${recvB} bytes (${r.wsF.filter(f=>f.dir==='RECV').length} frames)</span></div>`;
+h+=`<div class="dp-r"><span class="lb">Sent</span><span class="vl">${sentB} bytes (${r.wsF.filter(f=>f.dir==='SENT').length} frames)</span></div>`;
+h+=`<div style="margin-top:6px">`;
+r.wsF.forEach(f=>{const cl=f.op===8?'wc':f.dir==='RECV'?'wr':'ws';const off=f.t-r.t0;
+h+=`<div class="wsf ${cl}"><span style="color:var(--text2)">[+${off}ms]</span><span style="color:${f.dir==='RECV'?'var(--green)':'var(--blue)'}">${f.dir}</span><span>${opN[f.op]||'op:'+f.op}</span><span style="color:var(--text2)">${f.len}b</span></div>`;
+});h+=`</div></div></div>`}
+// Events
+h+=`<div class="dp-sec coll"><h4 onclick="togSec(this)">📊 EVENT TRACE (${r.evs.length})</h4><div class="dp-c">`;
+r.evs.forEach(e=>{const ps=Object.keys(e.p).length?JSON.stringify(e.p).slice(0,180):'';
+h+=`<div class="ev"><span class="et">[+${e.off}ms]</span><span class="en">[${e.ph}] ${e.type}</span>${ps?`<span class="ed">${esc(ps)}</span>`:''}</div>`;
+});h+=`</div></div>`;
+$('dpBody').innerHTML=h;
+}
+
+function buildFlow(){
+const hg={};
+allR.forEach((r,i)=>{
+let host='unknown';try{host=new URL(r.url).hostname}catch(e){const m=r.url.match(/\/\/([^/?#]+)/);if(m)host=m[1]}
+if(!hg[host])hg[host]=[];hg[host].push({r,gi:i});
+});
+let h='';
+Object.entries(hg).sort((a,b)=>b[1].length-a[1].length).forEach(([host,items])=>{
+const ok=items.filter(x=>x.r.sev==='ok').length,fl=items.filter(x=>x.r.sev==='fail').length,wr=items.filter(x=>x.r.sev==='warn').length;
+h+=`<div class="hgrp">🌐 ${esc(host)} — ${items.length} requests (✅${ok} ⚠️${wr} ❌${fl})</div>`;
+items.forEach((x,j)=>{
+const r=x.r;let ss='',sc='';
+if(r.isWS&&r.http===101){ss='101 WS';sc='st-w'}else if(r.http){ss=''+r.http;sc=r.http<300?'st-2':r.http<400?'st-3':r.http<500?'st-4':'st-5'}else if(r.nerrN){ss=r.nerrN;sc='st-e'}
+const p=r.url.replace(/^https?:\/\/[^/]+/,'').replace(/^wss?:\/\/[^/]+/,'');
+const sp=p.length>80?p.slice(0,80)+'...':p;
+h+=`<div class="fi" onclick="selReqById(${r.id})"><span class="fn">${j+1}</span><span class="fa">→</span><span class="fu">${r.method} ${esc(sp||'/')}</span><span class="fs ${sc}">${ss}</span><span class="fd">${r.dur}ms</span></div>`;
+});
+});
+$('flowContent').innerHTML=h;
+}
+
+function selReqById(id){
+const i=filtR.findIndex(r=>r.id===id);
+if(i>=0)selReq(i);
+else{const ai=allR.findIndex(r=>r.id===id);if(ai>=0){
+// Reset filters to show it
+aFilt={ok:1,warn:1,fail:1,info:1};
+document.querySelectorAll('.fb').forEach(b=>b.classList.add('active'));
+$('searchInput').value='';$('hostF').value='';$('statusF').value='';
+applyF();
+const ni=filtR.findIndex(r=>r.id===id);if(ni>=0){swTab(document.querySelector('[data-t="timeline"]'));selReq(ni)}
+}}
+}
+
+function togSec(el){el.parentElement.classList.toggle('coll')}
+function closeDP(){$('dp').classList.remove('open');selIdx=-1;renderList()}
+function togF(el){const f=el.dataset.f;aFilt[f]=aFilt[f]?0:1;el.classList.toggle('active');applyF()}
+function swTab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+document.querySelectorAll('.tab-content').forEach(t=>{t.classList.remove('active');t.style.display='none'});
+const tc=$('tab-'+el.dataset.t);tc.classList.add('active');tc.style.display='flex'}
+
+function resetApp(){
+allR=[];filtR=[];selIdx=-1;
+$('mainView').style.display='none';$('loadingBar').style.display='none';
+$('uploadZone').style.display='flex';$('hdrAct').style.display='none';
+$('fnameLbl').textContent='';$('fileInput').value='';
+$('dp').classList.remove('open');
+}
+
+function copyFindings(){
+let t='=== NetExport Analyzer Pro — Report ===\n\n';
+t+=`File: ${loadedName}\nTotal: ${allR.length}\n`;
+const c={ok:0,warn:0,fail:0,info:0};allR.forEach(r=>c[r.sev]++);
+t+=`OK: ${c.ok} | Warn: ${c.warn} | Failed: ${c.fail} | Info: ${c.info}\n\n--- Issues ---\n`;
+allR.filter(r=>r.sev==='fail'||r.sev==='warn').forEach(r=>{
+t+=`[${r.sev.toUpperCase()}] ${r.method} ${r.url}\n  HTTP: ${r.http||'N/A'} | Err: ${r.nerrN||'None'} | ${r.dur}ms\n`;
+if(r.isWS)t+=`  WS Frames: ${r.wsF.length} | Bytes: ${r.wsF.reduce((s,f)=>s+f.len,0)}\n`;t+='\n';
+});
+navigator.clipboard.writeText(t).then(()=>{$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),1500)});
+}
+
+function exportCSV(){
+let csv='ID,Severity,Method,URL,HTTP,NetError,Duration_ms,WebSocket,Type\n';
+allR.forEach(r=>{csv+=`${r.id},${r.sev},${r.method},"${r.url.replace(/"/g,'""')}",${r.http||''},${r.nerrN||''},${r.dur},${r.isWS},${r.rtype}\n`});
+const b=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='netexport_analysis.csv';a.click();
+}
+</script>
+</body>
+</html>

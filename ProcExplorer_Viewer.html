@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Process Explorer Log Viewer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--card:#16213e;--card2:#0f3460;--accent:#e94560;--accent2:#533483;--text:#eee;--text2:#aab;--green:#00c853;--yellow:#ffd600;--red:#ff1744;--orange:#ff9100;--blue:#448aff;--cyan:#00e5ff}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+h1{text-align:center;padding:18px;background:linear-gradient(135deg,var(--card2),var(--accent2));font-size:1.5em;letter-spacing:1px}
+h1 span{color:var(--accent)}
+.subtitle{text-align:center;color:var(--text2);font-size:.85em;padding-bottom:12px;background:linear-gradient(135deg,var(--card2),var(--accent2))}
+
+/* Upload */
+#uploadArea{max-width:700px;margin:30px auto;border:2px dashed var(--accent);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:.3s;background:var(--card)}
+#uploadArea:hover,#uploadArea.dragover{border-color:var(--cyan);background:var(--card2)}
+#uploadArea p{margin:8px 0;color:var(--text2)}
+#uploadArea .icon{font-size:3em}
+#fileInput{display:none}
+.btn{display:inline-block;padding:10px 24px;border:none;border-radius:6px;cursor:pointer;font-size:.95em;font-weight:600;transition:.2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#c1354d}
+.btn-secondary{background:var(--card2);color:var(--text);border:1px solid var(--accent)}
+.btn-secondary:hover{background:var(--accent2)}
+#clearBtn{margin:10px auto;display:none}
+.center-btns{text-align:center;margin:10px 0}
+
+/* Tabs */
+.tabs{display:flex;justify-content:center;gap:4px;margin:16px 0;flex-wrap:wrap}
+.tab{padding:10px 22px;background:var(--card);border:1px solid #333;border-radius:8px 8px 0 0;cursor:pointer;font-size:.9em;transition:.2s}
+.tab:hover{background:var(--card2)}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab-content{display:none;padding:16px;max-width:1400px;margin:0 auto}
+.tab-content.active{display:block}
+
+/* Cards */
+.proc-cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.proc-card{background:var(--card);border-radius:10px;padding:20px;min-width:320px;max-width:420px;flex:1;border-left:4px solid var(--accent)}
+.proc-card h3{color:var(--accent);margin-bottom:12px;font-size:1.1em}
+.proc-card .detail{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #ffffff10;font-size:.88em}
+.proc-card .detail .label{color:var(--text2)}
+.proc-card .detail .value{font-weight:600}
+
+/* Memory bars */
+.mem-bar-wrap{margin:8px 0}
+.mem-bar-label{font-size:.8em;color:var(--text2);margin-bottom:3px;display:flex;justify-content:space-between}
+.mem-bar-outer{height:18px;background:#ffffff15;border-radius:9px;overflow:hidden;position:relative}
+.mem-bar-inner{height:100%;border-radius:9px;transition:width .6s;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:.7em;font-weight:700;color:#fff;min-width:40px}
+.mem-bar-inner.low{background:linear-gradient(90deg,#00c853,#69f0ae)}
+.mem-bar-inner.med{background:linear-gradient(90deg,#ffd600,#ff9100)}
+.mem-bar-inner.high{background:linear-gradient(90deg,#ff9100,#ff1744)}
+
+/* Comparison chart */
+.chart-container{background:var(--card);border-radius:10px;padding:20px;margin:20px auto;max-width:1200px}
+.chart-container h3{color:var(--cyan);margin-bottom:16px;text-align:center}
+.bar-chart{display:flex;align-items:flex-end;justify-content:center;gap:30px;height:300px;padding:20px 10px 0;position:relative}
+.bar-group{display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-group .bars{display:flex;gap:6px;align-items:flex-end;height:250px}
+.bar{width:50px;border-radius:6px 6px 0 0;position:relative;transition:height .6s;cursor:pointer;min-height:2px}
+.bar:hover{opacity:.85}
+.bar .tooltip{display:none;position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:#000c;padding:4px 8px;border-radius:4px;font-size:.75em;white-space:nowrap;z-index:9}
+.bar:hover .tooltip{display:block}
+.bar-label{font-size:.78em;color:var(--text2);text-align:center;max-width:120px;word-break:break-all}
+.legend{display:flex;gap:20px;justify-content:center;margin-top:12px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.82em;color:var(--text2)}
+.legend-dot{width:12px;height:12px;border-radius:3px}
+
+/* Donut charts */
+.donut-row{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.donut-card{background:var(--card);border-radius:10px;padding:20px;min-width:350px;max-width:450px;flex:1}
+.donut-card h4{color:var(--cyan);margin-bottom:10px;text-align:center;font-size:.95em}
+.donut-wrap{display:flex;align-items:center;gap:16px;justify-content:center}
+.donut-legend{font-size:.78em}
+.donut-legend .item{display:flex;align-items:center;gap:6px;padding:2px 0}
+.donut-legend .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* Security */
+.sec-section{background:var(--card);border-radius:10px;padding:20px;margin:16px auto;max-width:1300px;border-left:4px solid var(--red)}
+.sec-section h3{color:var(--red);margin-bottom:12px}
+.sec-vendor{background:#ff174410;border:1px solid #ff174430;border-radius:8px;padding:14px;margin:10px 0}
+.sec-vendor h4{color:var(--orange);margin-bottom:8px;font-size:.95em}
+.sec-dll-list{display:flex;flex-wrap:wrap;gap:6px}
+.sec-dll-tag{background:#ff174420;border:1px solid #ff174440;padding:3px 10px;border-radius:4px;font-size:.78em;color:#ff8a80}
+.sec-dll-tag.critical{background:#ff174435;border-color:#ff174460;color:#fff}
+.finding-box{background:var(--card2);border-radius:8px;padding:14px;margin:10px 0;border-left:3px solid var(--yellow)}
+.finding-box h4{color:var(--yellow);font-size:.9em;margin-bottom:6px}
+.finding-box p{font-size:.85em;color:var(--text2);line-height:1.5}
+
+/* DLL tree */
+.dll-section{background:var(--card);border-radius:10px;padding:20px;margin:16px auto;max-width:1300px}
+.dll-section h3{color:var(--cyan);margin-bottom:12px}
+.proc-tab-row{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.proc-tab{padding:8px 18px;background:var(--card2);border-radius:6px;cursor:pointer;font-size:.85em;transition:.2s}
+.proc-tab:hover,.proc-tab.active{background:var(--accent);color:#fff}
+.cat-group{margin:8px 0}
+.cat-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#ffffff08;border-radius:6px;cursor:pointer;transition:.2s;user-select:none}
+.cat-header:hover{background:#ffffff12}
+.cat-header .arrow{transition:transform .2s;color:var(--text2)}
+.cat-header.open .arrow{transform:rotate(90deg)}
+.cat-header .cat-name{font-weight:600;font-size:.9em}
+.cat-header .cat-count{background:var(--accent2);padding:2px 8px;border-radius:10px;font-size:.75em}
+.cat-header .cat-count.security{background:var(--red)}
+.dll-table{width:100%;border-collapse:collapse;font-size:.8em;display:none;margin:4px 0 8px 20px}
+.dll-table.open{display:table}
+.dll-table th{background:var(--card2);padding:6px 10px;text-align:left;color:var(--cyan);position:sticky;top:0}
+.dll-table td{padding:5px 10px;border-bottom:1px solid #ffffff08;max-width:500px;word-break:break-all}
+.dll-table tr:hover td{background:#ffffff08}
+.dll-table tr.flagged td{background:#ff174415;color:#ff8a80}
+.search-box{width:100%;padding:8px 14px;border:1px solid #333;border-radius:6px;background:var(--bg);color:var(--text);font-size:.9em;margin-bottom:12px}
+.search-box:focus{outline:none;border-color:var(--accent)}
+
+/* Summary table */
+.summary-table{width:100%;border-collapse:collapse;font-size:.88em;margin:12px 0}
+.summary-table th{background:var(--card2);padding:10px 14px;text-align:left;color:var(--cyan);border:1px solid #ffffff10}
+.summary-table td{padding:8px 14px;border:1px solid #ffffff10}
+.summary-table tr:nth-child(even){background:#ffffff05}
+.summary-table .highlight{color:var(--red);font-weight:700}
+
+#results{display:none}
+.no-data{text-align:center;color:var(--text2);padding:40px;font-size:1.1em}
+@media(max-width:768px){.proc-cards,.donut-row{flex-direction:column;align-items:center}.bar-chart{height:220px;gap:14px}.bar{width:30px}.proc-card,.donut-card{max-width:100%;min-width:auto}}
+</style>
+</head>
+<body>
+
+<h1>&#128269; Process Explorer <span>Log Viewer</span></h1>
+<p class="subtitle">Upload Process Explorer .txt logs &bull; Visualize &bull; Analyze &bull; Export for support cases</p>
+
+<div id="uploadArea" onclick="document.getElementById('fileInput').click()">
+ <div class="icon">&#128194;</div>
+ <p><strong>Drag & drop</strong> Process Explorer .txt log files here</p>
+ <p>or click to browse (supports multiple files)</p>
+ <input type="file" id="fileInput" multiple accept=".txt,.log">
+</div>
+
+<div class="center-btns">
+ <button class="btn btn-secondary" id="clearBtn" onclick="clearAll()">&#10006; Clear All &amp; Upload New</button>
+ <button class="btn btn-secondary" id="sampleBtn" onclick="loadSample()" style="margin-left:8px">Load Sample Data</button>
+</div>
+
+<div id="results">
+ <div class="tabs" id="mainTabs">
+  <div class="tab active" data-tab="overview" onclick="switchTab(this)">&#128200; Overview</div>
+  <div class="tab" data-tab="comparison" onclick="switchTab(this)">&#128202; Comparison</div>
+  <div class="tab" data-tab="security" onclick="switchTab(this)">&#128721; Security Analysis</div>
+  <div class="tab" data-tab="dlls" onclick="switchTab(this)">&#128230; DLL Explorer</div>
+  <div class="tab" data-tab="summary" onclick="switchTab(this)">&#128203; Summary</div>
+ </div>
+
+ <div class="tab-content active" id="tab-overview"></div>
+ <div class="tab-content" id="tab-comparison"></div>
+ <div class="tab-content" id="tab-security"></div>
+ <div class="tab-content" id="tab-dlls"></div>
+ <div class="tab-content" id="tab-summary"></div>
+</div>
+
+<script>
+// ===== GLOBALS =====
+let allProcesses = [];
+
+// ===== SECURITY PATTERNS =====
+const SEC_VENDORS = {
+ 'Trellix/McAfee':{keywords:['trellix','mcafee','mfe','blframework','loglib','mcvariant','epmp','hiphandler','atpamsiguard','mfehc','mfemm','mfehid'],critical:['mfehcinj','mfehcthe','epmpthe','hiphandlers']},
+ 'FireEye':{keywords:['fireeye','feamsi','appmonitor'],critical:['feamsiprovider','appmonitordll']},
+ 'Forcepoint':{keywords:['forcepoint','qipcap'],critical:['qipcap64']},
+ 'Zscaler':{keywords:['zscaler','zsa'],critical:[]},
+ 'Trellix Web Control':{keywords:['downloadscan','gatewayutils','mcbrwctl','mcsacore'],critical:['downloadscan']},
+ 'Enterprise Vault':{keywords:['enterprise vault','valkyrie','evsecurity','desktopc'],critical:[]}
+};
+
+const DLL_CATEGORIES = [
+ {name:'Security/AV',color:'#ff1744',test:(d)=>{let c=(d.name+d.company+d.path+d.description).toLowerCase();return['trellix','mcafee','fireeye','forcepoint','qipcap','mfehc','mfemm','mfehid','blframework','atpamsiguard','feamsi','appmonitor','epmp','hiphandler','downloadscan','gatewayutils','mcbrwctl','mcsacore','mcvariant','loglib.dll'].some(k=>c.includes(k))||(d.name.toLowerCase()==='amsi.dll')}},
+ {name:'WebView2',color:'#00e5ff',test:(d)=>{let c=(d.name+d.path).toLowerCase();return['webview2','webview','ebwebview','slimcorewebview'].some(k=>c.includes(k))}},
+ {name:'Microsoft Office',color:'#448aff',test:(d)=>{let p=d.path.toLowerCase();return['microsoft office','office16','clicktorun'].some(k=>p.includes(k))}},
+ {name:'.NET Framework',color:'#7c4dff',test:(d)=>{let p=d.path.toLowerCase();return p.includes('microsoft.net')||d.name.includes('.ni.dll')}},
+ {name:'Teams Add-in',color:'#e040fb',test:(d)=>{let p=d.path.toLowerCase();return p.includes('teamsmeetingadd')||d.name.toLowerCase().includes('microsoft.teams.')}},
+ {name:'Teams App',color:'#ea80fc',test:(d)=>{let p=d.path.toLowerCase();return p.includes('msteams')&&p.includes('windowsapps')}},
+ {name:'New Outlook App',color:'#40c4ff',test:(d)=>{let p=d.path.toLowerCase();return p.includes('outlookforwindows')}},
+ {name:'Intel Graphics',color:'#69f0ae',test:(d)=>d.company.toLowerCase().includes('intel')},
+ {name:'Third-Party',color:'#ffd740',test:(d)=>{let c=d.company.toLowerCase();return c&&!c.includes('microsoft')&&!c.includes('intel')}},
+ {name:'Windows System',color:'#90a4ae',test:(d)=>d.company.toLowerCase().includes('microsoft')},
+ {name:'Data/Cache',color:'#78909c',test:(d)=>{let n=d.name.toLowerCase();return['.nls','.db','.dat','.clb','.sdb','.res','.tlb','.olb','.log','.ttf','.srs','-shm','.tmp','.js','.bundle'].some(e=>n.endsWith(e))}},
+ {name:'Unknown',color:'#546e7a',test:()=>true}
+];
+
+// ===== FILE HANDLING =====
+const uploadArea=document.getElementById('uploadArea');
+const fileInput=document.getElementById('fileInput');
+
+['dragenter','dragover'].forEach(e=>uploadArea.addEventListener(e,(ev)=>{ev.preventDefault();uploadArea.classList.add('dragover')}));
+['dragleave','drop'].forEach(e=>uploadArea.addEventListener(e,(ev)=>{ev.preventDefault();uploadArea.classList.remove('dragover')}));
+uploadArea.addEventListener('drop',(e)=>{handleFiles(e.dataTransfer.files)});
+fileInput.addEventListener('change',(e)=>{handleFiles(e.target.files)});
+
+function handleFiles(files){
+ const readers=[];
+ for(let f of files){
+  readers.push(new Promise((res)=>{
+   const r=new FileReader();
+   r.onload=()=>res({name:f.name,content:r.result});
+   r.readAsText(f);
+  }));
+ }
+ Promise.all(readers).then(results=>{
+  allProcesses=[];
+  results.forEach(r=>{allProcesses.push(parseLog(r.name,r.content))});
+  renderAll();
+ });
+}
+
+// ===== PARSER =====
+function parseLog(fileName,content){
+ const lines=content.split('\n');
+ let proc={fileName,name:'',cpu:'',privateBytes:'',privateBytesKB:0,workingSet:'',workingSetKB:0,pid:'',description:'',company:'',dlls:[],categories:{}};
+
+ // Find process header line
+ for(let i=0;i<Math.min(lines.length,5);i++){
+  let line=lines[i];
+  if(line.includes('.exe')&&line.includes('K')){
+   let parts=line.split('\t').map(s=>s.trim()).filter(Boolean);
+   if(parts.length>=5){
+    proc.name=parts[0];proc.cpu=parts[1];proc.privateBytes=parts[2];proc.workingSet=parts[3];proc.pid=parts[4];
+    if(parts[5])proc.description=parts[5];
+    if(parts[6])proc.company=parts[6];
+    proc.privateBytesKB=parseMemKB(parts[2]);
+    proc.workingSetKB=parseMemKB(parts[3]);
+   }
+   break;
+  }
+ }
+
+ // Find DLL section
+ let inDlls=false;
+ for(let i=0;i<lines.length;i++){
+  let line=lines[i].trim();
+  if(line.startsWith('Name\t')&&line.includes('Description')){inDlls=true;continue;}
+  if(inDlls&&line&&line.includes('\t')){
+   let parts=line.split('\t');
+   let dll={name:parts[0]||'',description:parts[1]||'',company:parts[2]||'',path:parts[3]||''};
+   if(dll.name.trim())proc.dlls.push(dll);
+  }
+ }
+
+ // Categorize
+ let cats={};
+ proc.dlls.forEach(d=>{
+  let cat='Unknown';
+  for(let c of DLL_CATEGORIES){if(c.test(d)){cat=c.name;break;}}
+  if(!cats[cat])cats[cat]=[];
+  cats[cat].push(d);
+  d._category=cat;
+ });
+ proc.categories=cats;
+ return proc;
+}
+
+function parseMemKB(s){
+ if(!s)return 0;
+ return parseInt(s.replace(/[^0-9]/g,''))||0;
+}
+
+// ===== RENDER =====
+function renderAll(){
+ document.getElementById('results').style.display='block';
+ document.getElementById('clearBtn').style.display='inline-block';
+ renderOverview();renderComparison();renderSecurity();renderDLLs();renderSummary();
+}
+
+function renderOverview(){
+ const el=document.getElementById('tab-overview');
+ let html='<div class="proc-cards">';
+ const maxMem=Math.max(...allProcesses.map(p=>Math.max(p.privateBytesKB,p.workingSetKB)),1);
+ allProcesses.forEach(p=>{
+  const pbPct=Math.min((p.privateBytesKB/maxMem)*100,100);
+  const wsPct=Math.min((p.workingSetKB/maxMem)*100,100);
+  const pbClass=pbPct>70?'high':pbPct>40?'med':'low';
+  const wsClass=wsPct>70?'high':wsPct>40?'med':'low';
+  const secCount=(p.categories['Security/AV']||[]).length;
+  html+=`<div class="proc-card">
+   <h3>&#128187; ${esc(p.name)}</h3>
+   <div class="detail"><span class="label">File</span><span class="value">${esc(p.fileName)}</span></div>
+   <div class="detail"><span class="label">PID</span><span class="value">${esc(p.pid)}</span></div>
+   <div class="detail"><span class="label">CPU</span><span class="value">${esc(p.cpu)}</span></div>
+   <div class="detail"><span class="label">Description</span><span class="value">${esc(p.description)}</span></div>
+   <div class="detail"><span class="label">Total DLLs</span><span class="value">${p.dlls.length}</span></div>
+   <div class="detail"><span class="label">Security DLLs</span><span class="value" style="color:${secCount>5?'var(--red)':'var(--text)'}">${secCount} ${secCount>5?'⚠️':''}</span></div>
+   <div class="mem-bar-wrap">
+    <div class="mem-bar-label"><span>Private Bytes</span><span>${esc(p.privateBytes)}</span></div>
+    <div class="mem-bar-outer"><div class="mem-bar-inner ${pbClass}" style="width:${pbPct}%">${p.privateBytesKB>0?Math.round(p.privateBytesKB/1024)+'MB':''}</div></div>
+   </div>
+   <div class="mem-bar-wrap">
+    <div class="mem-bar-label"><span>Working Set</span><span>${esc(p.workingSet)}</span></div>
+    <div class="mem-bar-outer"><div class="mem-bar-inner ${wsClass}" style="width:${wsPct}%">${p.workingSetKB>0?Math.round(p.workingSetKB/1024)+'MB':''}</div></div>
+   </div>
+  </div>`;
+ });
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+function renderComparison(){
+ const el=document.getElementById('tab-comparison');
+ if(allProcesses.length===0){el.innerHTML='<div class="no-data">No data</div>';return;}
+ const maxPB=Math.max(...allProcesses.map(p=>p.privateBytesKB),1);
+ const maxWS=Math.max(...allProcesses.map(p=>p.workingSetKB),1);
+ const maxDLL=Math.max(...allProcesses.map(p=>p.dlls.length),1);
+ const maxVal=Math.max(maxPB,maxWS);
+ const barH=240;
+
+ let html=`<div class="chart-container"><h3>&#128202; Memory Comparison</h3><div class="bar-chart">`;
+ allProcesses.forEach(p=>{
+  const pbH=Math.max((p.privateBytesKB/maxVal)*barH,4);
+  const wsH=Math.max((p.workingSetKB/maxVal)*barH,4);
+  html+=`<div class="bar-group"><div class="bars">
+   <div class="bar" style="height:${pbH}px;background:linear-gradient(180deg,var(--accent),#c1354d)"><div class="tooltip">${Math.round(p.privateBytesKB/1024)} MB</div></div>
+   <div class="bar" style="height:${wsH}px;background:linear-gradient(180deg,var(--cyan),#0097a7)"><div class="tooltip">${Math.round(p.workingSetKB/1024)} MB</div></div>
+  </div><div class="bar-label">${esc(p.name)}</div></div>`;
+ });
+ html+=`</div><div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Private Bytes</div><div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Working Set</div></div></div>`;
+
+ // DLL count comparison
+ html+=`<div class="chart-container"><h3>&#128230; DLL Count Comparison</h3><div class="bar-chart">`;
+ allProcesses.forEach(p=>{
+  const secC=(p.categories['Security/AV']||[]).length;
+  const otherC=p.dlls.length-secC;
+  const sH=Math.max((secC/maxDLL)*barH,2);
+  const oH=Math.max((otherC/maxDLL)*barH,2);
+  html+=`<div class="bar-group"><div class="bars">
+   <div class="bar" style="height:${oH}px;background:linear-gradient(180deg,var(--blue),#1565c0)"><div class="tooltip">${otherC} other DLLs</div></div>
+   <div class="bar" style="height:${sH}px;background:linear-gradient(180deg,var(--red),#b71c1c)"><div class="tooltip">${secC} security DLLs</div></div>
+  </div><div class="bar-label">${esc(p.name)}<br><small style="color:var(--text2)">(${p.dlls.length} total)</small></div></div>`;
+ });
+ html+=`</div><div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Other DLLs</div><div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Security/AV DLLs</div></div></div>`;
+
+ // Donut charts
+ html+='<div class="donut-row">';
+ allProcesses.forEach(p=>{
+  html+=`<div class="donut-card"><h4>${esc(p.name)}</h4><div class="donut-wrap">${makeDonut(p)}${makeDonutLegend(p)}</div></div>`;
+ });
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+function makeDonut(proc){
+ const cats=proc.categories;
+ const total=proc.dlls.length||1;
+ const entries=DLL_CATEGORIES.filter(c=>cats[c.name]&&cats[c.name].length>0).map(c=>({name:c.name,count:cats[c.name].length,color:c.color}));
+ let cumPct=0;
+ const r=70,cx=90,cy=90;
+ let paths='';
+ entries.forEach(e=>{
+  const pct=e.count/total;
+  const startAngle=cumPct*2*Math.PI-Math.PI/2;
+  cumPct+=pct;
+  const endAngle=cumPct*2*Math.PI-Math.PI/2;
+  const largeArc=pct>0.5?1:0;
+  const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle);
+  const x2=cx+r*Math.cos(endAngle),y2=cy+r*Math.sin(endAngle);
+  if(pct>=0.999){paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${e.color}" opacity="0.85"/>`;
+  }else{paths+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${e.color}" opacity="0.85"/>`;}
+ });
+ return `<svg width="180" height="180" viewBox="0 0 180 180">${paths}<circle cx="${cx}" cy="${cy}" r="42" fill="var(--card)"/><text x="${cx}" y="${cy-4}" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700">${total}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" fill="var(--text2)" font-size="10">DLLs</text></svg>`;
+}
+
+function makeDonutLegend(proc){
+ const cats=proc.categories;
+ const total=proc.dlls.length||1;
+ let html='<div class="donut-legend">';
+ DLL_CATEGORIES.filter(c=>cats[c.name]&&cats[c.name].length>0).forEach(c=>{
+  const cnt=cats[c.name].length;
+  html+=`<div class="item"><div class="dot" style="background:${c.color}"></div>${c.name} (${cnt})</div>`;
+ });
+ html+='</div>';
+ return html;
+}
+
+function renderSecurity(){
+ const el=document.getElementById('tab-security');
+ let html=`<div class="sec-section"><h3>&#128721; Security Agent DLL Injection Analysis</h3>`;
+
+ // Per-vendor detection
+ for(let vendor in SEC_VENDORS){
+  const vd=SEC_VENDORS[vendor];
+  let vendorFound=false;
+  let vendorHtml=`<div class="sec-vendor"><h4>&#128274; ${vendor}</h4><table class="summary-table"><tr><th>Process</th><th>DLLs Found</th><th>Critical Hooks</th></tr>`;
+  allProcesses.forEach(p=>{
+   const matched=p.dlls.filter(d=>{let c=(d.name+d.company+d.path).toLowerCase();return vd.keywords.some(k=>c.includes(k));});
+   const critical=matched.filter(d=>{let n=d.name.toLowerCase();return vd.critical.some(k=>n.includes(k));});
+   if(matched.length>0){vendorFound=true;
+    vendorHtml+=`<tr><td>${esc(p.name)}</td><td>${matched.length} <div class="sec-dll-list" style="margin-top:4px">${matched.map(d=>`<span class="sec-dll-tag${critical.some(c=>c.name===d.name)?' critical':''}">${esc(d.name)}</span>`).join('')}</div></td><td>${critical.length>0?'<span class="highlight">'+critical.map(c=>esc(c.name)).join(', ')+'</span>':'None'}</td></tr>`;
+   }
+  });
+  vendorHtml+='</table></div>';
+  if(vendorFound)html+=vendorHtml;
+ }
+
+ // Findings
+ html+='<h3 style="margin-top:20px">&#127919; Key Findings</h3>';
+ // Count total vendors
+ let vendorCount=0;
+ for(let v in SEC_VENDORS){
+  let found=allProcesses.some(p=>p.dlls.some(d=>{let c=(d.name+d.company+d.path).toLowerCase();return SEC_VENDORS[v].keywords.some(k=>c.includes(k));}));
+  if(found)vendorCount++;
+ }
+ if(vendorCount>=3){
+  html+=`<div class="finding-box" style="border-left-color:var(--red)"><h4>&#128308; CRITICAL: ${vendorCount} Security Vendors Detected Simultaneously</h4><p>Multiple security/endpoint protection vendors are injecting DLLs into the same processes. This triple-hooking pattern is a known cause of memory overhead, process instability, and application hanging behavior. Each vendor's hooks compete for the same system resources.</p></div>`;
+ }
+ if(allProcesses.some(p=>p.dlls.some(d=>d.name.toLowerCase().includes('mfehcinj')))){
+  html+=`<div class="finding-box" style="border-left-color:var(--red)"><h4>&#128308; CRITICAL: Trellix HookCore Injection Detected (mfehcinj.dll)</h4><p>Trellix HookCore Injected Environment is performing deep process hooking. This is known to interfere with WebView2 shared memory access and sandboxed renderer processes, potentially causing memory spikes and hangs.</p></div>`;
+ }
+ const wv2Normal=allProcesses.every(p=>{const wv=(p.categories['WebView2']||[]);return wv.length<=3;});
+ if(wv2Normal){
+  html+=`<div class="finding-box" style="border-left-color:var(--green)"><h4>&#128994; WebView2 Components – Normal</h4><p>WebView2 loader and embedded browser DLLs are loaded as expected. No abnormal WebView2 behavior or excessive component loading detected in the Process Explorer snapshots. Memory footprint from WebView2 side is within expected range.</p></div>`;
+ }
+
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+function renderDLLs(){
+ const el=document.getElementById('tab-dlls');
+ let html='<div class="dll-section"><h3>&#128230; DLL Explorer</h3>';
+ html+='<input class="search-box" type="text" placeholder="&#128269; Search DLL name, company, path..." oninput="filterDLLs(this.value)">';
+ html+='<div class="proc-tab-row">';
+ allProcesses.forEach((p,i)=>{
+  html+=`<div class="proc-tab${i===0?' active':''}" onclick="switchProcDLL(this,${i})">${esc(p.name)} (${p.dlls.length})</div>`;
+ });
+ html+='</div>';
+
+ allProcesses.forEach((p,pi)=>{
+  html+=`<div class="dll-proc-content" data-proc="${pi}" style="display:${pi===0?'block':'none'}">`;
+  const orderedCats=DLL_CATEGORIES.filter(c=>p.categories[c.name]&&p.categories[c.name].length>0);
+  orderedCats.forEach((c,ci)=>{
+   const dlls=p.categories[c.name];
+   const isSec=c.name==='Security/AV';
+   html+=`<div class="cat-group"><div class="cat-header" onclick="toggleCat(this)"><span class="arrow">&#9654;</span><span class="cat-name" style="color:${c.color}">&#9632; ${c.name}</span><span class="cat-count${isSec?' security':''}">${dlls.length}</span></div>`;
+   html+=`<table class="dll-table" data-proc="${pi}"><tr><th>Name</th><th>Description</th><th>Company</th><th>Path</th></tr>`;
+   dlls.forEach(d=>{
+    const flagged=isSec&&['mfehcinj','mfehcthe','appmonitor','feamsi','qipcap','hiphandler','epmpthe','atpamsiguard'].some(k=>d.name.toLowerCase().includes(k));
+    html+=`<tr class="${flagged?'flagged':''} dll-row"><td>${esc(d.name)}</td><td>${esc(d.description)}</td><td>${esc(d.company)}</td><td>${esc(d.path)}</td></tr>`;
+   });
+   html+='</table></div>';
+  });
+  html+='</div>';
+ });
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+function renderSummary(){
+ const el=document.getElementById('tab-summary');
+ let html='<div class="chart-container"><h3>&#128203; Process Comparison Summary</h3>';
+ html+='<table class="summary-table"><tr><th>Property</th>';
+ allProcesses.forEach(p=>{html+=`<th>${esc(p.name)}</th>`;});
+ html+='</tr>';
+
+ const rows=[
+  {label:'File',get:p=>p.fileName},
+  {label:'PID',get:p=>p.pid},
+  {label:'CPU',get:p=>p.cpu},
+  {label:'Private Bytes',get:p=>p.privateBytes},
+  {label:'Working Set',get:p=>p.workingSet},
+  {label:'Total DLLs',get:p=>''+p.dlls.length},
+  {label:'Security/AV DLLs',get:p=>{const c=(p.categories['Security/AV']||[]).length;return c>5?`<span class="highlight">${c} ⚠️</span>`:''+c;}},
+  {label:'WebView2 DLLs',get:p=>''+(p.categories['WebView2']||[]).length},
+  {label:'Office DLLs',get:p=>''+(p.categories['Microsoft Office']||[]).length},
+  {label:'.NET DLLs',get:p=>''+((p.categories['.NET Framework']||[]).length)},
+  {label:'Third-Party DLLs',get:p=>''+((p.categories['Third-Party']||[]).length+(p.categories['Intel Graphics']||[]).length)},
+ ];
+ rows.forEach(r=>{
+  html+=`<tr><td><strong>${r.label}</strong></td>`;
+  allProcesses.forEach(p=>{html+=`<td>${r.get(p)}</td>`;});
+  html+='</tr>';
+ });
+ html+='</table></div>';
+
+ // Security vendor summary
+ html+='<div class="chart-container"><h3>&#128274; Security Vendor DLLs per Process</h3>';
+ html+='<table class="summary-table"><tr><th>Vendor</th>';
+ allProcesses.forEach(p=>{html+=`<th>${esc(p.name)}</th>`;});
+ html+='</tr>';
+ for(let vendor in SEC_VENDORS){
+  const vd=SEC_VENDORS[vendor];
+  html+=`<tr><td><strong>${vendor}</strong></td>`;
+  allProcesses.forEach(p=>{
+   const cnt=p.dlls.filter(d=>{let c=(d.name+d.company+d.path).toLowerCase();return vd.keywords.some(k=>c.includes(k));}).length;
+   html+=`<td>${cnt>0?`<span class="highlight">${cnt}</span>`:'0'}</td>`;
+  });
+  html+='</tr>';
+ }
+ html+='</table></div>';
+
+ // WebView2 details
+ html+='<div class="chart-container"><h3>&#128312; WebView2 Components Loaded</h3>';
+ allProcesses.forEach(p=>{
+  const wv=p.categories['WebView2']||[];
+  html+=`<p style="margin:8px 0"><strong>${esc(p.name)}:</strong> `;
+  if(wv.length){html+=wv.map(d=>`<span class="sec-dll-tag" style="background:#00e5ff20;border-color:#00e5ff40;color:#80deea">${esc(d.name)}</span>`).join(' ');}
+  else{html+='<em style="color:var(--text2)">No WebView2 DLLs</em>';}
+  html+='</p>';
+ });
+ html+='</div>';
+ el.innerHTML=html;
+}
+
+// ===== UI HELPERS =====
+function switchTab(tabEl){
+ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+ document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+ tabEl.classList.add('active');
+ document.getElementById('tab-'+tabEl.dataset.tab).classList.add('active');
+}
+
+function toggleCat(header){
+ header.classList.toggle('open');
+ const table=header.nextElementSibling;
+ table.classList.toggle('open');
+}
+
+function switchProcDLL(el,idx){
+ el.parentElement.querySelectorAll('.proc-tab').forEach(t=>t.classList.remove('active'));
+ el.classList.add('active');
+ document.querySelectorAll('.dll-proc-content').forEach(c=>c.style.display='none');
+ document.querySelector(`.dll-proc-content[data-proc="${idx}"]`).style.display='block';
+}
+
+function filterDLLs(q){
+ q=q.toLowerCase();
+ document.querySelectorAll('.dll-row').forEach(r=>{
+  r.style.display=q===''||r.textContent.toLowerCase().includes(q)?'':'none';
+ });
+}
+
+function clearAll(){
+ allProcesses=[];
+ document.getElementById('results').style.display='none';
+ document.getElementById('clearBtn').style.display='none';
+ fileInput.value='';
+}
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function loadSample(){
+ fetch('OUTLOOK-Classic.txt').then(r=>r.text()).then(c1=>{
+  fetch('OUTLOOK.txt').then(r=>r.text()).then(c2=>{
+   fetch('Teams.txt').then(r=>r.text()).then(c3=>{
+    allProcesses=[parseLog('OUTLOOK-Classic.txt',c1),parseLog('OUTLOOK.txt',c2),parseLog('Teams.txt',c3)];
+    renderAll();
+   }).catch(()=>{
+    allProcesses=[parseLog('OUTLOOK-Classic.txt',c1),parseLog('OUTLOOK.txt',c2)];
+    renderAll();
+   });
+  }).catch(()=>{
+   allProcesses=[parseLog('OUTLOOK-Classic.txt',c1)];
+   renderAll();
+  });
+ }).catch(()=>{alert('Sample files not found. Please upload .txt files manually.');});
+}
+</script>
+</body>
+</html>
