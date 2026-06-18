@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endpoint Reachability Checker</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --bg-elevated: #111827;
+            --card: #1f2937;
+            --text: #e5e7eb;
+            --text-muted: #9ca3af;
+            --accent: #06b6d4;
+            --accent-hover: #22d3ee;
+            --border: #374151;
+            --radius: 12px;
+            --shadow: 0 10px 30px rgba(0,0,0,0.35);
+            --transition: 0.25s ease;
+            --success: #34d399;
+            --danger: #f87171;
+            --warn: #fbbf24;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color var(--transition);
+        }
+
+        .back-link:hover {
+            color: var(--accent);
+        }
+
+        .back-link::before {
+            content: "← ";
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .summary-card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .summary-card.total .value { color: var(--text); }
+        .summary-card.reachable .value { color: var(--success); }
+        .summary-card.blocked .value { color: var(--danger); }
+        .summary-card.redirected .value { color: var(--warn); }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: rgba(248, 113, 113, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(248, 113, 113, 0.25);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .error-msg {
+            color: var(--danger);
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        .results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .result-row {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            transition: border-color var(--transition), background var(--transition);
+        }
+
+        .result-row:hover {
+            border-color: var(--accent);
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        .result-row .tag {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .tag-Sync { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .tag-Auth { background: rgba(168, 85, 247, 0.2); color: #a78bfa; }
+        .tag-RMS { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+        .tag-Other { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+
+        .result-row .url-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .result-row .url {
+            color: var(--text);
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .result-row .label-text {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .result-row .latency {
+            font-size: 14px;
+            font-weight: 600;
+            min-width: 70px;
+            text-align: right;
+        }
+
+        .latency.success { color: var(--success); }
+        .latency.blocked { color: var(--danger); }
+        .latency.redirected { color: var(--warn); }
+        .latency.pending { color: var(--text-muted); }
+
+        .result-row .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 100px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .status-pending { background: rgba(156, 163, 175, 0.2); color: var(--text-muted); }
+        .status-testing { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .status-reachable { background: rgba(52, 211, 153, 0.2); color: var(--success); }
+        .status-blocked { background: rgba(248, 113, 113, 0.2); color: var(--danger); }
+        .status-redirected { background: rgba(251, 191, 36, 0.2); color: var(--warn); }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result-row .remove-btn {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 16px;
+            line-height: 1;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .result-row .remove-btn:hover {
+            background: rgba(248, 113, 113, 0.15);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .result-row .details-btn {
+            padding: 6px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 12px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .result-row .details-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .detail-panel {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .detail-panel.show {
+            display: block;
+        }
+
+        .detail-panel h4 {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .detail-panel .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .detail-item {
+            background: var(--bg-elevated);
+            padding: 10px 12px;
+            border-radius: 6px;
+        }
+
+        .detail-item .detail-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-item .detail-value {
+            font-size: 14px;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .detail-item .detail-value.error { color: var(--danger); }
+        .detail-item .detail-value.success { color: var(--success); }
+
+        .blocked-report {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .blocked-report h3 {
+            color: var(--danger);
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+
+        .blocked-report p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .blocked-list {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .summary-bar {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .summary-card {
+                padding: 14px;
+            }
+
+            .summary-card .value {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .input-row {
+                flex-direction: column;
+            }
+
+            .input-group {
+                min-width: 100%;
+            }
+
+            .result-row {
+                padding: 12px;
+            }
+
+            .btn-row {
+                flex-direction: column;
+            }
+
+            .btn-row button {
+                width: 100%;
+            }
+
+            .checkbox-group {
+                margin-left: 0;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .actions-row {
+                flex-direction: column;
+            }
+
+            .actions-row button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html#tools" class="back-link">Back to Portfolio</a>
+
+        <header>
+            <h1>Endpoint Reachability Checker</h1>
+            <p>Test HTTP/HTTPS endpoint availability from your browser. Verify network connectivity, identify blocked URLs, and diagnose CORS issues.</p>
+        </header>
+
+        <div class="summary-bar">
+            <div class="summary-card total">
+                <div class="label">Total Endpoints</div>
+                <div class="value" id="totalCount">0</div>
+            </div>
+            <div class="summary-card reachable">
+                <div class="label">Reachable</div>
+                <div class="value" id="reachableCount">0</div>
+            </div>
+            <div class="summary-card blocked">
+                <div class="label">Blocked / Error</div>
+                <div class="value" id="blockedCount">0</div>
+            </div>
+            <div class="summary-card redirected">
+                <div class="label">Redirected / CORS</div>
+                <div class="value" id="redirectedCount">0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Add Custom Endpoints</h2>
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="urlInput">URL</label>
+                    <input type="text" id="urlInput" placeholder="https://example.com or example.com">
+                    <div class="error-msg" id="urlError"></div>
+                </div>
+                <div class="input-group" style="max-width: 200px;">
+                    <label for="labelInput">Label (optional)</label>
+                    <input type="text" id="labelInput" placeholder="Description">
+                </div>
+                <div class="input-group" style="max-width: 140px;">
+                    <label for="tagSelect">Category</label>
+                    <select id="tagSelect" style="padding: 12px 16px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; width: 100%;">
+                        <option value="Sync">Sync</option>
+                        <option value="Auth">Auth</option>
+                        <option value="RMS">RMS</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-primary" id="addSingleBtn">Add Single</button>
+                <button class="btn-secondary" id="loadDefaultsBtn">Load Microsoft Endpoints</button>
+            </div>
+
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                <div class="input-group">
+                    <label for="bulkInput">Bulk Add (one URL per line)</label>
+                    <textarea id="bulkInput" placeholder="https://endpoint1.com&#10;https://endpoint2.com&#10;https://endpoint3.com"></textarea>
+                </div>
+                <div class="btn-row" style="margin-top: 12px;">
+                    <button class="btn-primary" id="addBulkBtn">Add Bulk URLs</button>
+                    <button class="btn-secondary" id="clearBulkBtn">Clear Bulk Input</button>
+                </div>
+                <div class="error-msg" id="bulkError" style="margin-top: 8px;"></div>
+            </div>
+        </div>
+
+        <div class="actions-row">
+            <button class="btn-primary" id="runAllBtn">Run All Checks</button>
+            <button class="btn-secondary" id="resetBtn">Reset Results</button>
+            <button class="btn-danger" id="clearAllBtn">Clear All</button>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showBlockedSummary" checked>
+                <label for="showBlockedSummary">Show blocked summary after run</label>
+            </div>
+        </div>
+
+        <div id="blockedReport" class="blocked-report" style="display: none;">
+            <h3>Blocked Endpoints Report</h3>
+            <p>The following endpoints returned errors. Copy this list for your network team:</p>
+            <div class="blocked-list" id="blockedList"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Endpoints</h2>
+            <div class="results-list" id="resultsList">
+                <div class="empty-state">
+                    <div class="icon">🔗</div>
+                    <p>No endpoints added yet. Add endpoints above or load the defaults.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Endpoint state management
+        let rows = [];
+        let nextId = 1;
+
+        // Pre-loaded Microsoft Edge endpoints
+        const defaultEndpoints = [
+            { url: 'https://edge.microsoft.com/', label: 'Edge Sync Service', tag: 'Sync' },
+            { url: 'https://config.edge.skype.com/', label: 'Edge Config', tag: 'Sync' },
+            { url: 'https://browser.pipe.aria.microsoft.com/', label: 'Edge Telemetry', tag: 'Sync' },
+            { url: 'https://storage.live.com/', label: 'OneDrive Storage', tag: 'Sync' },
+            { url: 'https://api.onedrive.com/', label: 'OneDrive API', tag: 'Sync' },
+            { url: 'https://login.microsoftonline.com/', label: 'AAD Login', tag: 'Auth' },
+            { url: 'https://login.live.com/', label: 'MSA Login', tag: 'Auth' },
+            { url: 'https://device.login.microsoftonline.com/', label: 'Device Auth', tag: 'Auth' },
+            { url: 'https://enterpriseregistration.windows.net/', label: 'Enterprise Registration', tag: 'Auth' },
+            { url: 'https://api.aadrm.com/', label: 'Azure RMS Global', tag: 'RMS' },
+            { url: 'https://api.aadrm.de/', label: 'Azure RMS Germany', tag: 'RMS' },
+            { url: 'https://manage.devcenter.microsoft.com/', label: 'Dev Center', tag: 'Other' }
+        ];
+
+        // DOM elements
+        const urlInput = document.getElementById('urlInput');
+        const labelInput = document.getElementById('labelInput');
+        const tagSelect = document.getElementById('tagSelect');
+        const bulkInput = document.getElementById('bulkInput');
+        const resultsList = document.getElementById('resultsList');
+        const urlError = document.getElementById('urlError');
+        const bulkError = document.getElementById('bulkError');
+        const blockedReport = document.getElementById('blockedReport');
+        const blockedList = document.getElementById('blockedList');
+
+        // Update summary counts
+        function updateSummary() {
+            const total = rows.length;
+            const reachable = rows.filter(r => r.status === 'reachable').length;
+            const blocked = rows.filter(r => r.status === 'blocked').length;
+            const redirected = rows.filter(r => r.status === 'redirected' || r.status === 'cors').length;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('reachableCount').textContent = reachable;
+            document.getElementById('blockedCount').textContent = blocked;
+            document.getElementById('redirectedCount').textContent = redirected;
+        }
+
+        // Validate URL
+        function isValidUrl(string) {
+            if (!string || string.trim() === '') return false;
+            let url;
+            try {
+                // Prepend https:// if missing protocol
+                let urlString = string.trim();
+                if (!urlString.match(/^https?:\/\//i)) {
+                    urlString = 'https://' + urlString;
+                }
+                url = new URL(urlString);
+                return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        // Normalize URL (prepend https:// if needed)
+        function normalizeUrl(string) {
+            let urlString = string.trim();
+            if (!urlString.match(/^https?:\/\//i)) {
+                urlString = 'https://' + urlString;
+            }
+            return urlString;
+        }
+
+        // Show error message
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+
+        // Hide error message
+        function hideError(element) {
+            element.textContent = '';
+            element.classList.remove('show');
+        }
+
+        // Create result row element
+        function createRowElement(row) {
+            const div = document.createElement('div');
+            div.className = 'result-row';
+            div.id = `row-${row.id}`;
+            div.innerHTML = `
+                <span class="tag tag-${row.tag}">${row.tag}</span>
+                <div class="url-info">
+                    <div class="url">${row.url}</div>
+                    ${row.label ? `<div class="label-text">${row.label}</div>` : ''}
+                </div>
+                <div class="latency ${getLatencyClass(row)}" id="latency-${row.id}">${getLatencyText(row)}</div>
+                <div class="status-badge ${getStatusClass(row)}" id="status-${row.id}">${getStatusText(row)}</div>
+                <button class="details-btn" data-id="${row.id}">Details</button>
+                <button class="remove-btn" data-id="${row.id}" title="Remove">×</button>
+            `;
+            return div;
+        }
+
+        // Get latency class
+        function getLatencyClass(row) {
+            if (!row.latency) return 'pending';
+            switch (row.status) {
+                case 'reachable': return 'success';
+                case 'blocked': return 'blocked';
+                case 'redirected':
+                case 'cors': return 'redirected';
+                default: return 'pending';
+            }
+        }
+
+        // Get latency text
+        function getLatencyText(row) {
+            if (!row.latency) return '-';
+            if (row.status === 'blocked' || row.status === 'redirected' || row.status === 'cors') {
+                return row.latency + 'ms';
+            }
+            return row.latency + 'ms';
+        }
+
+        // Get status class
+        function getStatusClass(row) {
+            switch (row.status) {
+                case 'pending': return 'status-pending';
+                case 'testing': return 'status-testing';
+                case 'reachable': return 'status-reachable';
+                case 'blocked': return 'status-blocked';
+                case 'redirected': return 'status-redirected';
+                case 'cors': return 'status-redirected';
+                default: return 'status-pending';
+            }
+        }
+
+        // Get status text
+        function getStatusText(row) {
+            switch (row.status) {
+                case 'pending': return 'Pending';
+                case 'testing': return '<span class="spinner"></span> Testing';
+                case 'reachable': return 'Reachable';
+                case 'blocked': return row.detail?.errorType || 'Blocked';
+                case 'redirected': return 'Redirected';
+                case 'cors': return 'CORS Blocked';
+                default: return 'Unknown';
+            }
+        }
+
+        // Render the list
+        function renderList() {
+            if (rows.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🔗</div>
+                        <p>No endpoints added yet. Add endpoints above or load the defaults.</p>
+                    </div>
+                `;
+            } else {
+                resultsList.innerHTML = '';
+                rows.forEach(row => {
+                    resultsList.appendChild(createRowElement(row));
+                });
+                attachRowListeners();
+            }
+            updateSummary();
+        }
+
+        // Attach event listeners to rows
+        function attachRowListeners() {
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    rows = rows.filter(r => r.id !== id);
+                    renderList();
+                });
+            });
+
+            document.querySelectorAll('.details-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    toggleDetails(id);
+                });
+            });
+
+            document.querySelectorAll('.result-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                        const id = parseInt(row.id.replace('row-', ''));
+                        toggleDetails(id);
+                    }
+                });
+            });
+        }
+
+        // Toggle details panel
+        function toggleDetails(id) {
+            const row = rows.find(r => r.id === id);
+            if (!row) return;
+
+            const rowElement = document.getElementById(`row-${id}`);
+            let detailPanel = rowElement.querySelector('.detail-panel');
+
+            if (detailPanel && detailPanel.classList.contains('show')) {
+                detailPanel.classList.remove('show');
+                return;
+            }
+
+            if (!detailPanel) {
+                detailPanel = document.createElement('div');
+                detailPanel.className = 'detail-panel';
+                rowElement.appendChild(detailPanel);
+            }
+
+            if (!row.detail) {
+                detailPanel.innerHTML = `
+                    <h4>Details</h4>
+                    <p style="color: var(--text-muted); font-size: 14px;">Run the check to see detailed results.</p>
+                `;
+            } else {
+                const detail = row.detail;
+                const statusValue = detail.statusCode 
+                    ? `<span class="${detail.statusCode >= 200 && detail.statusCode < 400 ? 'success' : ''}">${detail.statusCode} ${getStatusCodeText(detail.statusCode)}</span>`
+                    : '<span class="error">N/A</span>';
+                
+                detailPanel.innerHTML = `
+                    <h4>Details</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">HTTP Status Code</div>
+                            <div class="detail-value">${statusValue}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Error Type</div>
+                            <div class="detail-value ${detail.errorType ? 'error' : ''}">${detail.errorType || 'None'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Test Method</div>
+                            <div class="detail-value">${detail.method || 'N/A'}</div>
+                        </div>
+                    </div>
+                    ${detail.headers ? `
+                        <h4>Response Headers</h4>
+                        <pre style="background: var(--bg-elevated); padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; max-height: 150px;">${detail.headers}</pre>
+                    ` : ''}
+                `;
+            }
+
+            detailPanel.classList.add('show');
+        }
+
+        // Get status code text
+        function getStatusCodeText(code) {
+            const codes = {
+                200: 'OK', 201: 'Created', 204: 'No Content',
+                301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+                400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+                404: 'Not Found', 429: 'Too Many Requests',
+                500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable'
+            };
+            return codes[code] || '';
+        }
+
+        // Check endpoint with two-pass logic
+        async function checkEndpoint(row) {
+            const abortCtrl = new AbortController();
+            const timeoutId = setTimeout(() => abortCtrl.abort(), 8000);
+            
+            row.status = 'testing';
+            row.detail = null;
+            updateRowUI(row);
+            
+            const startTime = performance.now();
+            
+            // Pass 1: Try no-cors
+            try {
+                const response = await fetch(row.url, {
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    signal: abortCtrl.signal,
+                    cache: 'no-store'
+                });
+                
+                clearTimeout(timeoutId);
+                const latency = Math.round(performance.now() - startTime);
+                row.status = 'reachable';
+                row.latency = latency;
+                row.detail = {
+                    method: 'no-cors HEAD',
+                    statusCode: null,
+                    errorType: null,
+                    headers: null
+                };
+                updateRowUI(row);
+                return row;
+                
+            } catch (noCorsError) {
+                clearTimeout(timeoutId);
+                
+                // Pass 2: Try cors
+                const abortCtrl2 = new AbortController();
+                const timeoutId2 = setTimeout(() => abortCtrl2.abort(), 8000);
+                
+                const startTime2 = performance.now();
+                
+                try {
+                    const response = await fetch(row.url, {
+                        method: 'HEAD',
+                        mode: 'cors',
+                        signal: abortCtrl2.signal,
+                        cache: 'no-store'
+                    });
+                    
+                    clearTimeout(timeoutId2);
+                    const latency = Math.round(performance.now() - startTime);
+                    
+                    let headers = null;
+                    try {
+                        const headerObj = {};
+                        response.headers.forEach((value, key) => {
+                            headerObj[key] = value;
+                        });
+                        const displayHeaders = Object.entries(headerObj).slice(0, 10);
+                        headers = displayHeaders.map(([k, v]) => `${k}: ${v}`).join('\n');
+                        if (Object.keys(headerObj).length > 10) {
+                            headers += '\n... (truncated)';
+                        }
+                    } catch (_) {}
+                    
+                    if (response.redirected) {
+                        row.status = 'redirected';
+                    } else if (response.status >= 200 && response.status < 400) {
+                        row.status = 'reachable';
+                    } else if (response.status >= 300 && response.status < 400) {
+                        row.status = 'redirected';
+                    } else {
+                        row.status = 'blocked';
+                    }
+                    
+                    row.latency = latency;
+                    row.detail = {
+                        method: 'cors HEAD',
+                        statusCode: response.status,
+                        errorType: null,
+                        headers: headers
+                    };
+                    updateRowUI(row);
+                    return row;
+                    
+                } catch (corsError) {
+                    clearTimeout(timeoutId2);
+                    const latency = Math.round(performance.now() - startTime);
+                    
+                    let errorType = 'Other';
+                    
+                    if (corsError.name === 'AbortError') {
+                        errorType = 'Timeout';
+                    } else if (corsError.message && corsError.message.includes('Failed to fetch')) {
+                        if (corsError.message.includes('net::ERR_NAME_NOT_RESOLVED')) {
+                            errorType = 'DNS Error';
+                        } else if (corsError.message.includes('net::ERR_SSL')) {
+                            errorType = 'SSL Error';
+                        } else if (corsError.message.includes('net::ERR_CONNECTION_REFUSED')) {
+                            errorType = 'Connection Refused';
+                        } else {
+                            errorType = 'Connection Error';
+                        }
+                    } else if (corsError.message && corsError.message.toLowerCase().includes('cors')) {
+                        errorType = 'CORS Blocked';
+                    }
+                    
+                    row.status = corsError.message && corsError.message.toLowerCase().includes('cors') ? 'cors' : 'blocked';
+                    row.latency = latency;
+                    row.detail = {
+                        method: 'cors HEAD',
+                        statusCode: null,
+                        errorType: errorType,
+                        headers: null
+                    };
+                    updateRowUI(row);
+                    return row;
+                }
+            }
+        }
+
+        // Update single row UI
+        function updateRowUI(row) {
+            const rowElement = document.getElementById(`row-${row.id}`);
+            if (!rowElement) return;
+            
+            const latencyEl = document.getElementById(`latency-${row.id}`);
+            const statusEl = document.getElementById(`status-${row.id}`);
+            
+            if (latencyEl) {
+                latencyEl.textContent = getLatencyText(row);
+                latencyEl.className = `latency ${getLatencyClass(row)}`;
+            }
+            
+            if (statusEl) {
+                statusEl.className = `status-badge ${getStatusClass(row)}`;
+                statusEl.innerHTML = getStatusText(row);
+            }
+            
+            updateSummary();
+        }
+
+        // Run all checks
+        async function runAll() {
+            const runBtn = document.getElementById('runAllBtn');
+            runBtn.disabled = true;
+            
+            // Reset all to pending first
+            rows.forEach(row => {
+                row.status = 'pending';
+                row.latency = null;
+                row.detail = null;
+            });
+            renderList();
+            
+            // Run all checks concurrently
+            await Promise.all(rows.map(row => checkEndpoint(row)));
+            
+            runBtn.disabled = false;
+            
+            // Show blocked report if checkbox is checked
+            if (document.getElementById('showBlockedSummary').checked) {
+                showBlockedReport();
+            }
+        }
+
+        // Show blocked report
+        function showBlockedReport() {
+            const blockedRows = rows.filter(r => r.status === 'blocked' || r.status === 'cors');
+            
+            if (blockedRows.length === 0) {
+                blockedReport.style.display = 'none';
+                return;
+            }
+            
+            const reportText = blockedRows.map(row => {
+                let line = row.url;
+                if (row.label) line += ` (${row.label})`;
+                if (row.detail?.errorType) line += ` - ${row.detail.errorType}`;
+                return line;
+            }).join('\n');
+            
+            blockedList.textContent = reportText;
+            blockedReport.style.display = 'block';
+        }
+
+        // Reset results
+        function resetResults() {
+            rows.forEach(row => {
+                row.status = 'pending';
+                row.latency = null;
+                row.detail = null;
+            });
+            blockedReport.style.display = 'none';
+            renderList();
+        }
+
+        // Clear all
+        function clearAll() {
+            rows = [];
+            blockedReport.style.display = 'none';
+            renderList();
+        }
+
+        // Add single endpoint
+        function addSingle() {
+            hideError(urlError);
+            
+            const url = urlInput.value.trim();
+            if (!url) {
+                showError(urlError, 'URL is required');
+                return;
+            }
+            
+            if (!isValidUrl(url)) {
+                showError(urlError, 'Invalid URL format. Must be a valid HTTP or HTTPS URL.');
+                return;
+            }
+            
+            const normalizedUrl = normalizeUrl(url);
+            
+            // Check for duplicates
+            if (rows.some(r => r.url === normalizedUrl)) {
+                showError(urlError, 'This URL is already in the list');
+                return;
+            }
+            
+            const row = {
+                id: nextId++,
+                url: normalizedUrl,
+                label: labelInput.value.trim(),
+                tag: tagSelect.value,
+                status: 'pending',
+                latency: null,
+                detail: null
+            };
+            
+            rows.push(row);
+            urlInput.value = '';
+            labelInput.value = '';
+            renderList();
+        }
+
+        // Add bulk endpoints
+        function addBulk() {
+            hideError(bulkError);
+            
+            const text = bulkInput.value.trim();
+            if (!text) {
+                showError(bulkError, 'Please enter at least one URL');
+                return;
+            }
+            
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            const errors = [];
+            const newRows = [];
+            
+            lines.forEach(line => {
+                // Parse line format: url or "url (label)"
+                let url = line;
+                let label = '';
+                
+                const match = line.match(/^(.+?)\s*\((.+?)\)\s*$/);
+                if (match) {
+                    url = match[1].trim();
+                    label = match[2].trim();
+                }
+                
+                if (!url) return;
+                
+                if (!isValidUrl(url)) {
+                    errors.push(`Invalid: ${url}`);
+                    return;
+                }
+                
+                const normalizedUrl = normalizeUrl(url);
+                
+                if (rows.some(r => r.url === normalizedUrl)) {
+                    errors.push(`Duplicate: ${url}`);
+                    return;
+                }
+                
+                const row = {
+                    id: nextId++,
+                    url: normalizedUrl,
+                    label: label,
+                    tag: tagSelect.value,
+                    status: 'pending',
+                    latency: null,
+                    detail: null
+                };
+                
+                newRows.push(row);
+            });
+            
+            if (errors.length > 0 && newRows.length === 0) {
+                showError(bulkError, errors.slice(0, 3).join('; ') + (errors.length > 3 ? ' ...' : ''));
+                return;
+            }
+            
+            rows.push(...newRows);
+            bulkInput.value = '';
+            renderList();
+            
+            if (errors.length > 0) {
+                showError(bulkError, `${newRows.length} added, ${errors.length} skipped: ${errors.slice(0, 2).join('; ')}`);
+                setTimeout(() => hideError(bulkError), 5000);
+            }
+        }
+
+        // Load default endpoints
+        function loadDefaults() {
+            // Add default endpoints that aren't already in the list
+            defaultEndpoints.forEach(endpoint => {
+                if (!rows.some(r => r.url === endpoint.url)) {
+                    rows.push({
+                        id: nextId++,
+                        url: endpoint.url,
+                        label: endpoint.label,
+                        tag: endpoint.tag,
+                        status: 'pending',
+                        latency: null,
+                        detail: null
+                    });
+                }
+            });
+            renderList();
+        }
+
+        // Event listeners
+        document.getElementById('addSingleBtn').addEventListener('click', addSingle);
+        document.getElementById('addBulkBtn').addEventListener('click', addBulk);
+        document.getElementById('clearBulkBtn').addEventListener('click', () => {
+            bulkInput.value = '';
+            hideError(bulkError);
+        });
+        document.getElementById('loadDefaultsBtn').addEventListener('click', loadDefaults);
+        document.getElementById('runAllBtn').addEventListener('click', runAll);
+        document.getElementById('resetBtn').addEventListener('click', resetResults);
+        document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+
+        // Enter key to add single
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addSingle();
+            }
+        });
+
+        // Initial render
+        renderList();
+    </script>
+</body>
+</html>
